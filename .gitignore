@@ -1,0 +1,26 @@
+# Node.js / React / Vite
+node_modules/
+dist/
+.vite/
+
+# .NET build files
+**/bin/
+**/obj/
+
+# Local databases and database backups
+*.db
+*.db-shm
+*.db-wal
+*.backup.db
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and operating system files
+.vscode/
+.DS_Store
+
+# Logs
+*.log
