@@ -6,8 +6,13 @@ TaskFlow helps users organize their tasks, manage priorities, track deadlines, a
 
 ## Application Preview
 
-![TaskFlow login](docs/images/taskflow-login.png)
+### Task Dashboard
+
 ![TaskFlow dashboard](docs/images/taskflow-dashboard.png)
+
+### User Authentication
+
+![TaskFlow login page](docs/images/taskflow-login.png)
 
 ## Features
 
