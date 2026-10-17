@@ -4,6 +4,11 @@ A full-stack task management application built with **React, JavaScript, ASP.NET
 
 TaskFlow helps users organize their tasks, manage priorities, track deadlines, and stay productive through a clean, interactive interface.
 
+## Application Preview
+
+![TaskFlow login](docs/images/taskflow-login.png)
+![TaskFlow dashboard](docs/images/taskflow-dashboard.png)
+
 ## Features
 
 - **User authentication** — Register an account, sign in, and log out.
