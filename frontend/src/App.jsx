@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
 function App() {
 
@@ -160,7 +160,7 @@ const handleAuth = async (e) => {
       : "login?useCookies=false";
 
     const response = await fetch(
-      `http://localhost:5143/${endpoint}`,
+      `${API_BASE_URL}/${endpoint}`,
       {
         method: "POST",
         headers: {
@@ -221,7 +221,7 @@ const handleAuth = async (e) => {
         setError("");
 
         const response = await fetch(
-          "http://localhost:5143/api/tasks",
+          "`${API_BASE_URL}/api/tasks`",
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -317,7 +317,7 @@ const toggleTask = async (id) => {
 
   try {
     const response = await fetch(
-      `http://localhost:5143/api/tasks/${id}`,
+      `${API_BASE_URL}/api/tasks/${id}`,
       {
         method: "PUT",
         headers: {
@@ -367,7 +367,7 @@ setLoadingTask({
 
   try {
     const response = await fetch(
-      `http://localhost:5143/api/tasks/${id}`,
+      `${API_BASE_URL}/api/tasks/${id}`,
       {
         method: "DELETE",
         headers: {
@@ -458,7 +458,7 @@ setLoadingTask({
 
   try {
     const response = await fetch(
-      `http://localhost:5143/api/tasks/${id}/title`,
+      `${API_BASE_URL}/api/tasks/${id}/title`,
       {
         method: "PUT",
       headers: {
@@ -531,7 +531,7 @@ const addTask = async (e) => {
 
   try {
     const response = await fetch(
-      "http://localhost:5143/api/tasks",
+      "${API_BASE_URL}",
       {
         method: "POST",
         headers: {
