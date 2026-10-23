@@ -221,7 +221,7 @@ const handleAuth = async (e) => {
         setError("");
 
         const response = await fetch(
-          "`${API_BASE_URL}/api/tasks`",
+          `${API_BASE_URL}/api/tasks`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -531,7 +531,7 @@ const addTask = async (e) => {
 
   try {
     const response = await fetch(
-      "${API_BASE_URL}",
+      `${API_BASE_URL}/api/tasks`,
       {
         method: "POST",
         headers: {
