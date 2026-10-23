@@ -2,14 +2,82 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<TaskDbContext>(options =>
-    options.UseSqlite(
-        builder.Configuration.GetConnectionString("DefaultConnection")
-    )
-);
+{
+    var provider = builder.Configuration["DatabaseProvider"] ?? "Sqlite";
+
+    var connectionString = provider.Equals(
+        "Postgres",
+        StringComparison.OrdinalIgnoreCase)
+            ? builder.Configuration["DATABASE_URL"]
+                ?? builder.Configuration.GetConnectionString("DefaultConnection")
+            : builder.Configuration.GetConnectionString("DefaultConnection");
+
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException(
+            "Database connection string is not configured.");
+    }
+    if (provider.Equals("Postgres", StringComparison.OrdinalIgnoreCase))
+    {
+    if (Uri.TryCreate(connectionString, UriKind.Absolute, out var databaseUri)
+        && (databaseUri.Scheme == "postgres"
+            || databaseUri.Scheme == "postgresql"))
+    {
+        var credentials = databaseUri.UserInfo.Split(':', 2);
+
+        if (credentials.Length != 2)
+        {
+            throw new InvalidOperationException(
+                "Invalid PostgreSQL database URL credentials.");
+        }
+
+        var npgsqlConnection = new Npgsql.NpgsqlConnectionStringBuilder
+        {
+            Host = databaseUri.Host,
+            Port = databaseUri.Port > 0 ? databaseUri.Port : 5432,
+            Database = databaseUri.AbsolutePath.TrimStart('/'),
+            Username = Uri.UnescapeDataString(credentials[0]),
+            Password = Uri.UnescapeDataString(credentials[1]),
+            SslMode = Npgsql.SslMode.Require
+        };
+
+        options.UseNpgsql(
+        npgsqlConnection.ConnectionString,
+        npgsqlOptions =>
+            npgsqlOptions.MigrationsHistoryTable(
+                "__EFMigrationsHistory",
+                "public"
+            )
+        );
+    }
+    else
+    {
+        options.UseNpgsql(
+            connectionString,
+            npgsqlOptions =>
+                npgsqlOptions.MigrationsHistoryTable(
+                    "__EFMigrationsHistory",
+                    "public"
+                )
+        );
+    }
+}
+    else if (provider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseSqlite(connectionString);
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            $"Unsupported database provider: {provider}"
+        );
+    }
+});
 
 builder.Services
     .AddIdentityApiEndpoints<ApplicationUser>()
@@ -22,8 +90,21 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
+        var allowedOrigins = new List<string>
+        {
+            "http://localhost:5173"
+        };
+
+        var frontendUrl =
+            builder.Configuration["FrontendUrl"];
+
+        if (!string.IsNullOrWhiteSpace(frontendUrl))
+        {
+            allowedOrigins.Add(frontendUrl);
+        }
+
         policy
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins(allowedOrigins.ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
