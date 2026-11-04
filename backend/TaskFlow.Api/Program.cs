@@ -178,6 +178,14 @@ app.MapPost("/api/tasks", async (
     // Never trust a UserId supplied by the frontend.
     task.UserId = userId;
 
+    if (task.DueDate.HasValue)
+    {
+        task.DueDate = DateTime.SpecifyKind(
+            task.DueDate.Value,
+            DateTimeKind.Utc
+        );
+    }
+
     db.Tasks.Add(task);
     await db.SaveChangesAsync();
 
