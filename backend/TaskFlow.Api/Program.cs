@@ -262,8 +262,12 @@ app.MapPut("/api/tasks/{id}/title", async (
     task.Title = updatedTask.Title;
     task.Priority = updatedTask.Priority;
     task.Category = updatedTask.Category;
-    task.DueDate = updatedTask.DueDate;
-
+    task.DueDate = updatedTask.DueDate.HasValue
+    ? DateTime.SpecifyKind(
+        updatedTask.DueDate.Value,
+        DateTimeKind.Utc
+    )
+    : null;
     await db.SaveChangesAsync();
 
     return Results.Ok(task);
