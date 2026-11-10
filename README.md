@@ -1,8 +1,10 @@
 # TaskFlow
 
-A full-stack task management application built with **React, JavaScript, ASP.NET Core, C#, and SQLite**.
+A full-stack task management application built with **React, JavaScript, ASP.NET Core, C#, and Entity Framework Core**.
 
 TaskFlow helps users organize their tasks, manage priorities, track deadlines, and stay productive through a clean, interactive interface.
+
+**[Live Demo](https://task-flow-pi-lake.vercel.app)** · **[GitHub Repository](https://github.com/fnguyen0720/TaskFlow)**
 
 ## Application Preview
 
@@ -33,31 +35,68 @@ TaskFlow helps users organize their tasks, manage priorities, track deadlines, a
 |---|---|
 | React | Frontend user interface |
 | JavaScript | Frontend logic |
-| ASP.NET Core Minimal APIs | Backend REST API |
+| ASP.NET Core Minimal APIs (.NET 10) | Backend REST API |
 | C# | Backend application logic |
 | Entity Framework Core | Database access and ORM |
-| SQLite | Relational database |
+| SQLite | Local development database |
+| PostgreSQL | Production relational database |
 | ASP.NET Core Identity | User authentication |
 | xUnit | Automated backend testing |
+| Vercel | Frontend hosting |
+| Render | Backend API and database hosting |
 | Git and GitHub | Version control and source hosting |
 
 ## Architecture
 
 TaskFlow separates the frontend, backend, and database into distinct layers.
 
+### Production Architecture
+
 ```text
 React Frontend
-      |
-      | HTTP requests + Bearer tokens
-      v
+     |
+     | HTTPS requests + Bearer tokens
+     v
 ASP.NET Core REST API
-      |
-      | Entity Framework Core
-      v
-   SQLite Database
+     |
+     | Entity Framework Core
+     v
+PostgreSQL Database
 ```
 
-Authenticated task requests are associated with the current user. The backend checks task ownership before allowing users to edit, complete, or delete tasks.
+### Local Development Architecture
+
+```text
+React Frontend (Vite)
+     |
+     | HTTP requests + Bearer tokens
+     v
+ASP.NET Core REST API
+     |
+     | Entity Framework Core
+     v
+SQLite Database
+```
+
+The frontend communicates with the backend through HTTP requests. ASP.NET Core Identity handles authentication, while authorization ensures users can only access and modify their own tasks.
+
+Entity Framework Core manages database operations, allowing the application to use SQLite locally and PostgreSQL in production.
+
+## Production Deployment
+
+TaskFlow is deployed using the following services:
+
+| Service | Platform | Responsibility |
+|---|---|---|
+| Frontend | Vercel | Hosts the React application |
+| Backend | Render | Hosts the ASP.NET Core API |
+| Database | Render PostgreSQL | Stores user accounts and tasks |
+
+The frontend communicates with the production API over HTTPS. Authenticated requests include Bearer tokens, and the backend enforces user-specific authorization.
+
+Production configuration is managed through environment variables rather than hardcoded credentials.
+
+**Live Application:** [https://task-flow-pi-lake.vercel.app](https://task-flow-pi-lake.vercel.app)
 
 ## Getting Started
 
@@ -65,7 +104,7 @@ Authenticated task requests are associated with the current user. The backend ch
 
 Install the following:
 
-- [.NET SDK](https://dotnet.microsoft.com/download)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Node.js](https://nodejs.org/)
 - [Git](https://git-scm.com/)
 
@@ -86,7 +125,7 @@ dotnet restore
 dotnet run
 ```
 
-The backend is configured to use SQLite through its connection string in `appsettings.json`. The development launch profile specifies the local API URL.
+The local backend uses SQLite through its configured connection string in `appsettings.json`.
 
 If the database has not been initialized, apply the existing Entity Framework Core migrations before running the application.
 
@@ -100,7 +139,9 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite in the terminal. The frontend's configured API URL and the backend's CORS origin must match your local development settings.
+Open the local URL printed by Vite in the terminal.
+
+The frontend API URL and backend CORS configuration must match your local development settings.
 
 ## Testing
 
@@ -112,30 +153,32 @@ Run the tests from the repository root:
 dotnet test backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj
 ```
 
-The project currently has **21 passing API tests** in the local test run.
+The project currently has **21 passing API tests** in the local test suite.
 
 ## Project Goals
 
 TaskFlow was built to develop practical full-stack engineering skills, including:
 
-- Designing and implementing REST API endpoints
-- Building an interactive React frontend
-- Connecting a frontend to a backend
-- Modeling relational data with Entity Framework Core
-- Implementing authentication and user-specific authorization
-- Validating requests and handling API errors
-- Writing automated integration tests
-- Managing source code with Git and GitHub
+- Designing and implementing REST API endpoints.
+- Building an interactive React frontend.
+- Connecting a frontend to a backend.
+- Modeling relational data with Entity Framework Core.
+- Implementing authentication and user-specific authorization.
+- Validating requests and handling API errors.
+- Writing automated integration tests.
+- Configuring and deploying a full-stack application.
+- Managing source code with Git and GitHub.
 
 ## Future Improvements
 
-- Deploy the application for public access
-- Add a live demo and application screenshots
-- Improve production configuration and deployment workflows
+- Add automated frontend testing.
+- Implement password recovery.
+- Improve application monitoring and structured logging.
+- Add pagination for larger task collections.
+- Improve session expiration and token-refresh handling.
 
 ## Author
 
 **Felix Nguyen**
 
 [GitHub Profile](https://github.com/fnguyen0720)
-
