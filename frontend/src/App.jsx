@@ -1,4 +1,108 @@
 import { useEffect, useState } from "react";
+import { getTaskStats, selectTasks } from "./utils/taskUtils.js";
+import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
+import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
+import TaskPanel from "./components/tasks/TaskPanel.jsx";
+import { useAuth } from "./hooks/useAuth.js";
+import { useNotification } from "./hooks/useNotification.js";
+import { useTasks } from "./hooks/useTasks.js";
+
+function App() {
+
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sort, setSort] = useState("default");
+  const { token, authMode, authEmail, setAuthEmail, authPassword, setAuthPassword,
+    authLoading, authError, logout: clearAuth, handleAuth, switchAuthMode } = useAuth();
+  const { notification, setNotification, showNotification } = useNotification();
+  const { tasks, setTasks, loading, setLoading, error, setError, newTask, setNewTask, newPriority, setNewPriority, editingId, setEditingId, editTitle, setEditTitle, editPriority, setEditPriority, newDueDate, setNewDueDate, newCategory, setNewCategory, editCategory, setEditCategory, editDueDate, setEditDueDate, loadingTask, setLoadingTask, addingTask, setAddingTask,
+    retryFetchTasks, toggleTask, deleteTask, startEditing, editTask, addTask } =
+    useTasks({ token, onUnauthorized: clearAuth, showNotification });
+  const logout = () => {
+    clearAuth();
+    setTasks([]);
+    setError("");
+    setNotification(null);
+  };
+
+  const { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate } = getTaskStats(tasks);
+  const filteredTasks = selectTasks(tasks, { search, filter, categoryFilter, sort });
+
+if (!token) {
+  return (
+    <div className="app auth-page">
+      <h1>TaskFlow</h1>
+      <p className="subtitle">
+        Stay organized. Get things done.
+      </p>
+
+      <form onSubmit={handleAuth} className="auth-form">
+        <h2>
+          {authMode === "login"
+            ? "Welcome back"
+            : "Create your account"}
+        </h2>
+
+        {authError && (
+          <p
+            role="alert"
+            className={
+              authError.startsWith("Account created!")
+                ? "auth-success"
+                : "auth-error"
+            }
+          >
+            {authError}
+          </p>
+        )}
+
+        <input
+          type="email"
+          placeholder="Email address"
+          autoComplete="email"
+          value={authEmail}
+          onChange={(e) => setAuthEmail(e.target.value)}
+          required
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          autoComplete={
+            authMode === "login"
+              ? "current-password"
+              : "new-password"
+          }
+          value={authPassword}
+          onChange={(e) => setAuthPassword(e.target.value)}
+          required
+        />
+
+        <button type="submit" disabled={authLoading}>
+          {authLoading
+            ? "Please wait..."
+            : authMode === "login"
+              ? "Sign In"
+              : "Create Account"}
+        </button>
+
+        <button
+          type="button"
+          className="auth-switch"
+          onClick={switchAuthMode}
+        >
+          {authMode === "login"
+            ? "Need an account? Register"
+            : "Already have an account? Sign in"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+  return (
+import { useEffect, useState } from "react";
 import { formatDueDate, getDueDateClass, getTaskStats, selectTasks } from "./utils/taskUtils.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useNotification } from "./hooks/useNotification.js";
@@ -104,57 +208,9 @@ if (!token) {
         <span>{notification.type === "error" ? "!" : "✓"}</span><span>{notification.message}</span>
         <button className="notification-close" onClick={() => setNotification(null)} aria-label="Dismiss notification">×</button>
       </div>}
-      <header className="dashboard-header">
-        <div><div className="brand-kicker">YOUR PERSONAL WORKSPACE</div><h1>TaskFlow<span className="brand-period">.</span></h1><p className="subtitle">A little progress each day adds up to big results.</p></div>
-        <button className="logout-button" onClick={logout}>Log out ↗</button>
-      </header>
-      <section className="dashboard-intro"><div><span className="section-kicker">OVERVIEW</span><h2>Good {new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening"}.</h2><p>Here’s what’s happening with your tasks.</p></div><span className="today-chip">{new Date().toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"})}</span></section>
-      <section className="overview">
-        <article className="overview-card"><span className="overview-label">In progress</span><span className="overview-value">{activeCount}</span><span className="stat-hint">Tasks to work on</span></article>
-        <article className="overview-card"><span className="overview-label">Completed</span><span className="overview-value">{completedCount}</span><span className="stat-hint">Tasks finished</span></article>
-        <article className="overview-card"><span className="overview-label">Overdue</span><span className="overview-value overdue-value">{overdueCount}</span><span className="stat-hint">Need your attention</span></article>
-        <article className="overview-card"><span className="overview-label">Due today</span><span className="overview-value">{dueTodayCount}</span><span className="stat-hint">Keep moving forward</span></article>
-        <article className="overview-card progress-card"><span className="overview-label">Completion rate</span><span className="overview-value">{completionRate}%</span><div className="progress-track"><span style={{width: completionRate + "%"}} /></div></article>
-      </section>
-      <section className="task-panel">
-        <div className="panel-heading"><div><span className="section-kicker">STAY ON TOP OF IT</span><h2>Your tasks</h2><p className="panel-subtitle">{totalCount} {totalCount === 1 ? "task" : "tasks"} in your workspace</p></div></div>
-        <form onSubmit={addTask} className="task-form">
-          <input type="text" placeholder="What would you like to get done?" value={newTask} onChange={(e) => setNewTask(e.target.value)} aria-label="New task title" />
-          <select value={newPriority} onChange={(e) => setNewPriority(e.target.value)} aria-label="Priority"><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option></select>
-          <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} aria-label="Category"><option value="General">General</option><option value="Work">Work</option><option value="Study">Study</option><option value="Personal">Personal</option></select>
-          <input type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} aria-label="Due date" />
-          <button type="submit" disabled={addingTask || !newTask.trim()}>{addingTask ? "Adding…" : "＋ Add task"}</button>
-        </form>
-        <div className="filters">
-          <div className="status-filters">{["all","active","completed"].map((value) => <button key={value} className={filter === value ? "filter active" : "filter"} onClick={() => setFilter(value)}>{value === "all" ? "All tasks" : value === "active" ? "In progress" : "Completed"}</button>)}</div>
-          <div className="filter-options">
-            <input className="search-input" type="search" placeholder="Search tasks…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search tasks" />
-            <select className="filter-select" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filter category"><option value="all">All categories</option><option value="General">General</option><option value="Work">Work</option><option value="Study">Study</option><option value="Personal">Personal</option></select>
-            <select className="filter-select" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort tasks"><option value="default">Default</option><option value="priority">Priority</option><option value="dueDate">Due date</option><option value="newest">Newest</option><option value="oldest">Oldest</option></select>
-          </div>
-        </div>
-        {loading && <div className="status-message"><div className="spinner" /><p>Loading tasks…</p></div>}
-        {!loading && !error && filteredTasks.length === 0 && <div className="empty-state"><p>{tasks.length === 0 ? "Your space is ready." : "No tasks found."}</p><span>{tasks.length === 0 ? "Add your first task above to get started." : "Try adjusting your filters or search."}</span></div>}
-        {!loading && !error && <div className="task-list">{filteredTasks.map((task) => <div key={task.id} className={"task " + (task.completed ? "completed " : "") + (editingId === task.id ? "editing" : "")}>
-          <button className="complete-button" disabled={loadingTask?.id === task.id} onClick={() => toggleTask(task.id)} aria-label={task.completed ? "Mark incomplete" : "Mark complete"}>{loadingTask?.id === task.id && loadingTask?.action === "toggle" ? "…" : task.completed ? "✓" : ""}</button>
-          {editingId === task.id ? <div className="edit-container">
-            <input className="edit-input" type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} autoFocus aria-label="Edit task title" />
-            <div className="edit-options"><select className="edit-priority" value={editPriority} onChange={(e) => setEditPriority(e.target.value)}><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option></select>
-              <select className="edit-category" value={editCategory} onChange={(e) => setEditCategory(e.target.value)}><option value="General">General</option><option value="Work">Work</option><option value="Study">Study</option><option value="Personal">Personal</option></select>
-              <input className="edit-due-date" type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} />
-              <button className="save-button" onClick={() => editTask(task.id)}>Save</button>
-              <button className="cancel-button" onClick={() => {setEditingId(null);setEditTitle("");setEditPriority("Medium");setEditCategory("General");setEditDueDate("");}}>Cancel</button></div>
-          </div> : <>
-            <span className="task-title">{task.title}</span>
-            {task.dueDate && <span className={"task-due-date " + getDueDateClass(task.dueDate)}>{formatDueDate(task.dueDate)}</span>}
-            <span className={"priority priority-" + (task.priority || "medium").toLowerCase()}>{task.priority || "Medium"}</span>
-            <span className="category">{task.category || "General"}</span>
-            <button className="edit-button" disabled={loadingTask?.id === task.id} onClick={() => startEditing(task)}>Edit</button>
-            <button className="delete-button" disabled={loadingTask?.id === task.id} onClick={() => deleteTask(task.id)}>{loadingTask?.id === task.id && loadingTask?.action === "delete" ? "Deleting…" : "Delete"}</button>
-          </>}
-        </div>)}</div>}
-        {error && <div className="status-message error-message"><p>{error}</p><button className="retry-button" onClick={retryFetchTasks}>Try again</button></div>}
-      </section>
+      <DashboardHeader logout={logout} />
+      <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
+      <TaskPanel totalCount={totalCount} addTask={addTask} newTask={newTask} setNewTask={setNewTask} newPriority={newPriority} setNewPriority={setNewPriority} newCategory={newCategory} setNewCategory={setNewCategory} newDueDate={newDueDate} setNewDueDate={setNewDueDate} addingTask={addingTask} filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} sort={sort} setSort={setSort} loading={loading} error={error} filteredTasks={filteredTasks} tasks={tasks} editingId={editingId} loadingTask={loadingTask} toggleTask={toggleTask} editTitle={editTitle} setEditTitle={setEditTitle} editPriority={editPriority} setEditPriority={setEditPriority} editCategory={editCategory} setEditCategory={setEditCategory} editDueDate={editDueDate} setEditDueDate={setEditDueDate} editTask={editTask} setEditingId={setEditingId} startEditing={startEditing} deleteTask={deleteTask} retryFetchTasks={retryFetchTasks} />
       <footer className="app-footer"><span>TaskFlow</span><span>Make room for what matters.</span></footer>
     </div>
   );
