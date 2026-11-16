@@ -95,16 +95,34 @@ builder.Services.AddCors(options =>
             "http://localhost:5173"
         };
 
-        var frontendUrl =
-            builder.Configuration["FrontendUrl"];
+        var frontendUrl = builder.Configuration["FrontendUrl"];
 
         if (!string.IsNullOrWhiteSpace(frontendUrl))
         {
-            allowedOrigins.Add(frontendUrl);
+            allowedOrigins.Add(frontendUrl.TrimEnd('/'));
         }
 
         policy
-            .WithOrigins(allowedOrigins.ToArray())
+            .SetIsOriginAllowed(origin =>
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    return false;
+                }
+
+                // Allow explicitly configured frontend origins.
+                if (allowedOrigins.Contains(
+                    origin.TrimEnd('/'),
+                    StringComparer.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                // Allow HTTPS preview deployments belonging to this Vercel project.
+                return uri.Scheme == Uri.UriSchemeHttps
+                    && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)
+                    && uri.Host.StartsWith("task-flow-", StringComparison.OrdinalIgnoreCase);
+            })
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
