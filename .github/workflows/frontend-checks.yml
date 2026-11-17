@@ -1,0 +1,32 @@
+name: Frontend checks
+
+on:
+  push:
+    branches:
+      - refactor/frontend-architecture
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend-checks.yml"
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run unit tests
+        run: npm test
+      - name: Build frontend
+        run: npm run build
+      - name: Lint frontend
+        run: npm run lint
