@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getAuthErrorMessage } from "../utils/authErrors.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
@@ -28,8 +29,7 @@ export function useAuth() {
         body: JSON.stringify({ email: authEmail, password: authPassword }),
       });
       if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Authentication failed. Please try again.");
+        throw new Error(await getAuthErrorMessage(response, { registering: isRegistering }));
       }
       if (isRegistering) {
         setAuthMode("login");
