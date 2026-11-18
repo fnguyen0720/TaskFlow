@@ -141,6 +141,7 @@ public class BackendSecurityTests
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["RENDER_SERVICE_ID"] = "srv-test-only",
+                    ["RENDER_SERVICE_TYPE"] = "web",
                     ["Security:TrustRenderPublicEdgeClientIp"] = "true"
                 }));
         });
