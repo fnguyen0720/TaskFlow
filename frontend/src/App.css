@@ -168,3 +168,61 @@ html, body, #root {
 .notification-close {
   min-width: 44px;
 }
+
+
+/* Undoable deletion: keep actions available while leaving task rows uncluttered. */
+.undo-delete-tray {
+  position: fixed;
+  z-index: 60;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(60vh, 400px);
+  overflow-y: auto;
+}
+.undo-delete-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid #39354c;
+  border-radius: 10px;
+  background: #20212e;
+  color: #ebeaf6;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, .38);
+}
+.undo-delete-message {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.undo-delete-message strong { color: #fff; }
+.undo-delete-button {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 64px;
+  padding: 8px 12px;
+  border: 1px solid #8175cf;
+  border-radius: 8px;
+  background: #383251;
+  color: #ded7ff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.undo-delete-button:hover { background: #494065; }
+.undo-delete-progress { color: #b5b0c9; font-size: 12px; }
+@media (max-width: 600px) {
+  .undo-delete-tray {
+    left: max(12px, env(safe-area-inset-left));
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+    width: auto;
+  }
+}

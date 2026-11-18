@@ -8,17 +8,25 @@ import { useNotification } from "./hooks/useNotification.js";
 import { useTasks } from "./hooks/useTasks.js";
 
 function App() {
-
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sort, setSort] = useState("default");
-  const { token, authMode, authEmail, setAuthEmail, authPassword, setAuthPassword,
-    authLoading, authError, logout: clearAuth, handleAuth, switchAuthMode } = useAuth();
+
+  const {
+    token, authMode, authEmail, setAuthEmail, authPassword, setAuthPassword,
+    authLoading, authError, logout: clearAuth, handleAuth, switchAuthMode,
+  } = useAuth();
   const { notification, setNotification, showNotification } = useNotification();
-  const { tasks, setTasks, loading, setLoading, error, setError, newTask, setNewTask, newPriority, setNewPriority, editingId, setEditingId, editTitle, setEditTitle, editPriority, setEditPriority, newDueDate, setNewDueDate, newCategory, setNewCategory, editCategory, setEditCategory, editDueDate, setEditDueDate, loadingTask, setLoadingTask, addingTask, setAddingTask,
-    retryFetchTasks, toggleTask, deleteTask, startEditing, editTask, addTask } =
-    useTasks({ token, onUnauthorized: clearAuth, showNotification });
+  const {
+    tasks, setTasks, loading, error, setError, newTask, setNewTask,
+    newPriority, setNewPriority, newCategory, setNewCategory, newDueDate, setNewDueDate,
+    editingId, setEditingId, editTitle, setEditTitle, editPriority, setEditPriority,
+    editCategory, setEditCategory, editDueDate, setEditDueDate, loadingTask,
+    addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
+    toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask,
+  } = useTasks({ token, onUnauthorized: clearAuth, showNotification });
+
   const logout = () => {
     clearAuth();
     setTasks([]);
@@ -26,10 +34,47 @@ function App() {
     setNotification(null);
   };
 
-  const { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate } = getTaskStats(tasks);
-  const filteredTasks = selectTasks(tasks, { search, filter, categoryFilter, sort });
+  // Pending deletions are hidden from the dashboard, but not removed from
+  // the server until the Undo window expires.
+  const visibleTasks = tasks.filter(task => !pendingDeleteIds.has(task.id));
+  const { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate } = getTaskStats(visibleTasks);
+  const filteredTasks = selectTasks(visibleTasks, { search, filter, categoryFilter, sort });
 
-if (!token) {
+  const form = {
+    title: newTask, setTitle: setNewTask,
+    priority: newPriority, setPriority: setNewPriority,
+    category: newCategory, setCategory: setNewCategory,
+    dueDate: newDueDate, setDueDate: setNewDueDate, adding: addingTask,
+  };
+  const filters = {
+    status: filter, setStatus: setFilter,
+    search, setSearch,
+    category: categoryFilter, setCategory: setCategoryFilter,
+    sort, setSort,
+  };
+  const editing = {
+    id: editingId,
+    title: editTitle, setTitle: setEditTitle,
+    priority: editPriority, setPriority: setEditPriority,
+    category: editCategory, setCategory: setEditCategory,
+    dueDate: editDueDate, setDueDate: setEditDueDate,
+  };
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditTitle("");
+    setEditPriority("Medium");
+    setEditCategory("General");
+    setEditDueDate("");
+  };
+  const actions = {
+    add: addTask, toggle: toggleTask, delete: deleteTask, undoDelete,
+    startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
+  };
+  const data = {
+    tasks: visibleTasks, filteredTasks, totalCount, loading, error, loadingTask, pendingDeletes,
+  };
+
+  if (!token) {
   return (
     <div className="app auth-page">
       <h1>TaskFlow</h1>
@@ -101,15 +146,20 @@ if (!token) {
   );
 }
 
+
+
   return (
     <div className="app">
-      {notification && <div className={"notification " + (notification.type === "error" ? "notification-error" : "notification-success")} role={notification.type === "error" ? "alert" : "status"}>
-        <span>{notification.type === "error" ? "!" : "✓"}</span><span>{notification.message}</span>
-        <button className="notification-close" onClick={() => setNotification(null)} aria-label="Dismiss notification">×</button>
-      </div>}
+      {notification && (
+        <div className={"notification " + (notification.type === "error" ? "notification-error" : "notification-success")} role={notification.type === "error" ? "alert" : "status"}>
+          <span>{notification.type === "error" ? "!" : "✓"}</span>
+          <span>{notification.message}</span>
+          <button type="button" className="notification-close" onClick={() => setNotification(null)} aria-label="Dismiss notification">×</button>
+        </div>
+      )}
       <DashboardHeader logout={logout} />
       <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
-      <TaskPanel totalCount={totalCount} addTask={addTask} newTask={newTask} setNewTask={setNewTask} newPriority={newPriority} setNewPriority={setNewPriority} newCategory={newCategory} setNewCategory={setNewCategory} newDueDate={newDueDate} setNewDueDate={setNewDueDate} addingTask={addingTask} filter={filter} setFilter={setFilter} search={search} setSearch={setSearch} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} sort={sort} setSort={setSort} loading={loading} error={error} filteredTasks={filteredTasks} tasks={tasks} editingId={editingId} loadingTask={loadingTask} toggleTask={toggleTask} editTitle={editTitle} setEditTitle={setEditTitle} editPriority={editPriority} setEditPriority={setEditPriority} editCategory={editCategory} setEditCategory={setEditCategory} editDueDate={editDueDate} setEditDueDate={setEditDueDate} editTask={editTask} setEditingId={setEditingId} startEditing={startEditing} deleteTask={deleteTask} retryFetchTasks={retryFetchTasks} />
+      <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions} />
       <footer className="app-footer"><span>TaskFlow</span><span>Make room for what matters.</span></footer>
     </div>
   );
