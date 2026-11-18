@@ -1,10 +1,9 @@
-name: PR6 preview smoke test (isolated account)
+name: PR6 compiled-build smoke test (isolated account)
 
 on:
   push:
     branches:
       - test/pr6-preview-smoke-20261118
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,7 +11,7 @@ permissions:
 jobs:
   preview-smoke:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 12
     defaults:
       run:
         working-directory: frontend
@@ -23,14 +22,27 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Install app dependencies
+      - name: Install locked PR 6 dependencies
         run: npm ci
-      - name: Install temporary browser tooling
+      - name: Build exact PR 6 frontend against production API
+        run: npm run build
+        env:
+          VITE_API_URL: https://taskflow-k63f.onrender.com
+      - name: Install automated browser
         run: |
           npm install --no-save playwright@1.56.1
           npx playwright install chromium
-      - name: Smoke-test PR #6 Vercel preview using isolated account
-        run: node scripts/pr6PreviewSmoke.mjs
+      - name: Test compiled PR 6 build from trusted localhost origin
+        run: |
+          npm run preview -- --host localhost --port 5173 > /tmp/taskflow-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:5173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://localhost:5173/ > /dev/null
+          node scripts/pr6PreviewSmoke.mjs
         env:
-          SITE_URL: https://task-flow-git-feature-dependenc-02e581-felixs-projects-e3eef60e.vercel.app
+          SITE_URL: http://localhost:5173
           API_URL: https://taskflow-k63f.onrender.com
