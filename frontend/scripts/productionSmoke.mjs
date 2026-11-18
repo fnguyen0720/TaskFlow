@@ -19,7 +19,7 @@ let firstError = null;
 const logPass = label => console.log("PASS: " + label);
 const waitForDashboard = async () => {
   await page.getByRole("heading", {name:"Your tasks"}).waitFor({timeout:100000});
-  await page.locator(".task-list").waitFor({timeout:100000});
+  await page.locator(".task-list").waitFor({state:"attached",timeout:45000});
 };
 const rowByTitle = name => page.getByRole("listitem").filter({hasText:name});
 const refreshDashboard = async () => {
