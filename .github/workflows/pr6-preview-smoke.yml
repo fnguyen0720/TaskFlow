@@ -28,7 +28,7 @@ jobs:
       - name: Install temporary browser tooling
         run: |
           npm install --no-save playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Smoke-test PR #6 Vercel preview using isolated account
         run: node scripts/pr6PreviewSmoke.mjs
         env:
