@@ -161,6 +161,7 @@ builder.Services.AddRateLimiter(options =>
     var trustRenderPublicEdge =
         builder.Environment.IsProduction() &&
         builder.Configuration.GetValue<bool>("Security:TrustRenderPublicEdgeClientIp") &&
+        builder.Configuration["RENDER_SERVICE_TYPE"] == "web" &&
         !string.IsNullOrWhiteSpace(builder.Configuration["RENDER_SERVICE_ID"]);
 
     // Disabled by default. Staging can enable non-identifying partition
