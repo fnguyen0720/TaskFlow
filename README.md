@@ -26,7 +26,8 @@ TaskFlow helps users organize their tasks, manage priorities, track deadlines, a
 - **Sorting** — Organize tasks by completion, priority, and due date.
 - **Dashboard statistics** — View task progress at a glance.
 - **User-specific data access** — Protect task endpoints and restrict users to their own tasks.
-- **Input validation** — Validate task titles and priority values on the backend.
+- **Input validation** — Validate titles, priorities, and categories on the backend; ignore forged task ownership/identity fields.
+- **API security controls** — Rate-limit ASP.NET Core Identity endpoints and allow browser access only from explicitly trusted CORS origins.
 - **Automated API tests** — Test API behavior, validation, authentication, and task ownership.
 - **Automated frontend tests** — Validate due-date calculations, authentication errors, and Undo deletion behavior.
 
@@ -142,7 +143,7 @@ npm run dev
 
 Open the local URL printed by Vite in the terminal.
 
-The frontend API URL and backend CORS configuration must match your local development settings.
+The frontend API URL and backend CORS configuration must match your local development settings. Production CORS allows only exact trusted origins; if you test a Vercel preview, you must explicitly allowlist its origin in the Render backend configuration. See [Backend security and deployment notes](docs/backend-security-hardening.md).
 
 ## Testing
 
@@ -166,7 +167,7 @@ npm run lint
 
 Dependency audits run in a separate GitHub Actions workflow for npm and NuGet packages. The production-only npm audit is enforced; development-tool advisories are recorded and tracked in `docs/security-review-2026-11-18.md`.
 
-The API test suite is also executed in CI.
+The API test suite is also executed in CI. A dedicated backend workflow verifies authentication throttling, trusted-origin CORS, input validation, and task ownership.
 
 ## Project Goals
 
