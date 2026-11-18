@@ -1,6 +1,8 @@
 
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -86,46 +88,81 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 
+// Only exact, explicitly trusted browser origins may read API responses.
+// Cors__AllowedOrigins__N and FrontendUrl can be configured on Render.
+// Preview deployments require an explicit allowlist entry; wildcard Vercel
+// subdomains are not trustworthy enough for a credential-bearing API.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins")
+    .GetChildren()
+    .Select(item => item.Value)
+    .Where(value => !string.IsNullOrWhiteSpace(value))
+    .Select(value => value!.Trim().TrimEnd('/'))
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+var frontendUrl = builder.Configuration["FrontendUrl"];
+if (!string.IsNullOrWhiteSpace(frontendUrl))
+{
+    allowedOrigins.Add(frontendUrl.Trim().TrimEnd('/'));
+}
+
+if (builder.Environment.IsDevelopment())
+{
+    allowedOrigins.Add("http://localhost:5173");
+}
+
+foreach (var origin in allowedOrigins)
+{
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+        || (uri.Scheme != Uri.UriSchemeHttps
+            && !(builder.Environment.IsDevelopment()
+                && uri.Scheme == Uri.UriSchemeHttp
+                && uri.IsLoopback))
+        || uri.UserInfo.Length > 0
+        || uri.AbsolutePath != "/"
+        || uri.Query.Length > 0
+        || uri.Fragment.Length > 0)
+    {
+        throw new InvalidOperationException(
+            "CORS allowed origins must be HTTPS origins without paths, queries, or credentials.");
+    }
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
-        var allowedOrigins = new List<string>
-        {
-            "http://localhost:5173"
-        };
-
-        var frontendUrl = builder.Configuration["FrontendUrl"];
-
-        if (!string.IsNullOrWhiteSpace(frontendUrl))
-        {
-            allowedOrigins.Add(frontendUrl.TrimEnd('/'));
-        }
-
-        policy
-            .SetIsOriginAllowed(origin =>
-            {
-                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
-                {
-                    return false;
-                }
-
-                // Allow explicitly configured frontend origins.
-                if (allowedOrigins.Contains(
-                    origin.TrimEnd('/'),
-                    StringComparer.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-
-                // Allow HTTPS preview deployments belonging to this Vercel project.
-                return uri.Scheme == Uri.UriSchemeHttps
-                    && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)
-                    && uri.Host.StartsWith("task-flow-", StringComparison.OrdinalIgnoreCase);
-            })
+        policy.WithOrigins(allowedOrigins.ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
+});
+
+// Bound requests to the Identity endpoint group without changing any URLs.
+// The partition uses the connection IP; never trust a client-supplied
+// X-Forwarded-For header without a configured, trusted reverse proxy.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode =
+            StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        await context.HttpContext.Response.WriteAsync(
+            "Too many authentication requests. Please try again later.",
+            cancellationToken);
+    };
+
+    options.AddPolicy("authentication", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 });
 
 var app = builder.Build();
@@ -136,11 +173,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRouting();
 app.UseCors("Frontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapIdentityApi<ApplicationUser>();
+// Grouping with an empty prefix preserves /register, /login, and all other
+// standard Identity API routes while enforcing a shared auth request budget.
+var identityEndpoints = app.MapGroup("");
+identityEndpoints.RequireRateLimiting("authentication");
+identityEndpoints.MapIdentityApi<ApplicationUser>();
 
 // GET: Return only the logged-in user's tasks.
 app.MapGet("/api/tasks", async (
@@ -168,32 +211,20 @@ app.MapPost("/api/tasks", async (
     ClaimsPrincipal user,
     TaskDbContext db) =>
 {
-    if (string.IsNullOrWhiteSpace(task.Title))
+    var validationError = TaskInputValidator.Validate(task);
+    if (validationError is not null)
     {
-        return Results.BadRequest("Task title cannot be empty.");
+        return Results.BadRequest(validationError);
     }
 
-    if (task.Title.Length > 100)
-    {
-        return Results.BadRequest(
-            "Task title cannot exceed 100 characters."
-        );
-    }
-
-    if (
-        task.Priority != "Low" &&
-        task.Priority != "Medium" &&
-        task.Priority != "High"
-    )
-    {
-        return Results.BadRequest(
-            "Priority must be Low, Medium, or High."
-        );
-    }
+    task.Title = task.Title.Trim();
 
     var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-    // Never trust a UserId supplied by the frontend.
+    // Treat the client payload as untrusted. The server owns identity fields
+    // and new tasks always start incomplete, regardless of supplied values.
+    task.Id = 0;
+    task.Completed = false;
     task.UserId = userId;
 
     if (task.DueDate.HasValue)
@@ -254,30 +285,13 @@ app.MapPut("/api/tasks/{id}/title", async (
         return Results.NotFound();
     }
 
-    if (string.IsNullOrWhiteSpace(updatedTask.Title))
+    var validationError = TaskInputValidator.Validate(updatedTask);
+    if (validationError is not null)
     {
-        return Results.BadRequest("Task title cannot be empty.");
+        return Results.BadRequest(validationError);
     }
 
-    if (updatedTask.Title.Length > 100)
-    {
-        return Results.BadRequest(
-            "Task title cannot exceed 100 characters."
-        );
-    }
-
-    if (
-        updatedTask.Priority != "Low" &&
-        updatedTask.Priority != "Medium" &&
-        updatedTask.Priority != "High"
-    )
-    {
-        return Results.BadRequest(
-            "Priority must be Low, Medium, or High."
-        );
-    }
-
-    task.Title = updatedTask.Title;
+    task.Title = updatedTask.Title.Trim();
     task.Priority = updatedTask.Priority;
     task.Category = updatedTask.Category;
     task.DueDate = updatedTask.DueDate.HasValue
