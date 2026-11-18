@@ -130,6 +130,93 @@ public class BackendSecurityTests
             throttled.Headers.GetValues("Retry-After")));
     }
 
+    [Fact]
+    public async Task IdentityRateLimit_TrustedEdgeClientsHaveSeparateBudgets()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        using var configured = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["RENDER_SERVICE_ID"] = "srv-test-only",
+                    ["Security:TrustRenderPublicEdgeClientIp"] = "true"
+                }));
+        });
+
+        await configured.InitializeDatabaseAsync();
+        using var clientA = configured.CreateClient();
+        using var clientB = configured.CreateClient();
+        clientA.DefaultRequestHeaders.Add("CF-Connecting-IP", "198.51.100.10");
+        clientB.DefaultRequestHeaders.Add("CF-Connecting-IP", "198.51.100.11");
+
+        var credentials = new
+        {
+            email = "invalid-account@example.com",
+            password = "NotThePassword!123"
+        };
+
+        for (var i = 0; i < 20; i++)
+        {
+            using var attempt = await clientA.PostAsJsonAsync(
+                "/login?useCookies=false", credentials);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, attempt.StatusCode);
+        }
+
+        // Spoofed X-Forwarded-For must not give A another partition.
+        clientA.DefaultRequestHeaders.TryAddWithoutValidation(
+            "X-Forwarded-For", "192.0.2.200");
+        using var blockedA = await clientA.PostAsJsonAsync(
+            "/login?useCookies=false", credentials);
+        Assert.Equal(HttpStatusCode.TooManyRequests, blockedA.StatusCode);
+
+        // B has the same simulated connection/proxy but a distinct, trusted
+        // edge-written client IP.
+        using var allowedB = await clientB.PostAsJsonAsync(
+            "/login?useCookies=false", credentials);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, allowedB.StatusCode);
+    }
+
+    [Fact]
+    public async Task IdentityRateLimit_WithoutRenderMarkerIgnoresClientIpHeaders()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        using var configured = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Production");
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Security:TrustRenderPublicEdgeClientIp"] = "true",
+                    ["RENDER_SERVICE_ID"] = ""
+                }));
+        });
+
+        await configured.InitializeDatabaseAsync();
+        using var clientA = configured.CreateClient();
+        using var clientB = configured.CreateClient();
+        clientA.DefaultRequestHeaders.Add("CF-Connecting-IP", "198.51.100.10");
+        clientB.DefaultRequestHeaders.Add("CF-Connecting-IP", "198.51.100.11");
+
+        var credentials = new
+        {
+            email = "invalid-account@example.com",
+            password = "NotThePassword!123"
+        };
+
+        for (var i = 0; i < 20; i++)
+        {
+            using var attempt = await clientA.PostAsJsonAsync(
+                "/login?useCookies=false", credentials);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, attempt.StatusCode);
+        }
+
+        using var blockedB = await clientB.PostAsJsonAsync(
+            "/login?useCookies=false", credentials);
+        Assert.Equal(HttpStatusCode.TooManyRequests, blockedB.StatusCode);
+    }
+
     [Theory]
     [InlineData("General")]
     [InlineData("Work")]
