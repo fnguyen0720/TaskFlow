@@ -6,7 +6,7 @@ This review summarizes automated package scanning and selected source-code obser
 
 | Scope | Finding | Interpretation |
 |---|---|---|
-| Frontend, all dependencies | 5 high-severity npm findings | All reported findings trace to development/build tooling, chiefly picomatch and dependent packages |
+| Frontend, all dependencies | 0 findings after lockfile refresh (previously 5 high) | Current npm audit is clean, but an external picomatch advisory still requires monitoring |
 | Frontend, production-only (npm audit --omit=dev) | 0 reported findings | No known advisories in the production npm dependency set from the configured audit source |
 | Backend API NuGet packages | No vulnerable packages reported | Includes transitive dependencies, using NuGet's configured sources |
 | Backend test NuGet packages | No vulnerable packages reported | Includes transitive dependencies |
@@ -23,11 +23,11 @@ These results are point-in-time findings and depend on advisory coverage.
 
 ### Known unresolved advisory
 
-**GHSA-fc5q-39xc-vjpf / CVE-2026-112366** affects picomatch through 4.0.7. As of November 18, 2026, no patched release is identified in the advisory. It is a regular-expression denial-of-service issue involving crafted extended-glob patterns.
+**GHSA-fc5q-39xc-vjpf / CVE-2026-112366** lists picomatch versions through 4.0.7 as affected. The updated lockfile still references picomatch 4.0.7 as a development dependency. As of November 18, 2026, no patched release is identified in the public advisory. It describes regular-expression denial of service through crafted extended-glob patterns.
 
-The repo uses picomatch transitively within build/development tooling (through the Vite toolchain). Because `npm audit` counts dependent packages as metavulnerabilities, the full npm audit still reports high-severity findings. It does not indicate that five independent issues exist in application runtime code.
+The repo uses picomatch transitively within build/development tooling (through Vite). The **initial** npm audit reported five high-severity entries, some of which were dependent-package metavulnerabilities. After compatible dependency updates, a subsequent npm audit reports zero vulnerabilities even though this picomatch version remains in the lockfile. The npm audit result and the published advisory therefore do not fully align; continue monitoring instead of treating the reported zero as an unconditional resolution.
 
-**Temporary disposition:** retain the current Vite major version and monitor for a patched picomatch/transitive dependency release. Do not use `npm audit fix --force` blindly: npm proposed downgrading Vite to 6.2.7, which is a breaking change and not a justified mitigation. Re-evaluate when a supported fix is available.
+**Temporary disposition:** retain the current Vite major version; do not process untrusted extended-glob patterns with the affected package; and monitor for a patched picomatch/transitive dependency release. Do not use `npm audit fix --force` blindly: npm previously proposed downgrading Vite to 6.2.7, which is a breaking change and not a justified mitigation. Re-evaluate when a supported fix is available.
 
 Reference: https://github.com/advisories/GHSA-fc5q-39xc-vjpf
 
