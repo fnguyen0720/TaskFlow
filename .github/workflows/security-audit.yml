@@ -47,6 +47,8 @@ jobs:
               }));
             }
           '
+      - name: Enforce production dependency security audit
+        run: npm audit --omit=dev --audit-level=high
       - name: Audited production-only dependencies
         run: |
           npm audit --omit=dev --json > production-audit.json || true
@@ -69,3 +71,5 @@ jobs:
         run: |
           dotnet list backend/TaskFlow.Api/TaskFlow.Api.csproj package --vulnerable --include-transitive
           dotnet list backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj package --vulnerable --include-transitive
+      - name: Run backend integration tests
+        run: dotnet test backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj --no-restore --configuration Release
