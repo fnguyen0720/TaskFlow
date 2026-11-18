@@ -36,7 +36,12 @@ try {
 
   const response = await page.goto(SITE,{waitUntil:"domcontentloaded",timeout:100000});
   assert.ok(response?.ok(),"Production website responded unsuccessfully");
-  await page.getByRole("heading",{name:"TaskFlow"}).waitFor();
+  console.log("PREVIEW_DIAGNOSTIC: ",JSON.stringify({
+    httpStatus:response?.status(), finalUrl:page.url(),
+    title:await page.title(),
+    bodyText:(await page.locator("body").innerText().catch(() => "" )).slice(0,1200)
+  }));
+  await page.getByRole("heading",{name:"TaskFlow"}).waitFor({timeout:15000});
   logPass("Production site loads");
 
   await page.getByRole("button",{name:/Need an account\? Register/}).click();
