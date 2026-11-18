@@ -10,9 +10,11 @@ export function useUndoableDelete({ token, tasks, setTasks, showNotification }) 
   const queueRef = useRef(null);
   const tasksRef = useRef(tasks);
   const tokenRef = useRef(token);
+  const notifyRef = useRef(showNotification);
   const requestsRef = useRef(new Set());
   tasksRef.current = tasks;
   tokenRef.current = token;
+  notifyRef.current = showNotification;
 
   useEffect(() => {
     setPendingDeletes([]);
@@ -30,7 +32,7 @@ export function useUndoableDelete({ token, tasks, setTasks, showNotification }) 
           if (!response.ok) throw new Error("Failed to delete task");
           if (tokenRef.current === token) {
             setTasks(current => current.filter(task => task.id !== id));
-            showNotification("Task deleted.");
+            notifyRef.current("Task deleted.");
           }
         } finally {
           requestsRef.current.delete(controller);
@@ -39,7 +41,7 @@ export function useUndoableDelete({ token, tasks, setTasks, showNotification }) 
       onError: error => {
         if (error.name !== "AbortError" && tokenRef.current === token) {
           console.error("Error deleting task:", error);
-          showNotification("Couldn't delete task. It has been restored.", "error");
+          notifyRef.current("Couldn't delete task. It has been restored.", "error");
         }
       },
     });
@@ -51,7 +53,7 @@ export function useUndoableDelete({ token, tasks, setTasks, showNotification }) 
       for (const controller of requestsRef.current) controller.abort();
       requestsRef.current.clear();
     };
-  }, [token, setTasks, showNotification]);
+  }, [token, setTasks]);
 
   const deleteTask = (id) => {
     if (!token || String(id).startsWith("temp-")) return;
@@ -60,7 +62,7 @@ export function useUndoableDelete({ token, tasks, setTasks, showNotification }) 
   };
 
   const undoDelete = (id) => {
-    if (queueRef.current?.undo(id)) showNotification("Deletion canceled.");
+    if (queueRef.current?.undo(id)) notifyRef.current("Deletion canceled.");
   };
 
   const pendingDeleteIds = new Set(pendingDeletes.map(record => record.id));
