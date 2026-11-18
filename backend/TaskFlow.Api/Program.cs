@@ -155,16 +155,45 @@ builder.Services.AddRateLimiter(options =>
             cancellationToken);
     };
 
+    // The trusted edge header is enabled only for an explicitly opted-in
+    // Render PUBLIC service running in Production. Render overwrites
+    // CF-Connecting-IP at its Cloudflare edge; do not trust X-Forwarded-For.
+    var trustRenderPublicEdge =
+        builder.Environment.IsProduction() &&
+        builder.Configuration.GetValue<bool>("Security:TrustRenderPublicEdgeClientIp") &&
+        !string.IsNullOrWhiteSpace(builder.Configuration["RENDER_SERVICE_ID"]);
+
+    // Disabled by default. Staging can enable non-identifying partition
+    // diagnostics to confirm clients don't share a bucket.
+    var logBucketDiagnostics =
+        trustRenderPublicEdge &&
+        builder.Configuration.GetValue<bool>("Security:LogAuthBucketTags");
+
     options.AddPolicy("authentication", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+    {
+        var partitionKey = AuthClientIpPartition.GetKey(context, trustRenderPublicEdge);
+
+        if (logBucketDiagnostics)
+        {
+            var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("TaskFlow.Security.AuthRateLimit");
+            logger.LogInformation(
+                "Auth rate-limit partition {PartitionTag} source {Source}",
+                AuthClientIpPartition.DiagnosticTag(partitionKey),
+                partitionKey.StartsWith("edge:", StringComparison.Ordinal)
+                    ? "trusted-edge" : "connection-fallback");
+        }
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: partitionKey,
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 20,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true
-            }));
+            });
+    });
 });
 
 var app = builder.Build();
