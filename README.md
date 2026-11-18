@@ -19,7 +19,7 @@ TaskFlow helps users organize their tasks, manage priorities, track deadlines, a
 ## Features
 
 - **User authentication** — Register an account, sign in, and log out.
-- **Task management** — Create, edit, complete, and delete tasks.
+- **Task management** — Create, edit, complete, and delete tasks, with an 8-second Undo window for accidental deletion.
 - **Task priorities** — Organize tasks by High, Medium, and Low priority.
 - **Due dates** — Set deadlines and track upcoming or overdue tasks.
 - **Search and filtering** — Find tasks and filter them by status or category.
@@ -28,6 +28,7 @@ TaskFlow helps users organize their tasks, manage priorities, track deadlines, a
 - **User-specific data access** — Protect task endpoints and restrict users to their own tasks.
 - **Input validation** — Validate task titles and priority values on the backend.
 - **Automated API tests** — Test API behavior, validation, authentication, and task ownership.
+- **Automated frontend tests** — Validate due-date calculations, authentication errors, and Undo deletion behavior.
 
 ## Tech Stack
 
@@ -153,7 +154,19 @@ Run the tests from the repository root:
 dotnet test backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj
 ```
 
-The project currently has **21 passing API tests** in the local test suite.
+Frontend unit tests also run in CI. From the repository root:
+
+```bash
+cd frontend
+npm ci
+npm test
+npm run build
+npm run lint
+```
+
+Dependency audits run in a separate GitHub Actions workflow for npm and NuGet packages. The production-only npm audit is enforced; development-tool advisories are recorded and tracked in `docs/security-review-2026-11-18.md`.
+
+The API test suite is also executed in CI.
 
 ## Project Goals
 
@@ -171,7 +184,7 @@ TaskFlow was built to develop practical full-stack engineering skills, including
 
 ## Future Improvements
 
-- Add automated frontend testing.
+- Expand browser-level end-to-end testing and automate release smoke tests.
 - Implement password recovery.
 - Improve application monitoring and structured logging.
 - Add pagination for larger task collections.
