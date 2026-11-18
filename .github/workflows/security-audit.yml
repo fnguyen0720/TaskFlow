@@ -1,0 +1,75 @@
+name: Dependency security audit
+
+on:
+  push:
+    branches:
+      - feature/dependency-security-hardening
+  pull_request:
+    paths:
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "backend/**/*.csproj"
+      - ".github/workflows/security-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Audit npm packages
+        run: |
+          npm audit --json > audit.json || true
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const audit=JSON.parse(fs.readFileSync("audit.json","utf8"));
+            console.log("NPM_AUDIT_SUMMARY:",JSON.stringify(audit.metadata?.vulnerabilities || {}));
+            for(const [name,v] of Object.entries(audit.vulnerabilities || {})) {
+              console.log("NPM_FINDING:",JSON.stringify({
+                name, severity:v.severity, isDirect:v.isDirect, range:v.range,
+                fixAvailable:v.fixAvailable,
+                via:v.via.map(x=>typeof x==="string" ? x : {
+                  name:x.name,title:x.title,range:x.range,url:x.url,severity:x.severity
+                })
+              }));
+            }
+          '
+      - name: Enforce production dependency security audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audited production-only dependencies
+        run: |
+          npm audit --omit=dev --json > production-audit.json || true
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const audit=JSON.parse(fs.readFileSync("production-audit.json","utf8"));
+            console.log("PRODUCTION_NPM_AUDIT_SUMMARY:", JSON.stringify(audit.metadata?.vulnerabilities || {}));
+          '
+
+  dotnet-audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore backend packages
+        run: dotnet restore backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj
+      - name: Audit backend NuGet packages
+        run: |
+          dotnet list backend/TaskFlow.Api/TaskFlow.Api.csproj package --vulnerable --include-transitive
+          dotnet list backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj package --vulnerable --include-transitive
+      - name: Run backend integration tests
+        run: dotnet test backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj --no-restore --configuration Release
