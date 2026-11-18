@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useUndoableDelete } from "./useUndoableDelete.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
@@ -17,6 +18,9 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
   const [editDueDate, setEditDueDate] = useState("");
   const [loadingTask, setLoadingTask] = useState(null);
   const [addingTask, setAddingTask] = useState(false);
+  const { pendingDeletes, pendingDeleteIds, deleteTask, undoDelete } = useUndoableDelete({
+    token, tasks, setTasks, showNotification,
+  });
     const fetchTasks = async () => {
 
       try {
@@ -138,56 +142,6 @@ const toggleTask = async (id) => {
     setLoadingTask(null);
   }
 };
-
-
-// Delete task
-const deleteTask = async (id) => {
-if (loadingTask?.id === id) return;
-
-setLoadingTask({
-  id,
-  action: "delete",
-});
-
-  const previousTasks = tasks;
-
-  // Optimistically remove task
-  setTasks((currentTasks) =>
-    currentTasks.filter((task) => task.id !== id)
-  );
-
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/tasks/${id}`,
-      {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to delete task");
-    }
-
-    showNotification("Task deleted.");
-  } catch (error) {
-    console.error("Error deleting task:", error);
-
-    // Roll back UI
-    setTasks(previousTasks);
-
-    showNotification(
-      "Couldn't delete task. Please try again.",
-      "error"
-    );
-  }
-  finally {
-setLoadingTask(null);
-}
-};
-
 
 
   // Start editing a task
@@ -386,6 +340,7 @@ finally {
     editDueDate, setEditDueDate,
     loadingTask, setLoadingTask,
     addingTask, setAddingTask,
-    fetchTasks, retryFetchTasks, toggleTask, deleteTask, startEditing, editTask, addTask,
+    fetchTasks, retryFetchTasks, toggleTask, deleteTask, undoDelete,
+    pendingDeletes, pendingDeleteIds, startEditing, editTask, addTask,
   };
 }
