@@ -6,7 +6,7 @@ export default function UndoDeleteToast({ pendingDeletes, onUndo }) {
       {pendingDeletes.map(record => (
         <div className="undo-delete-item" key={record.id}>
           <span className="undo-delete-message" title={record.title}>
-            {record.status === "pending" ? "Task removed: " : "Deleting task: "}
+            {record.status === "pending" ? "Deleting in 8 seconds: " : "Deleting task: "}
             <strong>{record.title}</strong>
           </span>
           {record.status === "pending" ? (
