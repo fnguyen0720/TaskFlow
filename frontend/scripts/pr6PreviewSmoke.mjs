@@ -42,7 +42,7 @@ try {
     bodyText:(await page.locator("body").innerText().catch(() => "" )).slice(0,1200)
   }));
   await page.getByRole("heading",{name:"TaskFlow"}).waitFor({timeout:15000});
-  logPass("Production site loads");
+  logPass("Compiled PR #6 frontend loads");
 
   await page.getByRole("button",{name:/Need an account\? Register/}).click();
   await page.locator("input[type=email]").fill(email);
@@ -62,7 +62,9 @@ try {
   await page.getByRole("combobox",{name:"Priority",exact:true}).selectOption("High");
   await page.getByRole("combobox",{name:"Category",exact:true}).selectOption("Work");
   await page.getByLabel("Due date",{exact:true}).fill(dueDate);
+  const addCompleted = page.waitForResponse(r => r.request().method() === "POST" && new URL(r.url()).pathname === "/api/tasks", {timeout:60000});
   await page.getByRole("button",{name:/Add task/}).click();
+  assert.ok((await addCompleted).ok(), "POST task failed");
   await rowByTitle(title).waitFor();
   await page.getByRole("button",{name:"Edit "+title}).waitFor();
   logPass("Task creation with priority, category and due date");
@@ -71,7 +73,9 @@ try {
   await page.getByRole("textbox",{name:"Edit title for "+title}).fill(editedTitle);
   await page.getByRole("combobox",{name:"Priority for "+title}).selectOption("Low");
   await page.getByRole("combobox",{name:"Category for "+title}).selectOption("Study");
+  const editCompleted = page.waitForResponse(r => r.request().method() === "PUT" && /\\/api\\/tasks\\/\\d+\\/title$/.test(new URL(r.url()).pathname), {timeout:60000});
   await page.getByRole("button",{name:"Save changes to "+title}).click();
+  assert.ok((await editCompleted).ok(), "PUT task edit failed");
   const row = rowByTitle(editedTitle);
   await row.waitFor();
   await page.getByRole("button",{name:"Edit "+editedTitle}).waitFor();
@@ -79,7 +83,9 @@ try {
   assert.equal((await row.locator(".category").innerText()).trim(),"Study");
   logPass("Edit task title, priority and category");
 
+  const toggleCompleted = page.waitForResponse(r => r.request().method() === "PUT" && /\\/api\\/tasks\\/\\d+$/.test(new URL(r.url()).pathname), {timeout:60000});
   await page.getByRole("button",{name:"Mark complete: "+editedTitle}).click();
+  assert.ok((await toggleCompleted).ok(), "PUT task completion failed");
   await page.getByRole("button",{name:"Mark incomplete: "+editedTitle}).waitFor();
   await refreshDashboard();
   const persistedRow = rowByTitle(editedTitle);
@@ -117,7 +123,7 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem("taskflow_token")),null);
   logPass("Logout removes token");
 
-  console.log("FINAL RESULT: PASS — PR #6 preview smoke test succeeded");
+  console.log("FINAL RESULT: PASS — PR #6 compiled-build smoke test succeeded");
 } catch(error) {
   firstError = error;
   console.error("FINAL RESULT: FAIL —",error?.stack || String(error));
