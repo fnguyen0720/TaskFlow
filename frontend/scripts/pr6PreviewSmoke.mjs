@@ -73,7 +73,7 @@ try {
   await page.getByRole("textbox",{name:"Edit title for "+title}).fill(editedTitle);
   await page.getByRole("combobox",{name:"Priority for "+title}).selectOption("Low");
   await page.getByRole("combobox",{name:"Category for "+title}).selectOption("Study");
-  const editCompleted = page.waitForResponse(r => r.request().method() === "PUT" && /\\/api\\/tasks\\/\\d+\\/title$/.test(new URL(r.url()).pathname), {timeout:60000});
+  const editCompleted = page.waitForResponse(r => r.request().method() === "PUT" && new URL(r.url()).pathname.startsWith("/api/tasks/") && new URL(r.url()).pathname.endsWith("/title"), {timeout:60000});
   await page.getByRole("button",{name:"Save changes to "+title}).click();
   assert.ok((await editCompleted).ok(), "PUT task edit failed");
   const row = rowByTitle(editedTitle);
@@ -83,7 +83,7 @@ try {
   assert.equal((await row.locator(".category").innerText()).trim(),"Study");
   logPass("Edit task title, priority and category");
 
-  const toggleCompleted = page.waitForResponse(r => r.request().method() === "PUT" && /\\/api\\/tasks\\/\\d+$/.test(new URL(r.url()).pathname), {timeout:60000});
+  const toggleCompleted = page.waitForResponse(r => r.request().method() === "PUT" && new URL(r.url()).pathname.startsWith("/api/tasks/") && !new URL(r.url()).pathname.endsWith("/title"), {timeout:60000});
   await page.getByRole("button",{name:"Mark complete: "+editedTitle}).click();
   assert.ok((await toggleCompleted).ok(), "PUT task completion failed");
   await page.getByRole("button",{name:"Mark incomplete: "+editedTitle}).waitFor();
