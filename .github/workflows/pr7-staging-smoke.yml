@@ -40,7 +40,7 @@ jobs:
           export ASPNETCORE_URLS=http://127.0.0.1:5111
 
           dotnet run --project backend/TaskFlow.Api.StagingBootstrap --no-build -c Release -- "$db_path"
-          dotnet run --project backend/TaskFlow.Api --no-build -c Release > /tmp/taskflow-pr7-api.log 2>&1 &
+          dotnet run --project backend/TaskFlow.Api --no-build --no-launch-profile -c Release > /tmp/taskflow-pr7-api.log 2>&1 &
           server_pid=$!
           ready=0
           for i in $(seq 1 45); do
