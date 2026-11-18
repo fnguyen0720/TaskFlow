@@ -92,43 +92,45 @@ builder.Services.AddOpenApi();
 // Cors__AllowedOrigins__N and FrontendUrl can be configured on Render.
 // Preview deployments require an explicit allowlist entry; wildcard Vercel
 // subdomains are not trustworthy enough for a credential-bearing API.
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins")
-    .GetChildren()
-    .Select(item => item.Value)
-    .Where(value => !string.IsNullOrWhiteSpace(value))
-    .Select(value => value!.Trim().TrimEnd('/'))
-    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-var frontendUrl = builder.Configuration["FrontendUrl"];
-if (!string.IsNullOrWhiteSpace(frontendUrl))
-{
-    allowedOrigins.Add(frontendUrl.Trim().TrimEnd('/'));
-}
-
-if (builder.Environment.IsDevelopment())
-{
-    allowedOrigins.Add("http://localhost:5173");
-}
-
-foreach (var origin in allowedOrigins)
-{
-    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)
-        || (uri.Scheme != Uri.UriSchemeHttps
-            && !(builder.Environment.IsDevelopment()
-                && uri.Scheme == Uri.UriSchemeHttp
-                && uri.IsLoopback))
-        || uri.UserInfo.Length > 0
-        || uri.AbsolutePath != "/"
-        || uri.Query.Length > 0
-        || uri.Fragment.Length > 0)
-    {
-        throw new InvalidOperationException(
-            "CORS allowed origins must be HTTPS origins without paths, queries, or credentials.");
-    }
-}
-
 builder.Services.AddCors(options =>
 {
+    // Resolve settings when the policy is built, so environment-specific and
+    // test-host configuration providers are included in the final allowlist.
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins")
+        .GetChildren()
+        .Select(item => item.Value)
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Select(value => value!.Trim().TrimEnd('/'))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    var frontendUrl = builder.Configuration["FrontendUrl"];
+    if (!string.IsNullOrWhiteSpace(frontendUrl))
+    {
+        allowedOrigins.Add(frontendUrl.Trim().TrimEnd('/'));
+    }
+
+    if (builder.Environment.IsDevelopment())
+    {
+        allowedOrigins.Add("http://localhost:5173");
+    }
+
+    foreach (var origin in allowedOrigins)
+    {
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps
+                && !(builder.Environment.IsDevelopment()
+                    && uri.Scheme == Uri.UriSchemeHttp
+                    && uri.IsLoopback))
+            || uri.UserInfo.Length > 0
+            || uri.AbsolutePath != "/"
+            || uri.Query.Length > 0
+            || uri.Fragment.Length > 0)
+        {
+            throw new InvalidOperationException(
+                "CORS allowed origins must be HTTPS origins without paths, queries, or credentials.");
+        }
+    }
+
     options.AddPolicy("Frontend", policy =>
     {
         policy.WithOrigins(allowedOrigins.ToArray())
