@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
 :root{font-family:"DM Sans",Inter,system-ui,sans-serif;color:#e9eaf2;background:#0c0d12;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;--bg:#0c0d12;--surface:#151720;--border:#292c39;--muted:#85899b;--text:#e9eaf2;--accent:#8b7cff}
-*{box-sizing:border-box}body{margin:0;min-width:320px;min-height:100vh;background:radial-gradient(ellipse at 50% -25%,#242039 0%,#0c0d12 55%);color:var(--text)}button,input,select{font:inherit}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+*{box-sizing:border-box}body{margin:0;min-width:0;min-height:100vh;background:radial-gradient(ellipse at 50% -25%,#242039 0%,#0c0d12 55%);color:var(--text)}button,input,select{font:inherit}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .app{width:min(100% - 64px,1180px);min-height:100vh;margin:0 auto;padding:54px 0 40px}
 .app h1{margin:0;color:#f2f0ff;text-align:left;font:800 36px Manrope,sans-serif;letter-spacing:-1.5px}.subtitle{margin:8px 0 28px;color:#9295a6;text-align:left;font-size:13px}
 .logout-button{float:right;margin-top:-61px;padding:9px 15px;border:1px solid #343247;border-radius:8px;background:#191a27;color:#b9b0ff;font-size:11px;cursor:pointer}.logout-button:hover{background:#242136}
@@ -137,4 +137,34 @@
   .task-form button,
   .retry-button { transition: none; }
   .spinner { animation: none; }
+}
+
+
+/* Follow-up from PR #4's 320px browser test: avoid forcing the document
+   wider than the usable viewport when a vertical scrollbar is present. */
+html, body, #root {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Secondary actions now meet the same minimum touch-target height as
+   primary task actions. Preserve the existing visual treatment. */
+.auth-switch,
+.filter,
+.filter-select,
+.search-input,
+.edit-input,
+.edit-priority,
+.edit-category,
+.edit-due-date,
+.retry-button,
+.notification-close {
+  min-height: 44px;
+}
+.auth-switch {
+  width: 100%;
+  font-size: 13px;
+}
+.notification-close {
+  min-width: 44px;
 }
