@@ -3,6 +3,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace TaskFlow.Api.Tests;
@@ -146,7 +148,11 @@ public class BackendSecurityTests
                 }));
         });
 
-        await configured.InitializeDatabaseAsync();
+        using (var scope = configured.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TaskDbContext>();
+            await db.Database.EnsureCreatedAsync();
+        }
         using var clientA = configured.CreateClient();
         using var clientB = configured.CreateClient();
         clientA.DefaultRequestHeaders.Add("CF-Connecting-IP", "198.51.100.10");
@@ -194,7 +200,11 @@ public class BackendSecurityTests
                 }));
         });
 
-        await configured.InitializeDatabaseAsync();
+        using (var scope = configured.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<TaskDbContext>();
+            await db.Database.EnsureCreatedAsync();
+        }
         using var clientA = configured.CreateClient();
         using var clientB = configured.CreateClient();
         clientA.DefaultRequestHeaders.Add("CF-Connecting-IP", "198.51.100.10");
