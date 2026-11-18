@@ -103,7 +103,7 @@ if (!token) {
 
   return (
     <div className="app">
-      {notification && <div className={"notification " + (notification.type === "error" ? "notification-error" : "notification-success")} role="status">
+      {notification && <div className={"notification " + (notification.type === "error" ? "notification-error" : "notification-success")} role={notification.type === "error" ? "alert" : "status"}>
         <span>{notification.type === "error" ? "!" : "✓"}</span><span>{notification.message}</span>
         <button className="notification-close" onClick={() => setNotification(null)} aria-label="Dismiss notification">×</button>
       </div>}
