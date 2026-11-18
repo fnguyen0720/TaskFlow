@@ -8,7 +8,20 @@ ASP.NET Core Identity API endpoints remain at their original URLs, including `/r
 
 The limit applies to the Identity API endpoint group (including token refresh and account-management endpoints), not to task CRUD. The in-memory rate limiter resets when the API instance restarts and does not share counters between multiple API instances.
 
-**Reverse-proxy caveat:** This policy intentionally ignores unsanitized `X-Forwarded-For` input. It keys on `HttpContext.Connection.RemoteIpAddress` and may group many visitors under one upstream proxy IP on Render. Before broad public use, check the effective IP observed by the app and configure forwarded headers **only for explicitly trusted proxies or networks**, with appropriate external edge protection. Do not trust arbitrary client-supplied forwarded headers.
+**Trusted Render public-edge client IP (opt-in):** The rate limiter uses the socket connection address by default. On a Render **public web service**, set `Security__TrustRenderPublicEdgeClientIp=true` to partition on Cloudflare's `CF-Connecting-IP` header. This mode requires `ASPNETCORE_ENVIRONMENT=Production`, `RENDER_SERVICE_TYPE=web`, and a non-empty Render-provided `RENDER_SERVICE_ID`. Render documents that Cloudflare overwrites this header before requests reach public services. This trust model **does not apply** to Render private services or any deployment that bypasses Render's public edge. Never enable this mode for those deployments, and never use the first caller-controlled `X-Forwarded-For` entry.
+
+The trusted header must contain **exactly one valid IP address**; missing, duplicated, or malformed values fall back to the socket connection IP. The fallback is conservative and may group multiple users behind a proxy; it does not let clients invent arbitrary buckets.
+
+**Staging-only diagnostics:** Set `Security__LogAuthBucketTags=true` **only on the isolated staging service** while validating independent clients. Logging occurs only if the trusted public-edge mode is active. It writes an ephemeral per-process **HMAC bucket tag** and a source label (`trusted-edge` or `connection-fallback`), never a raw IP or header value. Disable diagnostics before the production rollout. Tags change on restart and cannot be correlated across instances.
+
+**Required acceptance:** Test from two genuinely different client networks. Exhaust Client A's auth budget and confirm Client B can still authenticate. Also verify a forged `CF-Connecting-IP` supplied over the **public Render URL** is overwritten at Render's edge and cannot bypass Client A's throttle. A unit test that injects an edge header inside the app proves the partitioning algorithm only; it does **not** prove the edge's overwrite behavior.
+
+**Residual considerations:** In-memory counters reset when instances restart and are not shared between replicas; use a distributed limit store for multiple instances. The current 20/minute limit covers all ASP.NET Core Identity endpoints, so set thresholds based on actual usage and monitor for false positives.
+
+References:
+- https://render.com/articles/host-pocketbase-on-render
+- https://render.com/docs/environment-variables
+- https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0
 
 ## CORS: exact trusted origins only
 
@@ -48,5 +61,5 @@ Existing database records are unchanged by this PR. Validation affects only inco
 2. Deploy API to an isolated/staging environment if available. Backend changes do **not** automatically deploy to Vercel frontend previews.
 3. Confirm login, registration, task CRUD and CORS from production and any approved preview origins.
 4. Confirm repeated login attempts return 429 and legitimate traffic works normally from expected network routes.
-5. Check proxy/IP behavior before enabling the rate limit for broad public traffic.
+5. Configure `Security__TrustRenderPublicEdgeClientIp=true` only after confirming public-Render edge behavior; enable temporary HMAC bucket-tag diagnostics in staging to distinguish two independent clients; verify a forged public-request header cannot change a rate-limit bucket.
 6. Merge and deploy only with explicit authorization. If a staging backend is unavailable, clearly document the limits of preview testing.
