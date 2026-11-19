@@ -208,6 +208,18 @@ namespace TaskFlow.Api.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("TaskNotificationState", b =>
+                {
+                    b.Property<string>("UserId").HasColumnType("TEXT");
+                    b.Property<int>("TaskId").HasColumnType("INTEGER");
+                    b.Property<string>("Kind").HasColumnType("TEXT");
+                    b.Property<bool>("IsRead").HasColumnType("INTEGER");
+                    b.Property<bool>("IsDismissed").HasColumnType("INTEGER");
+                    b.HasKey("UserId", "TaskId", "Kind");
+                    b.HasIndex("TaskId");
+                    b.ToTable("TaskNotificationStates");
+                });
+
             modelBuilder.Entity("TaskItem", b =>
                 {
                     b.Property<int>("Id")
@@ -314,6 +326,13 @@ namespace TaskFlow.Api.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+            modelBuilder.Entity("TaskNotificationState", b =>
+                {
+                    b.HasOne("TaskItem", null).WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }
