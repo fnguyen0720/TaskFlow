@@ -1,0 +1,46 @@
+name: PostgreSQL API integration
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/postgres-integration.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/postgres-integration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: taskflow_test
+          POSTGRES_PASSWORD: disposable_ci_password
+          POSTGRES_DB: taskflow_integration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskflow_test -d taskflow_integration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      TASKFLOW_INTEGRATION_POSTGRES: "Host=127.0.0.1;Port=5432;Database=taskflow_integration;Username=taskflow_test;Password=disposable_ci_password;Pooling=false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore test dependencies
+        run: dotnet restore backend/TaskFlow.Postgres.Tests/TaskFlow.Postgres.Tests.csproj
+      - name: Run PostgreSQL migrations and real API integration tests
+        run: dotnet test backend/TaskFlow.Postgres.Tests/TaskFlow.Postgres.Tests.csproj --no-restore --configuration Release --logger "console;verbosity=normal"
