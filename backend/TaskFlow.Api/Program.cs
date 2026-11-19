@@ -218,6 +218,32 @@ var identityEndpoints = app.MapGroup("");
 identityEndpoints.RequireRateLimiting("authentication");
 identityEndpoints.MapIdentityApi<ApplicationUser>();
 
+// Read-only endpoints for production uptime and database readiness monitoring.
+// Never return connection strings, error details, migrations, or application data.
+app.MapGet("/health/live", () => Results.Ok(new { status = "alive" }))
+    .AllowAnonymous();
+
+app.MapGet("/health/ready", async (TaskDbContext db, ILogger<Program> logger,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(4));
+        var reachable = await db.Database.CanConnectAsync(timeout.Token);
+        return reachable
+            ? Results.Ok(new { status = "ready" })
+            : Results.Json(new { status = "unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+    {
+        logger.LogWarning("TaskFlow readiness probe failed: {ExceptionType}", ex.GetType().Name);
+        return Results.Json(new { status = "unavailable" },
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+})
+.AllowAnonymous();
+
 // GET: Return only the logged-in user's tasks.
 app.MapGet("/api/tasks", async (
     ClaimsPrincipal user,
