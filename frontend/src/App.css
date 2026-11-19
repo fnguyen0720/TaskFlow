@@ -433,7 +433,21 @@ html, body, #root {
   font-size: 1.1rem;
 }
 
-.calendar-quick-add:hover { box-shadow: inset 0 0 0 1px #625584; }
+@media (hover: hover) {
+  .calendar-day:hover:has(.calendar-quick-add:enabled) {
+    border-color: #756394;
+    background: #25223a;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .calendar-day { transition: background-color 150ms ease, border-color 150ms ease; }
+}
+
+.calendar-day:has(.calendar-quick-add:focus-visible) {
+  border-color: #756394;
+  background: #25223a;
+}
 .calendar-quick-add:focus-visible { outline: 2px solid #b3a3ff; outline-offset: 2px; }
 .calendar-quick-add:disabled { opacity: .6; cursor: default; }
 
