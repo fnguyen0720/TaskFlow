@@ -94,12 +94,13 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
 const toggleTask = async (id) => {
   if (loadingTask?.id === id) return;
 
+  const previousTask = tasks.find(task => task.id === id);
+  if (!previousTask) return;
+
   setLoadingTask({
     id,
     action: "toggle",
   });
-
-  const previousTasks = tasks;
 
   // Optimistically update UI
   setTasks((currentTasks) =>
@@ -132,7 +133,9 @@ const toggleTask = async (id) => {
     console.error("Error updating task:", error);
 
     // Roll back UI
-    setTasks(previousTasks);
+    setTasks(current => current.map(task =>
+      task.id === id ? { ...task, completed: previousTask.completed } : task
+    ));
 
     showNotification(
       "Couldn't update task. Please try again.",
@@ -166,12 +169,13 @@ const startEditing = (task) => {
 const editTask = async (id) => {
 if (loadingTask?.id === id) return;
 
+const previousTask = tasks.find(task => task.id === id);
+if (!previousTask) return;
+
 setLoadingTask({
   id,
   action: "edit",
 });
-
-  const previousTasks = tasks;
 
   const updatedValues = {
     title: editTitle.trim(),
@@ -225,7 +229,13 @@ setLoadingTask({
     console.error("Error editing task:", error);
 
     // Roll back UI
-    setTasks(previousTasks);
+    setTasks(current => current.map(task => task.id === id ? {
+      ...task,
+      title: previousTask.title,
+      priority: previousTask.priority,
+      category: previousTask.category,
+      dueDate: previousTask.dueDate,
+    } : task));
 
     showNotification(
       "Couldn't update task. Please try again.",
@@ -259,8 +269,6 @@ const addTask = async (e) => {
     category: newCategory,
     dueDate: newDueDate || null,
   };
-
-  const previousTasks = tasks;
 
   // Show task immediately
   setTasks((currentTasks) => [
@@ -311,7 +319,7 @@ const addTask = async (e) => {
     console.error("Error creating task:", error);
 
     // Roll back
-    setTasks(previousTasks);
+    setTasks(current => current.filter(task => task.id !== tempId));
 
     showNotification(
       "Couldn't add task. Please try again.",
@@ -325,7 +333,31 @@ finally {
 
 
 
+  const saveDetails = async (id, details) => {
+    const response = await fetch(`${API_BASE_URL}/api/tasks/${id}/details`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(details),
+    });
+
+    if (response.status === 401) {
+      onUnauthorized();
+      return;
+    }
+    if (!response.ok) throw new Error("Couldn't save task details. Please try again.");
+
+    const { notes, checklist } = await response.json();
+    setTasks(current => current.map(task =>
+      task.id === id ? { ...task, notes, checklist } : task
+    ));
+    showNotification("Task details saved.");
+  };
+
   return {
+    saveDetails,
     tasks, setTasks,
     loading, setLoading,
     error, setError,

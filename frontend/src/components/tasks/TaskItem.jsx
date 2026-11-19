@@ -2,6 +2,8 @@ import { formatDueDate, getDueDateClass } from "../../utils/taskUtils.js";
 import TaskEditor from "./TaskEditor.jsx";
 
 export default function TaskItem({ task, editing, loadingTask, actions }) {
+  const checklist = task.checklist ?? [];
+  const checkedCount = checklist.filter(item => item.completed).length;
   const editingThis = editing.id === task.id;
   const busy = loadingTask?.id === task.id || String(task.id).startsWith("temp-");
 
@@ -26,7 +28,15 @@ export default function TaskItem({ task, editing, loadingTask, actions }) {
         />
       ) : (
         <>
-          <span className="task-title">{task.title}</span>
+          <div className="task-title">
+            <button type="button" className="task-detail-trigger" disabled={busy}
+              onClick={() => actions.openDetails(task.id)} aria-haspopup="dialog">
+              {task.title}
+            </button>
+            {checklist.length > 0 && <span className="task-checklist-progress">
+              {checkedCount}/{checklist.length} steps
+            </span>}
+          </div>
           {task.dueDate && (
             <span className={"task-due-date " + getDueDateClass(task.dueDate)}>
               {formatDueDate(task.dueDate)}

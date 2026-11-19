@@ -6,11 +6,11 @@ const STATUS_OPTIONS = [
   { value: "completed", label: "Completed" },
 ];
 
-export default function TaskFilters({ filters }) {
+export default function TaskFilters({ filters, showStatus, defaultSortLabel }) {
   const { status, setStatus, search, setSearch, category, setCategory, sort, setSort } = filters;
   return (
     <div className="filters">
-      <div className="status-filters" role="group" aria-label="Task status">
+      {showStatus && <div className="status-filters" role="group" aria-label="Task status">
         {STATUS_OPTIONS.map(option => (
           <button
             key={option.value}
@@ -22,7 +22,7 @@ export default function TaskFilters({ filters }) {
             {option.label}
           </button>
         ))}
-      </div>
+      </div>}
       <div className="filter-options">
         <input
           className="search-input"
@@ -37,7 +37,7 @@ export default function TaskFilters({ filters }) {
           {TASK_CATEGORIES.map(value => <option key={value} value={value}>{value}</option>)}
         </select>
         <select className="filter-select" value={sort} onChange={event => setSort(event.target.value)} aria-label="Sort tasks">
-          <option value="default">Default</option>
+          <option value="default">{defaultSortLabel}</option>
           <option value="priority">Priority</option>
           <option value="dueDate">Due date</option>
           <option value="newest">Newest</option>

@@ -129,7 +129,13 @@ dotnet run
 
 The local backend uses SQLite through its configured connection string in `appsettings.json`.
 
-If the database has not been initialized, apply the existing Entity Framework Core migrations before running the application.
+Apply the SQLite migrations from `backend/TaskFlow.Api` before starting the updated API.
+
+```bash
+dotnet ef database update --context TaskDbContext
+```
+
+For a PostgreSQL deployment, apply the matching migration with `PostgreSqlTaskDbContext` and the deployment's `TASKFLOW_POSTGRES_CONNECTION` configured before releasing the updated API. Existing tasks start with empty notes and checklists.
 
 ### 3. Start the frontend
 

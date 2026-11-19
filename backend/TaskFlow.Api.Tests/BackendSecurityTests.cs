@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -374,5 +375,45 @@ public class BackendSecurityTests
         Assert.Equal("After", updated.Title);
         Assert.Equal("High", updated.Priority);
         Assert.Equal("Personal", updated.Category);
+    }
+    [Fact]
+    public async Task TaskDetails_RequireOwnershipAndPersistChecklist()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        using var owner = await AuthorizedClientAsync(factory);
+        using var otherUser = await AuthorizedClientAsync(factory);
+        using var created = await owner.PostAsJsonAsync("/api/tasks", new { title = "Plan launch" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var task = await created.Content.ReadFromJsonAsync<TaskItem>();
+        Assert.NotNull(task);
+        Assert.Empty(task.Notes);
+        Assert.Empty(task.Checklist);
+
+        var url = $"/api/tasks/{task.Id}/details";
+        var details = new
+        {
+            notes = "Review launch criteria.",
+            checklist = new[] { new { text = "  Verify build  ", completed = true } }
+        };
+
+        using var rejected = await otherUser.PutAsJsonAsync(url, details);
+        Assert.Equal(HttpStatusCode.NotFound, rejected.StatusCode);
+
+        using var saved = await owner.PutAsJsonAsync(url, details);
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        using var invalid = await owner.PutAsJsonAsync(url, new { notes = new string('x', 4001) });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+
+        using var response = await owner.GetAsync("/api/tasks");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var payload = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+        var stored = Assert.Single(payload.RootElement.EnumerateArray());
+        Assert.Equal("Plan launch", stored.GetProperty("title").GetString());
+        Assert.False(stored.GetProperty("completed").GetBoolean());
+        Assert.Equal(details.notes, stored.GetProperty("notes").GetString());
+        var step = Assert.Single(stored.GetProperty("checklist").EnumerateArray());
+        Assert.Equal("Verify build", step.GetProperty("text").GetString());
+        Assert.True(step.GetProperty("completed").GetBoolean());
     }
 }

@@ -64,6 +64,25 @@ export function getTaskStats(tasks, now = new Date()) {
   return { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate };
 }
 
+export function getTaskViews(tasks, now = new Date()) {
+  const today = dueDayNumber(now);
+  const views = { all: tasks, today: [], upcoming: [], unscheduled: [] };
+
+  for (const task of tasks) {
+    if (task.completed) continue;
+    const due = dueDayNumber(task.dueDate);
+    if (due === null) {
+      views.unscheduled.push(task);
+    } else if (today !== null && due <= today) {
+      views.today.push(task);
+    } else if (today !== null) {
+      views.upcoming.push(task);
+    }
+  }
+
+  return views;
+}
+
 export function selectTasks(tasks, { search = "", filter = "all", categoryFilter = "all", sort = "default" } = {}) {
   const term = search.trim().toLowerCase();
   const priorityOrder = { High: 1, Medium: 2, Low: 3 };
@@ -86,4 +105,25 @@ export function selectTasks(tasks, { search = "", filter = "all", categoryFilter
     if (sort === "oldest") return Number(a.id) - Number(b.id);
     return 0;
   });
+}
+
+export function getWeekDays(tasks, reference = new Date(), weekOffset = 0) {
+  const today = calendarDate(reference);
+  const monday = new Date(today);
+  const daysSinceMonday = (monday.getDay() + 6) % 7;
+  monday.setDate(monday.getDate() - daysSinceMonday + 7 * weekOffset);
+  const start = dayNumber(monday);
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(monday);
+    date.setDate(date.getDate() + index);
+    return { date, isToday: start + index === dayNumber(today), tasks: [] };
+  });
+
+  for (const task of tasks) {
+    const due = dueDayNumber(task.dueDate);
+    if (due !== null && due >= start && due < start + days.length) {
+      days[due - start].tasks.push(task);
+    }
+  }
+  return days;
 }

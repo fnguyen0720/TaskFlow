@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { formatDueDate, getDueDateClass, getTaskStats, selectTasks } from "../src/utils/taskUtils.js";
+import { formatDueDate, getDueDateClass, getTaskStats, getTaskViews, getWeekDays, selectTasks } from "../src/utils/taskUtils.js";
 
 const now = new Date(2026, 10, 16, 12);
 const date = (day) => new Date(2026, 10, day, 12).toISOString();
@@ -76,4 +76,35 @@ test("keeps the correct day in US Eastern time and across daylight saving transi
     env: { ...process.env, TZ: "America/New_York" },
   });
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("planner views separate open tasks by calendar due date", () => {
+  const entries = [...tasks, { id: 5, completed: false, dueDate: "2026-11-17T00:00:00Z" }];
+  const views = getTaskViews(entries, now);
+
+  assert.equal(views.all, entries);
+  assert.deepEqual(views.today.map(task => task.id), [1, 3]);
+  assert.deepEqual(views.upcoming.map(task => task.id), [5]);
+  assert.deepEqual(views.unscheduled.map(task => task.id), [4]);
+});
+
+test("weekly calendar groups date-only deadlines across month and DST boundaries", () => {
+  const sunday = new Date(2026, 10, 1, 12);
+  const tasks = [
+    { id: 1, dueDate: "2026-10-26T00:00:00Z" },
+    { id: 2, dueDate: "2026-11-01T00:00:00Z", completed: true },
+    { id: 3, dueDate: "2026-11-02T00:00:00Z" },
+    { id: 4, dueDate: null },
+  ];
+  const current = getWeekDays(tasks, sunday);
+  assert.equal(current.length, 7);
+  assert.deepEqual(current[0].tasks.map(task => task.id), [1]);
+  assert.deepEqual(current[6].tasks.map(task => task.id), [2]);
+  assert.equal(current[6].isToday, true);
+  assert.deepEqual(current.flatMap(day => day.tasks).map(task => task.id), [1, 2]);
+
+  const next = getWeekDays(tasks, sunday, 1);
+  assert.equal(next[0].date.getDate(), 2);
+  assert.deepEqual(next[0].tasks.map(task => task.id), [3]);
+  assert.equal(next.some(day => day.isToday), false);
 });
