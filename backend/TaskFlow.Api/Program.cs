@@ -212,6 +212,16 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// The Render service auto-deploys main. Expand the production PostgreSQL
+// schema BEFORE starting the new API so existing tasks remain available.
+// This upgrade is additive and idempotent; a failed preflight aborts startup.
+if (app.Environment.IsProduction() &&
+    string.Equals(app.Configuration["DatabaseProvider"], "Postgres",
+        StringComparison.OrdinalIgnoreCase))
+{
+    await RecurringProductionMigration.EnsureAppliedAsync(app.Services);
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
