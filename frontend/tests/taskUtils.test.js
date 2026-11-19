@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { formatDueDate, getDueDateClass, getTaskStats, getTaskViews, getWeekDays, selectTasks } from "../src/utils/taskUtils.js";
+import { formatDueDate, getDueDateClass, getTaskStats, getTaskViews, getWeekDays, getWeekOffsetForDate, selectTasks } from "../src/utils/taskUtils.js";
 
 const now = new Date(2026, 10, 16, 12);
 const date = (day) => new Date(2026, 10, day, 12).toISOString();
@@ -107,4 +107,14 @@ test("weekly calendar groups date-only deadlines across month and DST boundaries
   assert.equal(next[0].date.getDate(), 2);
   assert.deepEqual(next[0].tasks.map(task => task.id), [3]);
   assert.equal(next.some(day => day.isToday), false);
+});
+
+test("jumps to the selected Monday-based week across DST and year boundaries", () => {
+  const reference = new Date(2026, 10, 1, 12);
+  assert.equal(getWeekOffsetForDate("2026-11-01", reference), 0);
+  assert.equal(getWeekOffsetForDate("2026-11-02", reference), 1);
+  assert.equal(getWeekOffsetForDate("2026-10-25", reference), -1);
+  assert.equal(getWeekOffsetForDate("2027-01-01", reference), 9);
+  assert.equal(getWeekOffsetForDate("2026-02-30", reference), null);
+  assert.equal(getWeekOffsetForDate("", reference), null);
 });

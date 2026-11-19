@@ -10,7 +10,9 @@ const calendarDate = (value) => {
       const year = Number(match[1]);
       const month = Number(match[2]);
       const day = Number(match[3]);
-      const result = new Date(year, month - 1, day);
+      const result = new Date(0);
+      result.setHours(0, 0, 0, 0);
+      result.setFullYear(year, month - 1, day);
       // Reject invalid dates rather than silently rolling them into another month.
       if (result.getFullYear() !== year || result.getMonth() !== month - 1 || result.getDate() !== day) {
         return null;
@@ -32,7 +34,13 @@ export function formatDateForInput(date) {
 }
 
 // UTC day numbers are used only for arithmetic, avoiding DST-length days.
-const dayNumber = (date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000;
+const dayNumber = (date) => {
+  const midnight = new Date(0);
+  midnight.setUTCFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+  return midnight.getTime() / 86400000;
+};
+
+const daysSinceMonday = (date) => (date.getDay() + 6) % 7;
 const dueDayNumber = (value) => {
   const date = calendarDate(value);
   return date ? dayNumber(date) : null;
@@ -114,11 +122,19 @@ export function selectTasks(tasks, { search = "", filter = "all", categoryFilter
   });
 }
 
+export function getWeekOffsetForDate(value, reference = new Date()) {
+  const target = calendarDate(value);
+  const today = calendarDate(reference);
+  if (!target || !today) return null;
+
+  const currentMonday = dayNumber(today) - daysSinceMonday(today);
+  return Math.floor((dayNumber(target) - currentMonday) / 7);
+}
+
 export function getWeekDays(tasks, reference = new Date(), weekOffset = 0) {
   const today = calendarDate(reference);
   const monday = new Date(today);
-  const daysSinceMonday = (monday.getDay() + 6) % 7;
-  monday.setDate(monday.getDate() - daysSinceMonday + 7 * weekOffset);
+  monday.setDate(monday.getDate() - daysSinceMonday(monday) + 7 * weekOffset);
   const start = dayNumber(monday);
   const days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(monday);

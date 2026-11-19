@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatDateForInput, getWeekDays } from "../../utils/taskUtils.js";
+import { formatDateForInput, getWeekDays, getWeekOffsetForDate } from "../../utils/taskUtils.js";
 
 const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric" });
 const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -7,6 +7,7 @@ const fullDayFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "full" 
 
 export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding, onRescheduleTask, loadingTask }) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [jumpDate, setJumpDate] = useState("");
   const [draggedTask, setDraggedTask] = useState(null);
   const [dropDate, setDropDate] = useState(null);
 
@@ -26,7 +27,14 @@ export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding, o
     onRescheduleTask(draggedTask.id, date);
   }
 
-  const days = getWeekDays(tasks, new Date(), weekOffset);
+  const today = new Date();
+  const days = getWeekDays(tasks, today, weekOffset);
+  const jumpOffset = getWeekOffsetForDate(jumpDate, today);
+
+  function jumpToDate(event) {
+    event.preventDefault();
+    if (jumpOffset !== null) setWeekOffset(jumpOffset);
+  }
   const range = dateFormatter.formatRange(days[0].date, days[6].date);
 
   return (
@@ -38,6 +46,13 @@ export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding, o
           <button type="button" onClick={() => setWeekOffset(0)} disabled={weekOffset === 0}>This week</button>
           <button type="button" aria-label="Next week" onClick={() => setWeekOffset(offset => offset + 1)}>›</button>
         </div>
+        <form className="calendar-jump calendar-controls" onSubmit={jumpToDate}>
+          <label htmlFor="calendar-jump-date">Jump to date</label>
+          <input id="calendar-jump-date" type="date" value={jumpDate}
+            min="0001-01-01" max="9999-12-31"
+            onChange={event => setJumpDate(event.target.value)} required />
+          <button type="submit" disabled={jumpOffset === null}>Go</button>
+        </form>
       </div>
       <div className="calendar-days">
         {days.map(({ date, isToday, tasks: dailyTasks }) => {
