@@ -1,0 +1,60 @@
+name: Production smoke and uptime monitoring
+
+on:
+  pull_request:
+    paths:
+      - "scripts/smoke.mjs"
+      - "scripts/smoke.test.mjs"
+      - ".github/workflows/production-smoke.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "scripts/smoke.mjs"
+      - "scripts/smoke.test.mjs"
+      - ".github/workflows/production-smoke.yml"
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+  deployment_status:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke-unit:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify smoke probes without contacting production
+        run: node --test scripts/smoke.test.mjs
+
+  production:
+    # A production deployment_status triggers a check only on successful deployment.
+    # The scheduled and manual checks also work when providers do not send GitHub events.
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'Production'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run read-only production smoke probes
+        run: node scripts/smoke.mjs
+        env:
+          TASKFLOW_FRONTEND_URL: https://task-flow-pi-lake.vercel.app
+          TASKFLOW_API_URL: https://taskflow-k63f.onrender.com

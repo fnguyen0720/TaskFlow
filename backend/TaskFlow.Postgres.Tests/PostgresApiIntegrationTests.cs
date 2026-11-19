@@ -30,6 +30,19 @@ public sealed class PostgresApiIntegrationTests : IClassFixture<PostgresApiFacto
     }
 
     [Fact]
+    public async Task HealthProbes_ArePublicAndPostgresReadinessIsHealthy()
+    {
+        using var client = _factory.NewClient();
+        using var live = await client.GetAsync("/health/live");
+        Assert.Equal(HttpStatusCode.OK, live.StatusCode);
+        Assert.Equal("alive", (await JsonAsync(live)).GetProperty("status").GetString());
+
+        using var ready = await client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+        Assert.Equal("ready", (await JsonAsync(ready)).GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task RealPostgresMigrations_CreateTaskDetailsAndIdentityTables()
     {
         var connectionString = PostgresApiFactory.RequireLocalTestDatabase();
