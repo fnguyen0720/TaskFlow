@@ -27,7 +27,7 @@ function App() {
     editingId, setEditingId, editTitle, setEditTitle, editPriority, setEditPriority,
     editCategory, setEditCategory, editDueDate, setEditDueDate, loadingTask,
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
-    toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails, rescheduleTask,
+    toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails, rescheduleTask, undoMove, undoableMove, dismissMove,
   } = useTasks({ token, onUnauthorized: clearAuth, showNotification });
 
   const logout = () => {
@@ -36,6 +36,7 @@ function App() {
     setTasks([]);
     setError("");
     setNotification(null);
+    dismissMove();
   };
 
   // Pending deletions are hidden from the dashboard, but not removed from
@@ -79,10 +80,10 @@ function App() {
   };
   const actions = {
     add: addTask, toggle: toggleTask, delete: deleteTask, undoDelete,
-    openDetails: setDetailId, reschedule: rescheduleTask, startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
+    openDetails: setDetailId, reschedule: rescheduleTask, undoMove, dismissMove, startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
   };
   const data = {
-    tasks: visibleTasks, filteredTasks, totalCount, loading, error, loadingTask, pendingDeletes,
+    tasks: visibleTasks, filteredTasks, totalCount, loading, error, loadingTask, pendingDeletes, undoableMove,
   };
 
   if (!token) {

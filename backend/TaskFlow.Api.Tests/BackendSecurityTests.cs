@@ -432,6 +432,29 @@ public class BackendSecurityTests
         Assert.Equal("Verify build", step.GetProperty("text").GetString());
         Assert.True(step.GetProperty("completed").GetBoolean());
 
+        using var otherUserUndo = await otherUser.PatchAsJsonAsync(dateUrl, new
+        {
+            dueDate = "2026-11-19",
+            expectedDueDate = "2026-11-21",
+        });
+        Assert.Equal(HttpStatusCode.NotFound, otherUserUndo.StatusCode);
+
+        using var staleUndo = await owner.PatchAsJsonAsync(dateUrl, new
+        {
+            dueDate = "2026-11-19",
+            expectedDueDate = "2026-11-20",
+        });
+        Assert.Equal(HttpStatusCode.Conflict, staleUndo.StatusCode);
+
+        using var undone = await owner.PatchAsJsonAsync(dateUrl, new
+        {
+            dueDate = "2026-11-19",
+            expectedDueDate = "2026-11-21",
+        });
+        Assert.Equal(HttpStatusCode.OK, undone.StatusCode);
+        using var undoPayload = JsonDocument.Parse(await undone.Content.ReadAsStringAsync());
+        Assert.Equal(new DateTime(2026, 11, 19), undoPayload.RootElement.GetProperty("dueDate").GetDateTime());
+
         using var cleared = await owner.PutAsJsonAsync(url, new
         {
             details.notes,

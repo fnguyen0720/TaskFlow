@@ -17,6 +17,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
   const [editCategory, setEditCategory] = useState("General");
   const [editDueDate, setEditDueDate] = useState("");
   const [loadingTask, setLoadingTask] = useState(null);
+  const [lastMove, setLastMove] = useState(null);
   const [addingTask, setAddingTask] = useState(false);
   const { pendingDeletes, pendingDeleteIds, deleteTask, undoDelete } = useUndoableDelete({
     token, tasks, setTasks, showNotification,
@@ -224,6 +225,9 @@ setLoadingTask({
 
     await response.json();
 
+    if ((previousTask.dueDate?.slice(0, 10) ?? null) !== updatedValues.dueDate) {
+      setLastMove(current => current?.id === id ? null : current);
+    }
     showNotification("Task updated.");
   } catch (error) {
     console.error("Error editing task:", error);
@@ -333,9 +337,9 @@ finally {
 
 
 
-  async function updateTaskFields(id, endpoint, changes, errorMessage) {
+  async function updateTaskFields(id, endpoint, changes, errorMessage, method = "PUT") {
     const response = await fetch(`${API_BASE_URL}/api/tasks/${id}/${endpoint}`, {
-      method: "PUT",
+      method,
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
@@ -347,7 +351,7 @@ finally {
       onUnauthorized();
       return;
     }
-    if (!response.ok) throw new Error(errorMessage);
+    if (!response.ok) throw new Error(errorMessage, { cause: response.status });
     return response.json();
   }
 
@@ -359,29 +363,56 @@ finally {
       ...task, notes, checklist,
       ...(details.updateDueDate ? { dueDate } : {}),
     } : task));
+    if (details.updateDueDate) setLastMove(current => current?.id === id ? null : current);
     showNotification("Task details saved.");
   }
 
-  async function rescheduleTask(id, date) {
+  const movedTask = lastMove?.session === token && tasks.find(task =>
+    task.id === lastMove.id && !pendingDeleteIds.has(task.id) && task.dueDate?.slice(0, 10) === lastMove.date
+  );
+  const undoableMove = movedTask ? { ...lastMove, title: movedTask.title } : null;
+
+  async function saveMove(id, date, expectedDueDate, undoing = false) {
     if (loadingTask) return;
     setLoadingTask({ id, action: "reschedule" });
+    const failureMessage = undoing ? "Couldn't undo the move. Please try again." : "Couldn't move the task. Please try again.";
     try {
-      const result = await updateTaskFields(id, "due-date", { dueDate: date },
-        "Couldn't move the task. Please try again.");
+      const result = await updateTaskFields(id, "due-date", { dueDate: date, expectedDueDate }, failureMessage, "PATCH");
       if (!result) return;
       setTasks(current => current.map(task =>
         task.id === id ? { ...task, dueDate: result.dueDate } : task
       ));
-      showNotification("Task rescheduled.");
+      if (undoing) {
+        setLastMove(null);
+        showNotification("Original due date restored.");
+      } else {
+        setLastMove({ id, date, previousDate: expectedDueDate, session: token });
+      }
     } catch (error) {
-      showNotification(error.message, "error");
+      if (error.cause === 409 || error.cause === 404) {
+        if (undoing) setLastMove(null);
+        showNotification("This task changed elsewhere. Refreshing your tasks.", "error");
+        await fetchTasks();
+      } else {
+        showNotification(failureMessage, "error");
+      }
     } finally {
       setLoadingTask(current => current?.action === "reschedule" && current.id === id ? null : current);
     }
   }
 
+  function rescheduleTask(id, date) {
+    const previousDate = tasks.find(task => task.id === id)?.dueDate?.slice(0, 10);
+    if (previousDate && previousDate !== date) return saveMove(id, date, previousDate);
+  }
+
+  function undoMove() {
+    if (undoableMove) return saveMove(undoableMove.id, undoableMove.previousDate, undoableMove.date, true);
+  }
+
   return {
-    saveDetails, rescheduleTask,
+    saveDetails, rescheduleTask, undoMove, undoableMove,
+    dismissMove: () => setLastMove(null),
     tasks, setTasks,
     loading, setLoading,
     error, setError,

@@ -7,3 +7,5 @@ public sealed record TaskDetailsUpdate(
     DateOnly? DueDate = null);
 
 public sealed record TaskDueDateUpdate(DateOnly? DueDate);
+
+public sealed record GuardedTaskDueDateUpdate(DateOnly? DueDate, DateOnly? ExpectedDueDate);
