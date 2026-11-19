@@ -342,28 +342,43 @@ app.MapPost("/api/tasks", async (
 })
 .RequireAuthorization();
 
-// PUT: Toggle completion, but only for the owner's task.
+// Complete a recurring task atomically and create one fresh occurrence.
+// A conditional update prevents two simultaneous clicks from creating duplicates.
 app.MapPut("/api/tasks/{id}", async (
     int id,
     ClaimsPrincipal user,
     TaskDbContext db) =>
 {
     var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    var task = await db.Tasks.AsNoTracking().FirstOrDefaultAsync(
+        t => t.Id == id && t.UserId == userId);
+    if (task is null) return Results.NotFound();
 
-    var task = await db.Tasks.FirstOrDefaultAsync(
-        t => t.Id == id && t.UserId == userId
-    );
-
-    if (task == null)
+    if (task.Completed)
     {
-        return Results.NotFound();
+        await db.Tasks.Where(t => t.Id == id && t.UserId == userId && t.Completed)
+            .ExecuteUpdateAsync(update => update.SetProperty(t => t.Completed, false));
+        await transaction.CommitAsync();
+        return Results.Ok(await db.Tasks.AsNoTracking().FirstAsync(t => t.Id == id));
     }
 
-    task.Completed = !task.Completed;
+    var changed = await db.Tasks
+        .Where(t => t.Id == id && t.UserId == userId && !t.Completed)
+        .ExecuteUpdateAsync(update => update.SetProperty(t => t.Completed, true));
+    if (changed == 0)
+    {
+        await transaction.RollbackAsync();
+        return Results.Conflict("Task completion changed. Refresh your tasks.");
+    }
 
-    await db.SaveChangesAsync();
-
-    return Results.Ok(task);
+    if (task.RecurrenceRule != "None" && task.DueDate.HasValue)
+    {
+        db.Tasks.Add(TaskSchedule.NextOccurrence(task));
+        await db.SaveChangesAsync();
+    }
+    await transaction.CommitAsync();
+    return Results.Ok(await db.Tasks.AsNoTracking().FirstAsync(t => t.Id == id));
 })
 .RequireAuthorization();
 
@@ -394,6 +409,8 @@ app.MapPut("/api/tasks/{id}/title", async (
     task.Title = updatedTask.Title.Trim();
     task.Priority = updatedTask.Priority;
     task.Category = updatedTask.Category;
+    task.RecurrenceRule = updatedTask.RecurrenceRule;
+    task.ReminderDaysBefore = updatedTask.ReminderDaysBefore;
     task.DueDate = updatedTask.DueDate.HasValue
     ? DateTime.SpecifyKind(
         updatedTask.DueDate.Value,
