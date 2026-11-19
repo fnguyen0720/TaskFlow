@@ -229,11 +229,19 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ChecklistJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<bool>("Completed")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Priority")
                         .IsRequired()

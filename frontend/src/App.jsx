@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { getTaskStats, selectTasks } from "./utils/taskUtils.js";
+import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
+import TaskDetails from "./components/tasks/TaskDetails.jsx";
 import TaskPanel from "./components/tasks/TaskPanel.jsx";
 import { useAuth } from "./hooks/useAuth.js";
 import { useNotification } from "./hooks/useNotification.js";
 import { useTasks } from "./hooks/useTasks.js";
 
 function App() {
+  const [detailId, setDetailId] = useState(null);
+  const [view, setView] = useState("all");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -24,11 +27,12 @@ function App() {
     editingId, setEditingId, editTitle, setEditTitle, editPriority, setEditPriority,
     editCategory, setEditCategory, editDueDate, setEditDueDate, loadingTask,
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
-    toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask,
+    toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails,
   } = useTasks({ token, onUnauthorized: clearAuth, showNotification });
 
   const logout = () => {
     clearAuth();
+    setDetailId(null);
     setTasks([]);
     setError("");
     setNotification(null);
@@ -38,7 +42,14 @@ function App() {
   // the server until the Undo window expires.
   const visibleTasks = tasks.filter(task => !pendingDeleteIds.has(task.id));
   const { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate } = getTaskStats(visibleTasks);
-  const filteredTasks = selectTasks(visibleTasks, { search, filter, categoryFilter, sort });
+  const detailTask = visibleTasks.find(task => task.id === detailId);
+  const views = getTaskViews(visibleTasks);
+  const filteredTasks = selectTasks(views[view] ?? visibleTasks, {
+    search,
+    filter: view === "all" || view === "calendar" ? filter : "all",
+    categoryFilter,
+    sort: view === "upcoming" && sort === "default" ? "dueDate" : sort,
+  });
 
   const form = {
     title: newTask, setTitle: setNewTask,
@@ -68,7 +79,7 @@ function App() {
   };
   const actions = {
     add: addTask, toggle: toggleTask, delete: deleteTask, undoDelete,
-    startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
+    openDetails: setDetailId, startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
   };
   const data = {
     tasks: visibleTasks, filteredTasks, totalCount, loading, error, loadingTask, pendingDeletes,
@@ -159,7 +170,12 @@ function App() {
       )}
       <DashboardHeader logout={logout} />
       <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
-      <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions} />
+      <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
+        planner={{ view, setView, views }} />
+      {detailTask && (
+        <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
+          onClose={() => setDetailId(null)} />
+      )}
       <footer className="app-footer"><span>TaskFlow</span><span>Make room for what matters.</span></footer>
     </div>
   );

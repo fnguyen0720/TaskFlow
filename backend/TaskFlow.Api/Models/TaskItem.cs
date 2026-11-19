@@ -1,3 +1,7 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 public class TaskItem
 {
     public int Id { get; set; }
@@ -11,6 +15,15 @@ public class TaskItem
     public DateTime? DueDate { get; set; }
 
     public string Category { get; set; } = "General";
+
+    public string Notes { get; set; } = "";
+
+    [JsonIgnore]
+    public string ChecklistJson { get; set; } = "[]";
+
+    [NotMapped]
+    public IReadOnlyList<TaskChecklistItem> Checklist =>
+        JsonSerializer.Deserialize<TaskChecklistItem[]>(ChecklistJson) ?? [];
 
     public string? UserId { get; set; }
 }

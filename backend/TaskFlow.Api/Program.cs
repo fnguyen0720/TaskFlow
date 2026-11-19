@@ -1,3 +1,4 @@
+using System.Text.Json;
 
 using System.Security.Claims;
 using System.Threading.RateLimiting;
@@ -258,6 +259,8 @@ app.MapPost("/api/tasks", async (
     task.Id = 0;
     task.Completed = false;
     task.UserId = userId;
+    task.Notes = "";
+    task.ChecklistJson = "[]";
 
     if (task.DueDate.HasValue)
     {
@@ -334,6 +337,35 @@ app.MapPut("/api/tasks/{id}/title", async (
     : null;
     await db.SaveChangesAsync();
 
+    return Results.Ok(task);
+})
+.RequireAuthorization();
+
+// PUT: Save the owner's notes and checklist without changing task status.
+app.MapPut("/api/tasks/{id}/details", async (
+    int id,
+    TaskDetailsUpdate details,
+    ClaimsPrincipal user,
+    TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+    if (task is null)
+    {
+        return Results.NotFound();
+    }
+
+    var notes = details.Notes ?? "";
+    var checklist = details.Checklist ?? [];
+    if (notes.Length > 4000 || checklist.Count > 30 ||
+        checklist.Any(item => item is null || string.IsNullOrWhiteSpace(item.Text) || item.Text.Length > 160))
+    {
+        return Results.BadRequest("Notes are limited to 4,000 characters and checklists to 30 items of 160 characters each.");
+    }
+
+    task.Notes = notes;
+    task.ChecklistJson = JsonSerializer.Serialize(checklist.Select(item => item! with { Text = item!.Text.Trim() }));
+    await db.SaveChangesAsync();
     return Results.Ok(task);
 })
 .RequireAuthorization();

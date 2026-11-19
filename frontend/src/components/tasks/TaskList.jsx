@@ -1,6 +1,6 @@
 import TaskItem from "./TaskItem.jsx";
 
-export default function TaskList({ data, editing, actions }) {
+export default function TaskList({ data, editing, actions, viewEmptyMessage }) {
   const { tasks, filteredTasks, loading, error, loadingTask } = data;
 
   return (
@@ -12,8 +12,8 @@ export default function TaskList({ data, editing, actions }) {
       )}
       {!loading && !error && filteredTasks.length === 0 && (
         <div className="empty-state">
-          <p>{tasks.length === 0 ? "Your space is ready." : "No tasks found."}</p>
-          <span>{tasks.length === 0 ? "Add your first task above to get started." : "Try adjusting your filters or search."}</span>
+          <p>{viewEmptyMessage ?? (tasks.length === 0 ? "Your space is ready." : "No tasks found.")}</p>
+          {!viewEmptyMessage && <span>{tasks.length === 0 ? "Add your first task above to get started." : "Try adjusting your filters or search."}</span>}
         </div>
       )}
       {!loading && !error && (
