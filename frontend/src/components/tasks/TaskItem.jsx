@@ -33,6 +33,10 @@ export default function TaskItem({ task, editing, loadingTask, actions }) {
               onClick={() => actions.openDetails(task.id)} aria-haspopup="dialog">
               {task.title}
             </button>
+            {task.recurrenceRule && task.recurrenceRule !== "None" &&
+              <span className="task-schedule-label" title="Repeats after completion">↻ {task.recurrenceRule}</span>}
+            {task.reminderDaysBefore != null &&
+              <span className="task-schedule-label" title="In-app reminder enabled">◷ Reminder</span>}
             {checklist.length > 0 && <span className="task-checklist-progress">
               {checkedCount}/{checklist.length} steps
             </span>}
