@@ -72,6 +72,8 @@ test("real registration, login, create, calendar Move and Undo persist in Postgr
   await page.getByRole("button", { name: "Undo move" }).click();
   await expect(page.getByRole("button", { name: "Undo move" })).toHaveCount(0);
   await page.reload();
+  await page.getByRole("navigation", { name: "Task views" })
+    .getByRole("button", { name: /Calendar/ }).click();
   await expect(page.getByRole("region", { name: "Weekly task calendar" })).toContainText(title);
 
   const storedAfter = await request.get(`${API}/api/tasks`, { headers });
@@ -94,7 +96,7 @@ test("a second real user cannot see or modify the first user's tasks", async ({ 
   const task = await created.json();
 
   await signIn(page, otherEmail);
-  await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText(title);
+  await expect(page.locator("body")).not.toContainText(title);
   const otherToken = await tokenFor(request, otherEmail);
   const denied = await request.patch(`${API}/api/tasks/${task.id}/due-date`, {
     headers: { Authorization: `Bearer ${otherToken}` },
