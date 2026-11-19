@@ -1,11 +1,12 @@
 import { TASK_CATEGORIES, TASK_PRIORITIES } from "./taskOptions.js";
 
-export default function TaskCreateForm({ form, onAdd }) {
+export default function TaskCreateForm({ form, onAdd, titleRef }) {
   const { title, setTitle, priority, setPriority, category, setCategory, dueDate, setDueDate, adding } = form;
 
   return (
     <form onSubmit={onAdd} className="task-form" aria-label="Add a new task">
       <input
+        ref={titleRef}
         type="text"
         placeholder="What would you like to get done?"
         value={title}

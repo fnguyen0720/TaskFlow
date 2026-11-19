@@ -410,3 +410,30 @@ html, body, #root {
 @media (min-width: 601px) and (max-width: 760px) {
   .planner-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+.calendar-day-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.calendar-day-heading h4 { margin: 0; }
+.calendar-quick-add {
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid #454052;
+  border-radius: 8px;
+  background: #242638;
+  color: #f0edff;
+  cursor: pointer;
+}
+.calendar-quick-add:hover { background: #39304e; }
+.calendar-quick-add:focus-visible { outline: 2px solid #b3a3ff; outline-offset: 2px; }
+.calendar-quick-add:disabled { opacity: .6; cursor: default; }
+
+@media (max-width: 760px) {
+  .calendar-quick-add { min-width: 44px; min-height: 44px; }
+}

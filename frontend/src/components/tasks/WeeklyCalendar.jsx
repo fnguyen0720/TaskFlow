@@ -5,7 +5,7 @@ const dayFormatter = new Intl.DateTimeFormat(undefined, { weekday: "short", day:
 const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
 const fullDayFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "full" });
 
-export default function WeeklyCalendar({ tasks, onOpenTask }) {
+export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const days = getWeekDays(tasks, new Date(), weekOffset);
   const range = dateFormatter.formatRange(days[0].date, days[6].date);
@@ -23,7 +23,12 @@ export default function WeeklyCalendar({ tasks, onOpenTask }) {
       <div className="calendar-days">
         {days.map(({ date, isToday, tasks: dailyTasks }) => (
           <section key={date.getTime()} className="calendar-day" aria-label={fullDayFormatter.format(date)}>
-            <h4 aria-current={isToday ? "date" : undefined}>{dayFormatter.format(date)}</h4>
+            <div className="calendar-day-heading">
+              <h4 aria-current={isToday ? "date" : undefined}>{dayFormatter.format(date)}</h4>
+              <button type="button" className="calendar-quick-add"
+                aria-label={`Add task for ${fullDayFormatter.format(date)}`}
+                disabled={adding} onClick={() => onAddTask(date)}>+</button>
+            </div>
             {dailyTasks.length === 0 ? <p className="calendar-empty">No tasks</p> : (
               <ul>
                 {dailyTasks.map(task => (
