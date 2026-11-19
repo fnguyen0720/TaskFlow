@@ -232,6 +232,13 @@ namespace TaskFlow.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("ReminderDaysBefore")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RecurrenceRule")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasColumnType("TEXT");
