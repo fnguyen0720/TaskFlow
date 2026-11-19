@@ -55,7 +55,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
 
         setTasks(data);
 
-      } catch (error) {
+      } catch {
 
         console.warn("Task list request failed");
 
@@ -131,7 +131,7 @@ const toggleTask = async (id) => {
     await response.json();
 
     showNotification("Task updated.");
-  } catch (error) {
+  } catch {
     console.warn("Task update request failed");
 
     // Roll back UI
@@ -230,7 +230,7 @@ setLoadingTask({
       setLastMove(current => current?.id === id ? null : current);
     }
     showNotification("Task updated.");
-  } catch (error) {
+  } catch {
     console.warn("Task edit request failed");
 
     // Roll back UI
@@ -320,7 +320,7 @@ const addTask = async (e) => {
     );
 
     showNotification("Task added.");
-  } catch (error) {
+  } catch {
     console.warn("Task creation request failed");
 
     // Roll back
