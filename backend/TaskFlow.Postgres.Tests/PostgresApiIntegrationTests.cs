@@ -102,6 +102,73 @@ public sealed class PostgresApiIntegrationTests : IClassFixture<PostgresApiFacto
     }
 
     [Fact]
+    public async Task NotificationState_RequiresOwnerAndPersistsAcrossClients()
+    {
+        using var owner = await _factory.AuthenticatedClientAsync();
+        using var other = await _factory.AuthenticatedClientAsync();
+        using var created = await owner.PostAsJsonAsync("/api/tasks", new
+        {
+            title = "Private notification state", priority = "High", category = "Work",
+            dueDate = "2026-11-19", reminderDaysBefore = 1
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var task = await JsonAsync(created);
+        var id = task.GetProperty("id").GetInt32();
+
+        using var anonymous = _factory.NewClient();
+        using var anonymousResponse = await anonymous.GetAsync("/api/notifications/state");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousResponse.StatusCode);
+        using var unauthorizedWrite = await other.PutAsJsonAsync(
+            $"/api/notifications/state/{id}/due-today", new { action = "dismiss" });
+        Assert.Equal(HttpStatusCode.NotFound, unauthorizedWrite.StatusCode);
+
+        using var invalidKind = await owner.PutAsJsonAsync(
+            $"/api/notifications/state/{id}/private-title", new { action = "read" });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidKind.StatusCode);
+        using var invalidAction = await owner.PutAsJsonAsync(
+            $"/api/notifications/state/{id}/due-today", new { action = "delete" });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidAction.StatusCode);
+
+        using var read = await owner.PutAsJsonAsync(
+            $"/api/notifications/state/{id}/due-today", new { action = "read" });
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+        using var dismiss = await owner.PutAsJsonAsync(
+            $"/api/notifications/state/{id}/due-today", new { action = "dismiss" });
+        Assert.Equal(HttpStatusCode.OK, dismiss.StatusCode);
+        using var repeated = await owner.PutAsJsonAsync(
+            $"/api/notifications/state/{id}/due-today", new { action = "dismiss" });
+        Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
+
+        using var ownStates = await owner.GetAsync("/api/notifications/state");
+        var own = (await JsonAsync(ownStates)).EnumerateArray()
+            .Where(item => item.GetProperty("taskId").GetInt32() == id)
+            .ToArray();
+        var state = Assert.Single(own);
+        Assert.True(state.GetProperty("isRead").GetBoolean());
+        Assert.True(state.GetProperty("isDismissed").GetBoolean());
+
+        using var otherStates = await other.GetAsync("/api/notifications/state");
+        Assert.Empty((await JsonAsync(otherStates)).EnumerateArray());
+
+        using var deleted = await owner.DeleteAsync($"/api/tasks/{id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
+        using var after = await owner.GetAsync("/api/notifications/state");
+        Assert.DoesNotContain((await JsonAsync(after)).EnumerateArray(),
+            item => item.GetProperty("taskId").GetInt32() == id);
+    }
+
+    [Fact]
+    public async Task NotificationMigration_IsTrackedAndGuardedStartupIsIdempotent()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var applied = await scope.ServiceProvider.GetRequiredService<TaskDbContext>()
+            .Database.GetAppliedMigrationsAsync();
+        Assert.Contains("20261119230001_AddNotificationStatesPostgres", applied);
+        await RecurringProductionMigration.EnsureAppliedAsync(_factory.Services);
+        await RecurringProductionMigration.EnsureAppliedAsync(_factory.Services);
+    }
+
+    [Fact]
     public async Task HealthProbes_ArePublicAndPostgresReadinessIsHealthy()
     {
         using var client = _factory.NewClient();
