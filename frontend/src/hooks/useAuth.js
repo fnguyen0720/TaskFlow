@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getAuthErrorMessage } from "../utils/authErrors.js";
+import { fetchWithDiagnostics } from "../utils/diagnostics.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
@@ -23,11 +24,11 @@ export function useAuth() {
     try {
       const isRegistering = authMode === "register";
       const endpoint = isRegistering ? "register" : "login?useCookies=false";
-      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+      const response = await fetchWithDiagnostics(`${API_BASE_URL}/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: authEmail, password: authPassword }),
-      });
+      }, "authentication");
       if (!response.ok) {
         throw new Error(await getAuthErrorMessage(response, { registering: isRegistering }));
       }
