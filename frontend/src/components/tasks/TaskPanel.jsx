@@ -52,6 +52,13 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
             aria-label="Dismiss calendar move">×</button>
         </div>
       )}
+      {data.activeReminders?.length > 0 && (
+        <section className="task-reminder-banner" aria-label="Due reminders" role="status">
+          <strong>Reminders ({data.activeReminders.length})</strong>
+          <span>{data.activeReminders.slice(0, 3).map(task => task.title).join(" · ")}</span>
+          {data.activeReminders.length > 3 && <span> and {data.activeReminders.length - 3} more</span>}
+        </section>
+      )}
       <TaskCreateForm form={form} onAdd={actions.add} titleRef={titleRef} />
       <TaskFilters filters={filters} showStatus={view === "all" || isCalendar} defaultSortLabel={view === "upcoming" ? "Default (due date)" : "Default"} />
       {isCalendar && !data.loading && !data.error ? (
