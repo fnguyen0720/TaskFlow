@@ -17,7 +17,7 @@ export default function NotificationCenter({
       <button type="button" className="notification-bell" aria-label={`Notifications, ${unread} unread`}
         aria-expanded={open} aria-controls="notification-center-panel"
         onClick={() => setOpen(value => !value)}>
-        <span aria-hidden="true">♧</span>
+        <span aria-hidden="true">🔔</span>
         <span>Notifications</span>
         {unread > 0 && <span className="notification-count">{unread > 99 ? "99+" : unread}</span>}
       </button>
