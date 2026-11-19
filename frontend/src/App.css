@@ -502,3 +502,20 @@ html, body, #root {
 }
 .calendar-move-notice button:focus-visible { outline: 2px solid #b3a3ff; outline-offset: 2px; }
 .calendar-move-notice button:disabled { opacity: .6; cursor: default; }
+
+.calendar-jump {
+  flex-wrap: wrap;
+}
+
+.calendar-jump label { color: #b7bbcf; font-size: .85rem; }
+.calendar-jump input {
+  min-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #454052;
+  border-radius: 8px;
+  background: #242638;
+  color: #f0edff;
+}
+.calendar-jump input:focus-visible { outline: 2px solid #b3a3ff; outline-offset: 2px; }
