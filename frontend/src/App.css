@@ -502,3 +502,44 @@ html, body, #root {
 }
 .calendar-move-notice button:focus-visible { outline: 2px solid #b3a3ff; outline-offset: 2px; }
 .calendar-move-notice button:disabled { opacity: .6; cursor: default; }
+
+
+/* Accessible weekly calendar: every move can be made without drag-and-drop. */
+.calendar-heading { display: flex; flex-direction: column; gap: 4px; }
+.calendar-task-count, .calendar-guidance, .calendar-day-count { color: #adb0c3; font-size: .78rem; }
+.calendar-guidance { margin: 0 0 12px; line-height: 1.5; }
+.calendar-day-count { font-weight: 400; }
+.calendar-task-item { position: relative; display: flex; flex-wrap: wrap; gap: 5px; align-items: stretch; }
+.calendar-task-item .calendar-task { flex: 1 1 100%; }
+.calendar-move-toggle {
+  position: relative; z-index: 2; min-height: 36px; padding: 5px 10px;
+  border: 1px solid #454052; border-radius: 7px;
+  background: #232437; color: #d3c9ff; cursor: pointer;
+  font-size: .75rem;
+}
+.calendar-move-toggle:hover, .calendar-move-toggle[aria-expanded="true"] { background: #3b3158; border-color: #8b7cff; }
+.calendar-move-toggle:disabled { opacity: .55; cursor: default; }
+.calendar-move-picker {
+  position: relative; z-index: 2; display: flex; flex: 1 1 100%;
+  flex-direction: column; gap: 6px; padding: 8px;
+  border: 1px solid #5c517d; border-radius: 8px; background: #1e2030;
+}
+.calendar-move-picker label { font-size: .75rem; font-weight: 700; color: #e9e5ff; }
+.calendar-move-picker select, .calendar-move-picker button {
+  min-width: 0; width: 100%; min-height: 40px; padding: 7px;
+  border: 1px solid #59536d; border-radius: 7px;
+  background: #141620; color: #f0edff; font: inherit;
+}
+.calendar-move-picker button { cursor: pointer; }
+.calendar-move-toggle:focus-visible, .calendar-move-picker :focus-visible {
+  outline: 2px solid #b3a3ff; outline-offset: 2px;
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .calendar-days { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .calendar-move-toggle { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calendar-day { transition: none; }
+}

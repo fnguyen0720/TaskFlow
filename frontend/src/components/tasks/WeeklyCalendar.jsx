@@ -9,6 +9,7 @@ export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding, o
   const [weekOffset, setWeekOffset] = useState(0);
   const [draggedTask, setDraggedTask] = useState(null);
   const [dropDate, setDropDate] = useState(null);
+  const [movingTaskId, setMovingTaskId] = useState(null);
 
   function finishDrag() {
     setDraggedTask(null);
@@ -28,17 +29,19 @@ export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding, o
 
   const days = getWeekDays(tasks, new Date(), weekOffset);
   const range = dateFormatter.formatRange(days[0].date, days[6].date);
+  const totalTasks = days.reduce((sum, day) => sum + day.tasks.length, 0);
 
   return (
     <section className="weekly-calendar" aria-label="Weekly task calendar">
       <div className="calendar-toolbar">
-        <h3 aria-live="polite">{range}</h3>
+        <div className="calendar-heading"><h3 aria-live="polite">{range}</h3><span className="calendar-task-count">{totalTasks} {totalTasks === 1 ? "task" : "tasks"} scheduled</span></div>
         <div className="calendar-controls" role="group" aria-label="Calendar navigation">
           <button type="button" aria-label="Previous week" onClick={() => setWeekOffset(offset => offset - 1)}>‹</button>
           <button type="button" onClick={() => setWeekOffset(0)} disabled={weekOffset === 0}>This week</button>
           <button type="button" aria-label="Next week" onClick={() => setWeekOffset(offset => offset + 1)}>›</button>
         </div>
       </div>
+      <p className="calendar-guidance">Select a task to view details, drag it to another day, or use its Move button for keyboard and touch access.</p>
       <div className="calendar-days">
         {days.map(({ date, isToday, tasks: dailyTasks }) => {
           const dateValue = formatDateForInput(date);
@@ -57,7 +60,7 @@ export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding, o
                 }
               }}
               onDrop={event => dropTask(event, dateValue)}>
-              <h4 aria-current={isToday ? "date" : undefined}>{dayFormatter.format(date)}</h4>
+              <h4 aria-current={isToday ? "date" : undefined}>{dayFormatter.format(date)} <span className="calendar-day-count">({dailyTasks.length})</span></h4>
               <button type="button" className="calendar-quick-add"
                 aria-label={`Add task for ${fullDayFormatter.format(date)}`}
                 disabled={adding} onClick={() => onAddTask(date)}>
@@ -68,7 +71,7 @@ export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding, o
                   {dailyTasks.map(task => {
                     const busy = loadingTask?.id === task.id || String(task.id).startsWith("temp-");
                     return (
-                      <li key={task.id}>
+                      <li key={task.id} className="calendar-task-item">
                         <button type="button" className={task.completed ? "calendar-task is-complete" : "calendar-task"}
                           aria-haspopup="dialog"
                           aria-label={task.completed ? task.title + ", completed" : task.title}
@@ -83,6 +86,37 @@ export default function WeeklyCalendar({ tasks, onOpenTask, onAddTask, adding, o
                           {task.completed && <span aria-hidden="true">✓ </span>}
                           {task.title}
                         </button>
+                        <button type="button" className="calendar-move-toggle"
+                          aria-label={`Move ${task.title} to another day`}
+                          aria-expanded={movingTaskId === task.id}
+                          disabled={busy || Boolean(loadingTask)}
+                          onClick={() => setMovingTaskId(current => current === task.id ? null : task.id)}>
+                          Move
+                        </button>
+                        {movingTaskId === task.id && (
+                          <div className="calendar-move-picker">
+                            <label htmlFor={`calendar-move-${task.id}`}>Move to</label>
+                            <select id={`calendar-move-${task.id}`} value="" disabled={busy || Boolean(loadingTask)}
+                              onChange={event => {
+                                const nextDate = event.target.value;
+                                if (!nextDate) return;
+                                setMovingTaskId(null);
+                                if (nextDate !== task.dueDate?.slice(0, 10)) {
+                                  onRescheduleTask(task.id, nextDate);
+                                }
+                              }}>
+                              <option value="">Choose day...</option>
+                              {days.map(day => {
+                                const dayValue = formatDateForInput(day.date);
+                                return <option key={dayValue} value={dayValue}
+                                  disabled={dayValue === task.dueDate?.slice(0, 10)}>
+                                  {fullDayFormatter.format(day.date)}{dayValue === task.dueDate?.slice(0, 10) ? " (current)" : ""}
+                                </option>;
+                              })}
+                            </select>
+                            <button type="button" onClick={() => setMovingTaskId(null)}>Cancel</button>
+                          </div>
+                        )}
                       </li>
                     );
                   })}
