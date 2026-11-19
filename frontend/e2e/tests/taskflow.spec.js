@@ -73,9 +73,9 @@ test("keyboard Move reschedules, then Undo restores the original day", async ({ 
   // Native select provides a keyboard-operable alternative to HTML drag-and-drop.
   await chooser.selectOption("2026-11-18");
   await expect(page.getByRole("button", { name: "Undo move" })).toBeVisible();
-  await expect(page.locator(".calendar-day").nth(2).getByRole("button", { name: "Keyboard review" })).toBeVisible();
+  await expect(page.locator(".calendar-day").nth(2).getByRole("button", { name: "Keyboard review", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Undo move" }).click();
-  await expect(page.locator(".calendar-day").nth(1).getByRole("button", { name: "Keyboard review" })).toBeVisible();
+  await expect(page.locator(".calendar-day").nth(1).getByRole("button", { name: "Keyboard review", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Undo move" })).toHaveCount(0);
   expect(api.calls.filter(call => call.pathname === "/api/tasks/7/due-date").map(call => call.body)).toEqual([
     { dueDate: "2026-11-18", expectedDueDate: "2026-11-17" },
@@ -89,10 +89,10 @@ test("drag-and-drop moves a task and Undo restores it", async ({ page }) => {
   });
   await signIn(page);
   await page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ }).click();
-  await page.getByRole("button", { name: "Drag review" }).dragTo(page.locator(".calendar-day").nth(3));
-  await expect(page.locator(".calendar-day").nth(3).getByRole("button", { name: "Drag review" })).toBeVisible();
+  await page.getByRole("button", { name: "Drag review", exact: true }).dragTo(page.locator(".calendar-day").nth(3));
+  await expect(page.locator(".calendar-day").nth(3).getByRole("button", { name: "Drag review", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Undo move" }).click();
-  await expect(page.locator(".calendar-day").nth(1).getByRole("button", { name: "Drag review" })).toBeVisible();
+  await expect(page.locator(".calendar-day").nth(1).getByRole("button", { name: "Drag review", exact: true })).toBeVisible();
 });
 
 test("move control remains usable on a 320px mobile viewport", async ({ page }) => {
