@@ -16,6 +16,10 @@ public class TaskItem
 
     public string Category { get; set; } = "General";
 
+    public string RecurrenceRule { get; set; } = "None";
+
+    public int? ReminderDaysBefore { get; set; }
+
     public string Notes { get; set; } = "";
 
     [JsonIgnore]

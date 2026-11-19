@@ -243,6 +243,13 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("ReminderDaysBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RecurrenceRule")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasColumnType("text");

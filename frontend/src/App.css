@@ -543,3 +543,11 @@ html, body, #root {
 @media (prefers-reduced-motion: reduce) {
   .calendar-day { transition: none; }
 }
+
+/* Date-based recurring tasks and in-app reminders. */
+.task-schedule-control { display: inline-flex; flex-direction: column; gap: .3rem; font-size: .8rem; }
+.task-schedule-control select { max-width: 12rem; }
+.task-schedule-label { display: inline-flex; margin-inline-start: .4rem; color: var(--text-muted, #6b7280); font-size: .76rem; }
+.task-reminder-banner { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; padding: .85rem 1rem; border: 1px solid #d0b26d; border-radius: .7rem; margin-block: .9rem; background: rgba(234,179,8,.10); }
+.task-reminder-banner strong { font-size: .9rem; }
+.task-reminder-banner span { font-size: .82rem; }

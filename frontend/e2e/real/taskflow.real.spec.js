@@ -109,3 +109,34 @@ test("a second real user cannot see or modify the first user's tasks", async ({ 
   expect((await persisted.json()).find(item => item.id === task.id).dueDate)
     .toMatch(/^2026-11-19/);
 });
+
+test("real browser can configure recurrence and see its in-app reminder", async ({ page, request }) => {
+  const email = createEmail();
+  await register(request, email);
+  await signIn(page, email);
+
+  const title = `Repeat and remind ${randomUUID().slice(0, 8)}`;
+  await page.getByRole("textbox", { name: "New task title" }).fill(title);
+  await page.getByLabel("Due date").fill("2026-11-20");
+  await page.getByRole("combobox", { name: "Repeat task" }).selectOption("Daily");
+  await page.getByRole("combobox", { name: "Task reminder" }).selectOption("1");
+  await page.getByRole("button", { name: /Add task/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText(title);
+  await expect(page.locator(".task-reminder-banner")).toContainText(title);
+
+  const token = await tokenFor(request, email);
+  const headers = { Authorization: `Bearer ${token}` };
+  const before = await request.get(`${API}/api/tasks`, { headers });
+  const task = (await before.json()).find(item => item.title === title);
+  expect(task.recurrenceRule).toBe("Daily");
+  expect(task.reminderDaysBefore).toBe(1);
+
+  await page.getByRole("button", { name: `Mark complete: ${title}` }).click();
+  await expect.poll(async () => {
+    const response = await request.get(`${API}/api/tasks`, { headers });
+    return (await response.json()).filter(item => item.title === title).length;
+  }).toBe(2);
+  const after = await request.get(`${API}/api/tasks`, { headers });
+  const occurrences = (await after.json()).filter(item => item.title === title);
+  expect(occurrences.find(item => !item.completed).dueDate).toMatch(/^2026-11-21/);
+});

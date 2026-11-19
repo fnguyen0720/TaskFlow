@@ -30,6 +30,6 @@ public static class TaskInputValidator
             return "Category must be General, Work, Study, or Personal.";
         }
 
-        return null;
+        return TaskSchedule.Validate(task);
     }
 }
