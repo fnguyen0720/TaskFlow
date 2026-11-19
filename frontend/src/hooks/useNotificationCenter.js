@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchWithDiagnostics } from "../utils/diagnostics.js";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
 export function useNotificationCenter({ token, onUnauthorized }) {
+  const unauthorizedRef = useRef(onUnauthorized);
+  unauthorizedRef.current = onUnauthorized;
   const [states, setStates] = useState([]);
   const [loading, setLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
@@ -19,7 +21,7 @@ export function useNotificationCenter({ token, onUnauthorized }) {
         const response = await fetchWithDiagnostics(`${API}/api/notifications/state`, {
           headers: { Authorization: `Bearer ${token}` },
         }, "tasks");
-        if (response.status === 401) { if (!cancelled) onUnauthorized(); return; }
+        if (response.status === 401) { if (!cancelled) unauthorizedRef.current(); return; }
         if (!response.ok) throw new Error("Unable to load notification preferences.");
         const data = await response.json();
         if (!cancelled) setStates(data);
@@ -31,7 +33,7 @@ export function useNotificationCenter({ token, onUnauthorized }) {
     }
     void load();
     return () => { cancelled = true; };
-  }, [token, onUnauthorized]);
+  }, [token]);
 
   async function perform(item, action) {
     const response = await fetchWithDiagnostics(
