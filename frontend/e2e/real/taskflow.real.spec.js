@@ -1,0 +1,109 @@
+import { test, expect } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+
+const API = "http://127.0.0.1:5143";
+const password = "IntegrationPassword123!";
+const createEmail = () => `e2e-${randomUUID()}@example.test`;
+
+async function register(request, email) {
+  const result = await request.post(`${API}/register`, {
+    data: { email, password },
+  });
+  expect(result.ok(), `registration: ${result.status()}`).toBeTruthy();
+}
+
+async function tokenFor(request, email) {
+  const response = await request.post(`${API}/login?useCookies=false`, {
+    data: { email, password },
+  });
+  expect(response.status()).toBe(200);
+  const tokens = await response.json();
+  expect(tokens.accessToken).toBeTruthy();
+  return tokens.accessToken;
+}
+
+async function signIn(page, email) {
+  await page.goto("/");
+  await page.getByPlaceholder("Email address").fill(email);
+  await page.getByPlaceholder("Password").fill(password);
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page.getByRole("navigation", { name: "Task views" })).toBeVisible();
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-11-19T12:00:00Z") });
+});
+
+test("real registration, login, create, calendar Move and Undo persist in PostgreSQL", async ({ page, request }) => {
+  const email = createEmail();
+  await page.goto("/");
+  await page.getByRole("button", { name: /Need an account\? Register/ }).click();
+  await page.getByPlaceholder("Email address").fill(email);
+  await page.getByPlaceholder("Password").fill(password);
+  await page.getByRole("button", { name: "Create Account" }).click();
+  await expect(page.getByRole("alert")).toContainText("Account created!");
+  await signIn(page, email);
+
+  const title = `Real end to end ${randomUUID().slice(0, 8)}`;
+  await page.getByRole("textbox", { name: "New task title" }).fill(title);
+  await page.getByLabel("Due date").fill("2026-11-17");
+  await page.getByRole("button", { name: /Add task/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText(title);
+
+  const token = await tokenFor(request, email);
+  const headers = { Authorization: `Bearer ${token}` };
+  const tasksBefore = await request.get(`${API}/api/tasks`, { headers });
+  expect(tasksBefore.status()).toBe(200);
+  const storedBefore = (await tasksBefore.json()).find(task => task.title === title);
+  expect(storedBefore).toBeTruthy();
+  expect(storedBefore.dueDate).toMatch(/^2026-11-17/);
+
+  await page.getByRole("navigation", { name: "Task views" })
+    .getByRole("button", { name: /Calendar/ }).click();
+  const move = page.getByRole("button", { name: `Move ${title} to another day` });
+  await move.click();
+  await page.getByRole("combobox", { name: "Move to" }).selectOption("2026-11-18");
+  await expect(page.getByRole("button", { name: "Undo move" })).toBeVisible();
+
+  const moved = await request.get(`${API}/api/tasks`, { headers });
+  expect((await moved.json()).find(task => task.title === title).dueDate)
+    .toMatch(/^2026-11-18/);
+
+  await page.getByRole("button", { name: "Undo move" }).click();
+  await expect(page.getByRole("button", { name: "Undo move" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Weekly task calendar" })).toContainText(title);
+
+  const storedAfter = await request.get(`${API}/api/tasks`, { headers });
+  expect((await storedAfter.json()).find(task => task.title === title).dueDate)
+    .toMatch(/^2026-11-17/);
+});
+
+test("a second real user cannot see or modify the first user's tasks", async ({ page, request }) => {
+  const ownerEmail = createEmail();
+  const otherEmail = createEmail();
+  await register(request, ownerEmail);
+  await register(request, otherEmail);
+  const ownerToken = await tokenFor(request, ownerEmail);
+  const title = `Private task ${randomUUID().slice(0, 8)}`;
+  const created = await request.post(`${API}/api/tasks`, {
+    headers: { Authorization: `Bearer ${ownerToken}` },
+    data: { title, priority: "Medium", category: "Work", dueDate: "2026-11-19" },
+  });
+  expect(created.status()).toBe(201);
+  const task = await created.json();
+
+  await signIn(page, otherEmail);
+  await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText(title);
+  const otherToken = await tokenFor(request, otherEmail);
+  const denied = await request.patch(`${API}/api/tasks/${task.id}/due-date`, {
+    headers: { Authorization: `Bearer ${otherToken}` },
+    data: { dueDate: "2026-11-20", expectedDueDate: "2026-11-19" },
+  });
+  expect(denied.status()).toBe(404);
+  const persisted = await request.get(`${API}/api/tasks`, {
+    headers: { Authorization: `Bearer ${ownerToken}` },
+  });
+  expect((await persisted.json()).find(item => item.id === task.id).dueDate)
+    .toMatch(/^2026-11-19/);
+});
