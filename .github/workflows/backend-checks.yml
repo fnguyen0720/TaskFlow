@@ -1,0 +1,33 @@
+name: Backend checks
+
+on:
+  push:
+    branches:
+      - feature/backend-security-hardening
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Restore packages
+        run: dotnet restore TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj
+      - name: Run backend integration tests
+        run: dotnet test TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj --no-restore --configuration Release
+      - name: Check backend package advisories
+        run: |
+          dotnet list TaskFlow.Api/TaskFlow.Api.csproj package --vulnerable --include-transitive
+          dotnet list TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj package --vulnerable --include-transitive

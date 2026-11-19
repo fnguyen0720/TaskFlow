@@ -1,6 +1,8 @@
 
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -86,45 +88,112 @@ builder.Services
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 
+// Only exact, explicitly trusted browser origins may read API responses.
+// Cors__AllowedOrigins__N and FrontendUrl can be configured on Render.
+// Preview deployments require an explicit allowlist entry; wildcard Vercel
+// subdomains are not trustworthy enough for a credential-bearing API.
 builder.Services.AddCors(options =>
 {
+    // Resolve settings when the policy is built, so environment-specific and
+    // test-host configuration providers are included in the final allowlist.
+    var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins")
+        .GetChildren()
+        .Select(item => item.Value)
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Select(value => value!.Trim().TrimEnd('/'))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    var frontendUrl = builder.Configuration["FrontendUrl"];
+    if (!string.IsNullOrWhiteSpace(frontendUrl))
+    {
+        allowedOrigins.Add(frontendUrl.Trim().TrimEnd('/'));
+    }
+
+    if (builder.Environment.IsDevelopment())
+    {
+        allowedOrigins.Add("http://localhost:5173");
+    }
+
+    foreach (var origin in allowedOrigins)
+    {
+        if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps
+                && !(builder.Environment.IsDevelopment()
+                    && uri.Scheme == Uri.UriSchemeHttp
+                    && uri.IsLoopback))
+            || uri.UserInfo.Length > 0
+            || uri.AbsolutePath != "/"
+            || uri.Query.Length > 0
+            || uri.Fragment.Length > 0)
+        {
+            throw new InvalidOperationException(
+                "CORS allowed origins must be HTTPS origins without paths, queries, or credentials.");
+        }
+    }
+
     options.AddPolicy("Frontend", policy =>
     {
-        var allowedOrigins = new List<string>
-        {
-            "http://localhost:5173"
-        };
-
-        var frontendUrl = builder.Configuration["FrontendUrl"];
-
-        if (!string.IsNullOrWhiteSpace(frontendUrl))
-        {
-            allowedOrigins.Add(frontendUrl.TrimEnd('/'));
-        }
-
-        policy
-            .SetIsOriginAllowed(origin =>
-            {
-                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
-                {
-                    return false;
-                }
-
-                // Allow explicitly configured frontend origins.
-                if (allowedOrigins.Contains(
-                    origin.TrimEnd('/'),
-                    StringComparer.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-
-                // Allow HTTPS preview deployments belonging to this Vercel project.
-                return uri.Scheme == Uri.UriSchemeHttps
-                    && uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase)
-                    && uri.Host.StartsWith("task-flow-", StringComparison.OrdinalIgnoreCase);
-            })
+        policy.WithOrigins(allowedOrigins.ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod();
+    });
+});
+
+// Bound requests to the Identity endpoint group without changing any URLs.
+// The partition uses the connection IP; never trust a client-supplied
+// X-Forwarded-For header without a configured, trusted reverse proxy.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode =
+            StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        await context.HttpContext.Response.WriteAsync(
+            "Too many authentication requests. Please try again later.",
+            cancellationToken);
+    };
+
+    // The trusted edge header is enabled only for an explicitly opted-in
+    // Render PUBLIC service running in Production. Render overwrites
+    // CF-Connecting-IP at its Cloudflare edge; do not trust X-Forwarded-For.
+    var trustRenderPublicEdge =
+        builder.Environment.IsProduction() &&
+        builder.Configuration.GetValue<bool>("Security:TrustRenderPublicEdgeClientIp") &&
+        builder.Configuration["RENDER_SERVICE_TYPE"] == "web" &&
+        !string.IsNullOrWhiteSpace(builder.Configuration["RENDER_SERVICE_ID"]);
+
+    // Disabled by default. Staging can enable non-identifying partition
+    // diagnostics to confirm clients don't share a bucket.
+    var logBucketDiagnostics =
+        trustRenderPublicEdge &&
+        builder.Configuration.GetValue<bool>("Security:LogAuthBucketTags");
+
+    options.AddPolicy("authentication", context =>
+    {
+        var partitionKey = AuthClientIpPartition.GetKey(context, trustRenderPublicEdge);
+
+        if (logBucketDiagnostics)
+        {
+            var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
+                .CreateLogger("TaskFlow.Security.AuthRateLimit");
+            logger.LogInformation(
+                "Auth rate-limit partition {PartitionTag} source {Source}",
+                AuthClientIpPartition.DiagnosticTag(partitionKey),
+                partitionKey.StartsWith("edge:", StringComparison.Ordinal)
+                    ? "trusted-edge" : "connection-fallback");
+        }
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: partitionKey,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
     });
 });
 
@@ -136,11 +205,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRouting();
 app.UseCors("Frontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapIdentityApi<ApplicationUser>();
+// Grouping with an empty prefix preserves /register, /login, and all other
+// standard Identity API routes while enforcing a shared auth request budget.
+var identityEndpoints = app.MapGroup("");
+identityEndpoints.RequireRateLimiting("authentication");
+identityEndpoints.MapIdentityApi<ApplicationUser>();
 
 // GET: Return only the logged-in user's tasks.
 app.MapGet("/api/tasks", async (
@@ -168,32 +243,20 @@ app.MapPost("/api/tasks", async (
     ClaimsPrincipal user,
     TaskDbContext db) =>
 {
-    if (string.IsNullOrWhiteSpace(task.Title))
+    var validationError = TaskInputValidator.Validate(task);
+    if (validationError is not null)
     {
-        return Results.BadRequest("Task title cannot be empty.");
+        return Results.BadRequest(validationError);
     }
 
-    if (task.Title.Length > 100)
-    {
-        return Results.BadRequest(
-            "Task title cannot exceed 100 characters."
-        );
-    }
-
-    if (
-        task.Priority != "Low" &&
-        task.Priority != "Medium" &&
-        task.Priority != "High"
-    )
-    {
-        return Results.BadRequest(
-            "Priority must be Low, Medium, or High."
-        );
-    }
+    task.Title = task.Title.Trim();
 
     var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
-    // Never trust a UserId supplied by the frontend.
+    // Treat the client payload as untrusted. The server owns identity fields
+    // and new tasks always start incomplete, regardless of supplied values.
+    task.Id = 0;
+    task.Completed = false;
     task.UserId = userId;
 
     if (task.DueDate.HasValue)
@@ -254,30 +317,13 @@ app.MapPut("/api/tasks/{id}/title", async (
         return Results.NotFound();
     }
 
-    if (string.IsNullOrWhiteSpace(updatedTask.Title))
+    var validationError = TaskInputValidator.Validate(updatedTask);
+    if (validationError is not null)
     {
-        return Results.BadRequest("Task title cannot be empty.");
+        return Results.BadRequest(validationError);
     }
 
-    if (updatedTask.Title.Length > 100)
-    {
-        return Results.BadRequest(
-            "Task title cannot exceed 100 characters."
-        );
-    }
-
-    if (
-        updatedTask.Priority != "Low" &&
-        updatedTask.Priority != "Medium" &&
-        updatedTask.Priority != "High"
-    )
-    {
-        return Results.BadRequest(
-            "Priority must be Low, Medium, or High."
-        );
-    }
-
-    task.Title = updatedTask.Title;
+    task.Title = updatedTask.Title.Trim();
     task.Priority = updatedTask.Priority;
     task.Category = updatedTask.Category;
     task.DueDate = updatedTask.DueDate.HasValue
