@@ -389,6 +389,7 @@ html, body, #root {
   gap: 6px;
 }
 .calendar-day {
+  position: relative;
   min-width: 0;
   min-height: 120px;
   padding: 8px;
@@ -410,3 +411,44 @@ html, body, #root {
 @media (min-width: 601px) and (max-width: 760px) {
   .planner-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+.calendar-day h4 { padding-right: 24px; }
+
+.calendar-quick-add {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: #c7b9ff;
+  cursor: pointer;
+}
+
+.calendar-quick-add span {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  font-size: 1.1rem;
+}
+
+@media (hover: hover) {
+  .calendar-day:hover:has(.calendar-quick-add:enabled) {
+    border-color: #756394;
+    background: #25223a;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .calendar-day { transition: background-color 150ms ease, border-color 150ms ease; }
+}
+
+.calendar-day:has(.calendar-quick-add:focus-visible) {
+  border-color: #756394;
+  background: #25223a;
+}
+.calendar-quick-add:focus-visible { outline: 2px solid #b3a3ff; outline-offset: 2px; }
+.calendar-quick-add:disabled { opacity: .6; cursor: default; }
+
+.calendar-task { position: relative; z-index: 2; }
