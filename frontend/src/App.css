@@ -452,3 +452,28 @@ html, body, #root {
 .calendar-quick-add:disabled { opacity: .6; cursor: default; }
 
 .calendar-task { position: relative; z-index: 2; }
+
+.calendar-task[draggable="true"] { cursor: grab; }
+.calendar-task[draggable="true"]:active { cursor: grabbing; }
+
+.calendar-day.calendar-drop-target {
+  border-color: #b3a3ff;
+  background: #302941;
+}
+
+.task-detail-date {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.task-detail-date input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #454052;
+  border-radius: 8px;
+  background: #10121c;
+  color: inherit;
+  font: inherit;
+}

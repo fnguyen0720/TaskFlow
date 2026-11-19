@@ -333,31 +333,55 @@ finally {
 
 
 
-  const saveDetails = async (id, details) => {
-    const response = await fetch(`${API_BASE_URL}/api/tasks/${id}/details`, {
+  async function updateTaskFields(id, endpoint, changes, errorMessage) {
+    const response = await fetch(`${API_BASE_URL}/api/tasks/${id}/${endpoint}`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(details),
+      body: JSON.stringify(changes),
     });
 
     if (response.status === 401) {
       onUnauthorized();
       return;
     }
-    if (!response.ok) throw new Error("Couldn't save task details. Please try again.");
+    if (!response.ok) throw new Error(errorMessage);
+    return response.json();
+  }
 
-    const { notes, checklist } = await response.json();
-    setTasks(current => current.map(task =>
-      task.id === id ? { ...task, notes, checklist } : task
-    ));
+  async function saveDetails(id, details) {
+    const result = await updateTaskFields(id, "details", details, "Couldn't save task details. Please try again.");
+    if (!result) return;
+    const { notes, checklist, dueDate } = result;
+    setTasks(current => current.map(task => task.id === id ? {
+      ...task, notes, checklist,
+      ...(details.updateDueDate ? { dueDate } : {}),
+    } : task));
     showNotification("Task details saved.");
-  };
+  }
+
+  async function rescheduleTask(id, date) {
+    if (loadingTask) return;
+    setLoadingTask({ id, action: "reschedule" });
+    try {
+      const result = await updateTaskFields(id, "due-date", { dueDate: date },
+        "Couldn't move the task. Please try again.");
+      if (!result) return;
+      setTasks(current => current.map(task =>
+        task.id === id ? { ...task, dueDate: result.dueDate } : task
+      ));
+      showNotification("Task rescheduled.");
+    } catch (error) {
+      showNotification(error.message, "error");
+    } finally {
+      setLoadingTask(current => current?.action === "reschedule" && current.id === id ? null : current);
+    }
+  }
 
   return {
-    saveDetails,
+    saveDetails, rescheduleTask,
     tasks, setTasks,
     loading, setLoading,
     error, setError,

@@ -382,7 +382,7 @@ public class BackendSecurityTests
         await using var factory = new CustomWebApplicationFactory();
         using var owner = await AuthorizedClientAsync(factory);
         using var otherUser = await AuthorizedClientAsync(factory);
-        using var created = await owner.PostAsJsonAsync("/api/tasks", new { title = "Plan launch" });
+        using var created = await owner.PostAsJsonAsync("/api/tasks", new { title = "Plan launch", dueDate = "2026-11-19" });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var task = await created.Content.ReadFromJsonAsync<TaskItem>();
         Assert.NotNull(task);
@@ -405,15 +405,43 @@ public class BackendSecurityTests
         using var invalid = await owner.PutAsJsonAsync(url, new { notes = new string('x', 4001) });
         Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
 
+        using var unchanged = await owner.GetAsync("/api/tasks");
+        var priorTasks = await unchanged.Content.ReadFromJsonAsync<TaskItem[]>();
+        Assert.Equal(new DateTime(2026, 11, 19), Assert.Single(priorTasks!).DueDate);
+
+        var dateUrl = $"/api/tasks/{task.Id}/due-date";
+        var move = new { dueDate = "2026-11-21" };
+        using var unauthorizedMove = await otherUser.PutAsJsonAsync(dateUrl, move);
+        Assert.Equal(HttpStatusCode.NotFound, unauthorizedMove.StatusCode);
+
+        using var invalidMove = await owner.PutAsJsonAsync(dateUrl, new { dueDate = "2026-11-31" });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidMove.StatusCode);
+
+        using var moved = await owner.PutAsJsonAsync(dateUrl, move);
+        Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+
         using var response = await owner.GetAsync("/api/tasks");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var payload = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
         var stored = Assert.Single(payload.RootElement.EnumerateArray());
         Assert.Equal("Plan launch", stored.GetProperty("title").GetString());
         Assert.False(stored.GetProperty("completed").GetBoolean());
+        Assert.Equal(new DateTime(2026, 11, 21), stored.GetProperty("dueDate").GetDateTime());
         Assert.Equal(details.notes, stored.GetProperty("notes").GetString());
         var step = Assert.Single(stored.GetProperty("checklist").EnumerateArray());
         Assert.Equal("Verify build", step.GetProperty("text").GetString());
         Assert.True(step.GetProperty("completed").GetBoolean());
+
+        using var cleared = await owner.PutAsJsonAsync(url, new
+        {
+            details.notes,
+            details.checklist,
+            updateDueDate = true,
+            dueDate = (string?)null,
+        });
+        Assert.Equal(HttpStatusCode.OK, cleared.StatusCode);
+        var clearedTask = await cleared.Content.ReadFromJsonAsync<TaskItem>();
+        Assert.NotNull(clearedTask);
+        Assert.Null(clearedTask.DueDate);
     }
 }
