@@ -30,6 +30,20 @@ public sealed class PostgresApiIntegrationTests : IClassFixture<PostgresApiFacto
     }
 
     [Fact]
+    public async Task ProductionMigrationGuard_IsIdempotentOnCurrentPostgresSchema()
+    {
+        // The test harness already applies the real migration to the isolated
+        // PostgreSQL database. Production startup should safely accept that
+        // schema and leave all migration state unchanged.
+        await RecurringProductionMigration.EnsureAppliedAsync(_factory.Services);
+        await RecurringProductionMigration.EnsureAppliedAsync(_factory.Services);
+
+        using var client = _factory.NewClient();
+        using var ready = await client.GetAsync("/health/ready");
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+    }
+
+    [Fact]
     public async Task Recurrence_CreatesExactlyOneNextOccurrenceInPostgres()
     {
         using var owner = await _factory.AuthenticatedClientAsync();
