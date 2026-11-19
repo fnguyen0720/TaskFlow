@@ -69,7 +69,6 @@ test("keyboard Move reschedules, then Undo restores the original day", async ({ 
   await expect(moveButton).toHaveAttribute("aria-expanded", "true");
   const chooser = page.getByRole("combobox", { name: "Move to" });
   await chooser.focus();
-  await page.keyboard.press("ArrowDown");
   // Native select provides a keyboard-operable alternative to HTML drag-and-drop.
   await chooser.selectOption("2026-11-18");
   await expect(page.getByRole("button", { name: "Undo move" })).toBeVisible();
