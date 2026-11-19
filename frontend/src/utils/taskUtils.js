@@ -24,6 +24,13 @@ const calendarDate = (value) => {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 };
 
+export function formatDateForInput(date) {
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // UTC day numbers are used only for arithmetic, avoiding DST-length days.
 const dayNumber = (date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000;
 const dueDayNumber = (value) => {

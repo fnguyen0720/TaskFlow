@@ -363,10 +363,34 @@ app.MapPut("/api/tasks/{id}/details", async (
         return Results.BadRequest("Notes are limited to 4,000 characters and checklists to 30 items of 160 characters each.");
     }
 
+    if (details.UpdateDueDate)
+    {
+        task.DueDate = details.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    }
     task.Notes = notes;
     task.ChecklistJson = JsonSerializer.Serialize(checklist.Select(item => item! with { Text = item!.Text.Trim() }));
     await db.SaveChangesAsync();
     return Results.Ok(task);
+})
+.RequireAuthorization();
+
+// PUT: Move a task on the calendar without rewriting its other fields.
+app.MapPut("/api/tasks/{id}/due-date", async (
+    int id,
+    TaskDueDateUpdate update,
+    ClaimsPrincipal user,
+    TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+    if (task is null)
+    {
+        return Results.NotFound();
+    }
+
+    task.DueDate = update.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { task.DueDate });
 })
 .RequireAuthorization();
 

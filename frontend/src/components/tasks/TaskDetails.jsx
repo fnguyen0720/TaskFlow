@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 export default function TaskDetails({ task, onSave, onClose }) {
   const dialogRef = useRef(null);
   const nextKey = useRef((task.checklist ?? []).length);
+  const [initialDueDate] = useState(task.dueDate?.slice(0, 10) ?? "");
+  const [dueDate, setDueDate] = useState(initialDueDate);
   const [notes, setNotes] = useState(task.notes ?? "");
   const [items, setItems] = useState(() =>
     (task.checklist ?? []).map((item, key) => ({ ...item, key }))
@@ -34,6 +36,8 @@ export default function TaskDetails({ task, onSave, onClose }) {
     try {
       await onSave(task.id, {
         notes,
+        updateDueDate: dueDate !== initialDueDate,
+        dueDate: dueDate || null,
         checklist: items.map(({ text, completed }) => ({ text: text.trim(), completed })),
       });
       onClose();
@@ -55,6 +59,11 @@ export default function TaskDetails({ task, onSave, onClose }) {
           <h2 id="task-detail-title">{task.title}</h2>
           <button type="button" disabled={saving} onClick={onClose} aria-label="Close task details">×</button>
         </header>
+        <label className="task-detail-date">
+          Due date
+          <input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)}
+            disabled={saving} />
+        </label>
         <label className="task-detail-notes">
           Notes
           <textarea value={notes} onChange={event => setNotes(event.target.value)}
