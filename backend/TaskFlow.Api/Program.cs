@@ -394,6 +394,36 @@ app.MapPut("/api/tasks/{id}/due-date", async (
 })
 .RequireAuthorization();
 
+// PATCH: Change the date only if it still matches the client’s expected date.
+app.MapPatch("/api/tasks/{id}/due-date", async (
+    int id,
+    GuardedTaskDueDateUpdate update,
+    ClaimsPrincipal user,
+    TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var ownedTask = db.Tasks.Where(t => t.Id == id && t.UserId == userId);
+    if (update.ExpectedDueDate is not { } expected)
+    {
+        return Results.BadRequest("An expected due date is required.");
+    }
+
+    var expectedUtc = expected.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    var target = expected == DateOnly.MaxValue
+        ? ownedTask.Where(t => t.DueDate >= expectedUtc)
+        : ownedTask.Where(t => t.DueDate >= expectedUtc && t.DueDate < expectedUtc.AddDays(1));
+
+    var dueDate = update.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    var updated = await target.ExecuteUpdateAsync(setters => setters.SetProperty(t => t.DueDate, dueDate));
+    if (updated == 0)
+    {
+        return await ownedTask.AnyAsync() ? Results.Conflict() : Results.NotFound();
+    }
+
+    return Results.Ok(new { DueDate = dueDate });
+})
+.RequireAuthorization();
+
 // DELETE: Delete only the owner's task.
 app.MapDelete("/api/tasks/{id}", async (
     int id,

@@ -44,6 +44,14 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
           </p>
         </div>
       </div>
+      {data.undoableMove && (
+        <div className="calendar-move-notice" aria-label="Calendar move">
+          <span role="status">Moved <strong>{data.undoableMove.title}</strong></span>
+          <button type="button" onClick={actions.undoMove} disabled={!!data.loadingTask}>Undo move</button>
+          <button type="button" onClick={actions.dismissMove} disabled={!!data.loadingTask}
+            aria-label="Dismiss calendar move">×</button>
+        </div>
+      )}
       <TaskCreateForm form={form} onAdd={actions.add} titleRef={titleRef} />
       <TaskFilters filters={filters} showStatus={view === "all" || isCalendar} defaultSortLabel={view === "upcoming" ? "Default (due date)" : "Default"} />
       {isCalendar && !data.loading && !data.error ? (
