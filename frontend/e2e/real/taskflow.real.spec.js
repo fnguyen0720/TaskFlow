@@ -122,7 +122,7 @@ test("real browser can configure recurrence and see its in-app reminder", async 
   await page.getByRole("combobox", { name: "Task reminder" }).selectOption("1");
   await page.getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText(title);
-  await expect(page.getByRole("region", { name: "Due reminders" })).toContainText(title);
+  await expect(page.locator(".task-reminder-banner")).toContainText(title);
 
   const token = await tokenFor(request, email);
   const headers = { Authorization: `Bearer ${token}` };
