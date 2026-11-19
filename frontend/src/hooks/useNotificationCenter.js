@@ -7,6 +7,7 @@ export function useNotificationCenter({ token, onUnauthorized }) {
   const unauthorizedRef = useRef(onUnauthorized);
   unauthorizedRef.current = onUnauthorized;
   const [states, setStates] = useState([]);
+  const [statesOwner, setStatesOwner] = useState("");
   const [loading, setLoading] = useState(Boolean(token));
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -24,7 +25,7 @@ export function useNotificationCenter({ token, onUnauthorized }) {
         if (response.status === 401) { if (!cancelled) unauthorizedRef.current(); return; }
         if (!response.ok) throw new Error("Unable to load notification preferences.");
         const data = await response.json();
-        if (!cancelled) setStates(data);
+        if (!cancelled) { setStates(data); setStatesOwner(token); }
       } catch {
         if (!cancelled) setError("Notifications couldn't load. Please retry.");
       } finally {
@@ -46,6 +47,7 @@ export function useNotificationCenter({ token, onUnauthorized }) {
     if (response.status === 401) { onUnauthorized(); throw new Error("Session expired."); }
     if (!response.ok) throw new Error("Notification update failed.");
     const updated = await response.json();
+    setStatesOwner(token);
     setStates(current => [...current.filter(
       state => state.taskId !== updated.taskId || state.kind !== updated.kind
     ), updated]);
@@ -79,5 +81,5 @@ export function useNotificationCenter({ token, onUnauthorized }) {
     }
   }
 
-  return { states, loading, error, pending, update, markAllRead };
+  return { states: statesOwner === token ? states : [], loading, error, pending, update, markAllRead };
 }
