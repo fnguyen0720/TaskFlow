@@ -158,6 +158,14 @@ public class BackendSecurityTests
         clientA.DefaultRequestHeaders.Add("CF-Connecting-IP", "198.51.100.10");
         clientB.DefaultRequestHeaders.Add("CF-Connecting-IP", "198.51.100.11");
 
+        var clientBCredentials = new
+        {
+            email = "partition-b@example.com",
+            password = "TestPassword!123"
+        };
+        using var registrationB = await clientB.PostAsJsonAsync("/register", clientBCredentials);
+        Assert.Equal(HttpStatusCode.OK, registrationB.StatusCode);
+
         var credentials = new
         {
             email = "invalid-account@example.com",
@@ -178,11 +186,14 @@ public class BackendSecurityTests
             "/login?useCookies=false", credentials);
         Assert.Equal(HttpStatusCode.TooManyRequests, blockedA.StatusCode);
 
-        // B has the same simulated connection/proxy but a distinct, trusted
-        // edge-written client IP.
+        // B can sign in with its own account while A is still throttled.
         using var allowedB = await clientB.PostAsJsonAsync(
+            "/login?useCookies=false", clientBCredentials);
+        Assert.Equal(HttpStatusCode.OK, allowedB.StatusCode);
+
+        using var stillBlockedA = await clientA.PostAsJsonAsync(
             "/login?useCookies=false", credentials);
-        Assert.NotEqual(HttpStatusCode.TooManyRequests, allowedB.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, stillBlockedA.StatusCode);
     }
 
     [Fact]
