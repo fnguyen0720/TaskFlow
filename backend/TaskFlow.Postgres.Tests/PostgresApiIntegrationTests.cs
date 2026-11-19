@@ -72,6 +72,15 @@ public sealed class PostgresApiIntegrationTests : IClassFixture<PostgresApiFacto
         using var rejected = await anonymous.GetAsync("/api/tasks");
         Assert.Equal(HttpStatusCode.Unauthorized, rejected.StatusCode);
 
+        // Exercise the real Identity login handler with a bad password, not a mock.
+        using var badPassword = await anonymous.PostAsJsonAsync(
+            "/login?useCookies=false", new
+            {
+                email = $"missing-{Guid.NewGuid():N}@example.test",
+                password = "IncorrectPassword123!"
+            });
+        Assert.Equal(HttpStatusCode.Unauthorized, badPassword.StatusCode);
+
         using var owner = await _factory.AuthenticatedClientAsync();
         using var allowed = await owner.GetAsync("/api/tasks");
         Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
