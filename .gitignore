@@ -24,3 +24,8 @@ dist/
 
 # Logs
 *.log
+# Playwright artifacts
+frontend/e2e/node_modules/
+frontend/e2e/test-results/
+frontend/e2e/playwright-report/
+frontend/e2e/package-lock.json
