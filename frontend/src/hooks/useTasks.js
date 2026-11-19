@@ -14,9 +14,13 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
   const [editTitle, setEditTitle] = useState("");
   const [editPriority, setEditPriority] = useState("Medium");
   const [newDueDate, setNewDueDate] = useState("");
+  const [newRecurrence, setNewRecurrence] = useState("None");
+  const [newReminder, setNewReminder] = useState("");
   const [newCategory, setNewCategory] = useState("General");
   const [editCategory, setEditCategory] = useState("General");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editRecurrence, setEditRecurrence] = useState("None");
+  const [editReminder, setEditReminder] = useState("");
   const [loadingTask, setLoadingTask] = useState(null);
   const [lastMove, setLastMove] = useState(null);
   const [addingTask, setAddingTask] = useState(false);
@@ -130,6 +134,7 @@ const toggleTask = async (id) => {
 
     await response.json();
 
+    await fetchTasks();
     showNotification("Task updated.");
   } catch {
     console.warn("Task update request failed");
@@ -162,6 +167,8 @@ const startEditing = (task) => {
   setEditCategory(task.category || "General");
 
   setEditDueDate(task.dueDate ? task.dueDate.slice(0, 10) : "");
+  setEditRecurrence(task.recurrenceRule ?? "None");
+  setEditReminder(task.reminderDaysBefore == null ? "" : String(task.reminderDaysBefore));
 
 };
 
@@ -184,6 +191,8 @@ setLoadingTask({
     priority: editPriority,
     category: editCategory,
     dueDate: editDueDate || null,
+    recurrenceRule: editRecurrence,
+    reminderDaysBefore: editReminder === "" ? null : Number(editReminder),
   };
 
 
@@ -206,6 +215,8 @@ setLoadingTask({
   setEditPriority("Medium");
   setEditCategory("General");
   setEditDueDate("");
+  setEditRecurrence("None");
+  setEditReminder("");
 
   try {
     const response = await fetchWithDiagnostics(
@@ -240,6 +251,8 @@ setLoadingTask({
       priority: previousTask.priority,
       category: previousTask.category,
       dueDate: previousTask.dueDate,
+      recurrenceRule: previousTask.recurrenceRule,
+      reminderDaysBefore: previousTask.reminderDaysBefore,
     } : task));
 
     showNotification(
@@ -273,6 +286,8 @@ const addTask = async (e) => {
     priority: newPriority,
     category: newCategory,
     dueDate: newDueDate || null,
+    recurrenceRule: newRecurrence,
+    reminderDaysBefore: newReminder === "" ? null : Number(newReminder),
   };
 
   // Show task immediately
@@ -286,6 +301,8 @@ const addTask = async (e) => {
   setNewDueDate("");
   setNewPriority("Medium");
   setNewCategory("General");
+  setNewRecurrence("None");
+  setNewReminder("");
 
   try {
     const response = await fetchWithDiagnostics(
@@ -302,6 +319,8 @@ const addTask = async (e) => {
           priority: optimisticTask.priority,
           category: optimisticTask.category,
           dueDate: optimisticTask.dueDate,
+          recurrenceRule: optimisticTask.recurrenceRule,
+          reminderDaysBefore: optimisticTask.reminderDaysBefore,
         }),
       }
     );
@@ -424,7 +443,9 @@ finally {
     editPriority, setEditPriority,
     newDueDate, setNewDueDate,
     newCategory, setNewCategory,
+    newRecurrence, setNewRecurrence, newReminder, setNewReminder,
     editCategory, setEditCategory,
+    editRecurrence, setEditRecurrence, editReminder, setEditReminder,
     editDueDate, setEditDueDate,
     loadingTask, setLoadingTask,
     addingTask, setAddingTask,
