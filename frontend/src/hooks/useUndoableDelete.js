@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createDeletionQueue } from "../utils/deleteQueue.js";
+import { fetchWithDiagnostics } from "../utils/diagnostics.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
@@ -24,11 +25,11 @@ export function useUndoableDelete({ token, tasks, setTasks, showNotification }) 
         const controller = new AbortController();
         requestsRef.current.add(controller);
         try {
-          const response = await fetch(API_BASE_URL + "/api/tasks/" + encodeURIComponent(id), {
+          const response = await fetchWithDiagnostics(API_BASE_URL + "/api/tasks/" + encodeURIComponent(id), {
             method: "DELETE",
             headers: { Authorization: "Bearer " + token },
             signal: controller.signal,
-          });
+          }, "deletion");
           if (!response.ok) throw new Error("Failed to delete task");
           if (tokenRef.current === token) {
             setTasks(current => current.filter(task => task.id !== id));
@@ -40,7 +41,7 @@ export function useUndoableDelete({ token, tasks, setTasks, showNotification }) 
       },
       onError: error => {
         if (error.name !== "AbortError" && tokenRef.current === token) {
-          console.error("Error deleting task:", error);
+          console.warn("Task delete request failed");
           notifyRef.current("Couldn't delete task. It has been restored.", "error");
         }
       },

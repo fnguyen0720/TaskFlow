@@ -1,0 +1,51 @@
+name: Production smoke failure alerts
+
+on:
+  workflow_run:
+    workflows: ["Production smoke and uptime monitoring"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+jobs:
+  open-or-resolve-incident:
+    # No deployment secrets, PR code or artifacts are executed here. Only use the
+    # trusted workflow conclusion, which GitHub supplies with the event payload.
+    if: >-
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event != 'pull_request' &&
+      (github.event.workflow_run.conclusion == 'failure' ||
+       github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Deduplicate incident and update status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RESULT: ${{ github.event.workflow_run.conclusion }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='[TaskFlow monitoring] production smoke failure'
+          issue="$(gh api "repos/$GH_REPO/issues?state=open&per_page=100" --jq '.[] | select(.title == "[TaskFlow monitoring] production smoke failure") | .number' | head -1)"
+          run_url="https://github.com/$GH_REPO/actions/runs/$RUN_ID"
+          if [[ "$RESULT" == failure ]]; then
+            if [[ -z "$issue" ]]; then
+              gh api --method POST "repos/$GH_REPO/issues" \
+                -f title="$marker" \
+                -f body="The production smoke check failed. Review the [failed workflow run]($run_url) and follow docs/release-monitoring.md. Do not post credentials, URLs containing secrets or task content." \
+                --jq '.html_url'
+            else
+              echo "Existing incident #$issue remains open."
+            fi
+          elif [[ -n "$issue" ]]; then
+            gh api --method POST "repos/$GH_REPO/issues/$issue/comments" \
+              -f body="A subsequent smoke check passed: $run_url" >/dev/null
+            gh api --method PATCH "repos/$GH_REPO/issues/$issue" -f state=closed >/dev/null
+          else
+            echo "Healthy; no incident open."
+          fi

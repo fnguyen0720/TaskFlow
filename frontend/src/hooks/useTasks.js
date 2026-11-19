@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useUndoableDelete } from "./useUndoableDelete.js";
+import { fetchWithDiagnostics } from "../utils/diagnostics.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
@@ -30,7 +31,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
 
         setError("");
 
-        const response = await fetch(
+        const response = await fetchWithDiagnostics(
           `${API_BASE_URL}/api/tasks`,
           {
             headers: {
@@ -54,9 +55,9 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
 
         setTasks(data);
 
-      } catch (error) {
+      } catch {
 
-        console.error("Error fetching tasks:", error);
+        console.warn("Task list request failed");
 
         setError("Unable to load your tasks. Please try again.");
 
@@ -113,7 +114,7 @@ const toggleTask = async (id) => {
   );
 
   try {
-    const response = await fetch(
+    const response = await fetchWithDiagnostics(
       `${API_BASE_URL}/api/tasks/${id}`,
       {
         method: "PUT",
@@ -130,8 +131,8 @@ const toggleTask = async (id) => {
     await response.json();
 
     showNotification("Task updated.");
-  } catch (error) {
-    console.error("Error updating task:", error);
+  } catch {
+    console.warn("Task update request failed");
 
     // Roll back UI
     setTasks(current => current.map(task =>
@@ -207,7 +208,7 @@ setLoadingTask({
   setEditDueDate("");
 
   try {
-    const response = await fetch(
+    const response = await fetchWithDiagnostics(
       `${API_BASE_URL}/api/tasks/${id}/title`,
       {
         method: "PUT",
@@ -229,8 +230,8 @@ setLoadingTask({
       setLastMove(current => current?.id === id ? null : current);
     }
     showNotification("Task updated.");
-  } catch (error) {
-    console.error("Error editing task:", error);
+  } catch {
+    console.warn("Task edit request failed");
 
     // Roll back UI
     setTasks(current => current.map(task => task.id === id ? {
@@ -287,7 +288,7 @@ const addTask = async (e) => {
   setNewCategory("General");
 
   try {
-    const response = await fetch(
+    const response = await fetchWithDiagnostics(
       `${API_BASE_URL}/api/tasks`,
       {
         method: "POST",
@@ -319,8 +320,8 @@ const addTask = async (e) => {
     );
 
     showNotification("Task added.");
-  } catch (error) {
-    console.error("Error creating task:", error);
+  } catch {
+    console.warn("Task creation request failed");
 
     // Roll back
     setTasks(current => current.filter(task => task.id !== tempId));
@@ -338,7 +339,7 @@ finally {
 
 
   async function updateTaskFields(id, endpoint, changes, errorMessage, method = "PUT") {
-    const response = await fetch(`${API_BASE_URL}/api/tasks/${id}/${endpoint}`, {
+    const response = await fetchWithDiagnostics(`${API_BASE_URL}/api/tasks/${id}/${endpoint}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
