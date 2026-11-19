@@ -7,6 +7,7 @@ import TaskPanel from "./components/tasks/TaskPanel.jsx";
 import { useAuth } from "./hooks/useAuth.js";
 import { useNotification } from "./hooks/useNotification.js";
 import { useTasks } from "./hooks/useTasks.js";
+import { remindersDue } from "./utils/reminders.js";
 
 function App() {
   const [detailId, setDetailId] = useState(null);
@@ -24,8 +25,10 @@ function App() {
   const {
     tasks, setTasks, loading, error, setError, newTask, setNewTask,
     newPriority, setNewPriority, newCategory, setNewCategory, newDueDate, setNewDueDate,
+    newRecurrence, setNewRecurrence, newReminder, setNewReminder,
     editingId, setEditingId, editTitle, setEditTitle, editPriority, setEditPriority,
-    editCategory, setEditCategory, editDueDate, setEditDueDate, loadingTask,
+    editCategory, setEditCategory, editDueDate, setEditDueDate,
+    editRecurrence, setEditRecurrence, editReminder, setEditReminder, loadingTask,
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
     toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails, rescheduleTask, undoMove, undoableMove, dismissMove,
   } = useTasks({ token, onUnauthorized: clearAuth, showNotification });
@@ -42,6 +45,7 @@ function App() {
   // Pending deletions are hidden from the dashboard, but not removed from
   // the server until the Undo window expires.
   const visibleTasks = tasks.filter(task => !pendingDeleteIds.has(task.id));
+  const activeReminders = remindersDue(visibleTasks);
   const { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate } = getTaskStats(visibleTasks);
   const detailTask = visibleTasks.find(task => task.id === detailId);
   const views = getTaskViews(visibleTasks);
@@ -57,6 +61,8 @@ function App() {
     priority: newPriority, setPriority: setNewPriority,
     category: newCategory, setCategory: setNewCategory,
     dueDate: newDueDate, setDueDate: setNewDueDate, adding: addingTask,
+    recurrence: newRecurrence, setRecurrence: setNewRecurrence,
+    reminder: newReminder, setReminder: setNewReminder,
   };
   const filters = {
     status: filter, setStatus: setFilter,
@@ -70,6 +76,8 @@ function App() {
     priority: editPriority, setPriority: setEditPriority,
     category: editCategory, setCategory: setEditCategory,
     dueDate: editDueDate, setDueDate: setEditDueDate,
+    recurrence: editRecurrence, setRecurrence: setEditRecurrence,
+    reminder: editReminder, setReminder: setEditReminder,
   };
   const cancelEditing = () => {
     setEditingId(null);
@@ -77,6 +85,8 @@ function App() {
     setEditPriority("Medium");
     setEditCategory("General");
     setEditDueDate("");
+    setEditRecurrence("None");
+    setEditReminder("");
   };
   const actions = {
     add: addTask, toggle: toggleTask, delete: deleteTask, undoDelete,
@@ -84,6 +94,7 @@ function App() {
   };
   const data = {
     tasks: visibleTasks, filteredTasks, totalCount, loading, error, loadingTask, pendingDeletes, undoableMove,
+    activeReminders,
   };
 
   if (!token) {
