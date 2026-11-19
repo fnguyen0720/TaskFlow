@@ -10,9 +10,44 @@ Task dates use the user's browser-local calendar date. In-app reminders are avai
 
 This version has **no background delivery, email, native notifications, or push service**. Reminders appear only while visiting the application, after tasks load. Browser time and system timezone control when a reminder is shown.
 
-## Deployment
-The feature adds nullable integer `ReminderDaysBefore` and non-null text `RecurrenceRule` with default `None` to `Tasks`. Both SQLite and PostgreSQL migrations are included. Existing tasks retain their behavior with `RecurrenceRule=None` and no reminder.
+## Production deployment and rollback
 
-**Apply the correct database migration before deploying the new backend.** For the current Render PostgreSQL schema, the guarded, transactional SQL script is `scripts/migrations/20261119210001_recurring_tasks_postgres.sql`. Run it with a trusted PostgreSQL client against the verified `taskflow_db_v8k1` instance, using secure credentials outside the repository. Take a backup/snapshot first, inspect the script, and verify both new columns and the `__EFMigrationsHistory` row before merging PR #19. The deployed Render service auto-deploys commits merged into `main`, so merging before this step would introduce a schema mismatch. Do not deploy this code against an older production schema. Confirm the new PostgreSQL migration is recorded in `__EFMigrationsHistory`; check production backup and rollback procedures first. The migration is additive, and the down migration removes both columns (therefore losing schedule preferences). No migration is auto-applied by ordinary API startup.
+The feature adds nullable integer `ReminderDaysBefore` and non-null text
+`RecurrenceRule` (default `None`) to `Tasks`. SQLite and PostgreSQL
+migration files are included. Existing tasks remain non-recurring.
 
-Verification: `dotnet test backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj`, `dotnet test backend/TaskFlow.Postgres.Tests/TaskFlow.Postgres.Tests.csproj` against a disposable local PostgreSQL database, `cd frontend && npm test && npm run lint && npm run build`.
+**The Render web service auto-deploys merges to `main`.** At **production
+startup only**, the new API now performs an explicit, guarded PostgreSQL
+schema expansion before starting its HTTP listener:
+
+1. Check that the existing `20261119164957_AddTaskDetails` migration
+   has already been applied. If not, abort startup.
+2. Refuse to continue if any unexpected migrations are pending.
+3. Apply the single approved `20261119210001_AddRecurrenceAndRemindersPostgres`
+   migration using EF Core's transactional migration mechanism.
+4. Verify no migrations remain pending. If migration or verification fails,
+   abort startup instead of serving an API with an incompatible schema.
+
+The migration is additive and backward-compatible with the previous API.
+On subsequent restarts the check is idempotent. Existing task data is
+preserved. The fallback manual script
+`scripts/migrations/20261119210001_recurring_tasks_postgres.sql`
+is provided for administrators who choose a migration-first operation; do
+**not** apply it while another migration runner is active.
+
+Before merging, check the Render database identity, prerequisite migration,
+and a recoverable backup strategy. After deployment, confirm the migration
+history, the columns, all five production smoke probes, and login/task
+operations. If the deployment fails, roll back the web-service image to
+the previous commit. **Do not run the down migration for an application
+rollback:** the prior API works with the extra columns, and dropping them
+would discard recurrence preferences.
+
+The Render database may be on a plan without independently confirmed
+point-in-time recovery or snapshot guarantees. Check the backup/restore
+policy before making destructive future schema changes.
+
+Verification: `dotnet test backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj`,
+`dotnet test backend/TaskFlow.Postgres.Tests/TaskFlow.Postgres.Tests.csproj`
+against a disposable local PostgreSQL database, and
+`cd frontend && npm test && npm run lint && npm run build`.
