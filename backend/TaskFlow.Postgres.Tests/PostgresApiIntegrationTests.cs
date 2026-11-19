@@ -30,6 +30,64 @@ public sealed class PostgresApiIntegrationTests : IClassFixture<PostgresApiFacto
     }
 
     [Fact]
+    public async Task Recurrence_CreatesExactlyOneNextOccurrenceInPostgres()
+    {
+        using var owner = await _factory.AuthenticatedClientAsync();
+        using var outsider = await _factory.AuthenticatedClientAsync();
+        using var created = await owner.PostAsJsonAsync("/api/tasks", new
+        {
+            title = "Recurring integration", priority = "High", category = "Work",
+            dueDate = "2026-11-19", recurrenceRule = "Weekly", reminderDaysBefore = 1
+        });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var original = await JsonAsync(created);
+        int id = original.GetProperty("id").GetInt32();
+
+        using var denied = await outsider.PutAsync($"/api/tasks/{id}", null);
+        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+
+        using var complete = await owner.PutAsync($"/api/tasks/{id}", null);
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+
+        using var fetched = await owner.GetAsync("/api/tasks");
+        fetched.EnsureSuccessStatusCode();
+        var matches = (await JsonAsync(fetched)).EnumerateArray()
+            .Where(item => item.GetProperty("title").GetString() == "Recurring integration")
+            .ToList();
+        Assert.Equal(2, matches.Count);
+        Assert.True(matches.Single(item => item.GetProperty("id").GetInt32() == id)
+            .GetProperty("completed").GetBoolean());
+        var next = matches.Single(item => item.GetProperty("id").GetInt32() != id);
+        Assert.False(next.GetProperty("completed").GetBoolean());
+        Assert.StartsWith("2026-11-26", next.GetProperty("dueDate").GetString());
+        Assert.Equal(1, next.GetProperty("reminderDaysBefore").GetInt32());
+        Assert.Equal("Weekly", next.GetProperty("recurrenceRule").GetString());
+
+        using var outsiderList = await outsider.GetAsync("/api/tasks");
+        Assert.DoesNotContain((await JsonAsync(outsiderList)).EnumerateArray(),
+            item => item.GetProperty("title").GetString() == "Recurring integration");
+    }
+
+    [Fact]
+    public async Task Recurrence_RejectsMissingDateAndInvalidOffset()
+    {
+        using var client = await _factory.AuthenticatedClientAsync();
+        using var noDate = await client.PostAsJsonAsync("/api/tasks", new
+        {
+            title = "Invalid", priority = "Medium", category = "General",
+            recurrenceRule = "Daily"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, noDate.StatusCode);
+
+        using var badReminder = await client.PostAsJsonAsync("/api/tasks", new
+        {
+            title = "Invalid reminder", priority = "Medium", category = "General",
+            dueDate = "2026-11-19", reminderDaysBefore = 999
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, badReminder.StatusCode);
+    }
+
+    [Fact]
     public async Task HealthProbes_ArePublicAndPostgresReadinessIsHealthy()
     {
         using var client = _factory.NewClient();
@@ -61,6 +119,7 @@ public sealed class PostgresApiIntegrationTests : IClassFixture<PostgresApiFacto
 
         Assert.Contains("20261017154711_InitialPostgresCreate", applied);
         Assert.Contains("20261119164957_AddTaskDetails", applied);
+        Assert.Contains("20261119210001_AddRecurrenceAndRemindersPostgres", applied);
 
         await using var columns = new NpgsqlCommand(
             """
