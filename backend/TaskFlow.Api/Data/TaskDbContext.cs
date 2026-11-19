@@ -9,6 +9,7 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
     }
 
     public DbSet<TaskItem> Tasks { get; set; }
+    public DbSet<TaskNotificationState> TaskNotificationStates { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -19,5 +20,13 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(task => task.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<TaskNotificationState>(entity =>
+        {
+            entity.HasKey(state => new { state.UserId, state.TaskId, state.Kind });
+            entity.HasOne<TaskItem>().WithMany()
+                .HasForeignKey(state => state.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }
