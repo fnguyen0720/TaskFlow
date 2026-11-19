@@ -1,0 +1,89 @@
+name: Full-stack browser integration
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/full-stack-browser.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/full-stack-browser.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: taskflow_test
+          POSTGRES_PASSWORD: disposable_ci_password
+          POSTGRES_DB: taskflow_integration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskflow_test -d taskflow_integration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      TASKFLOW_INTEGRATION_POSTGRES: "Host=127.0.0.1;Port=5432;Database=taskflow_integration;Username=taskflow_test;Password=disposable_ci_password;Pooling=false"
+      DatabaseProvider: Postgres
+      DATABASE_URL: "Host=127.0.0.1;Port=5432;Database=taskflow_integration;Username=taskflow_test;Password=disposable_ci_password;Pooling=false"
+      ASPNETCORE_ENVIRONMENT: Development
+      Cors__AllowedOrigins__1: "http://127.0.0.1:5174"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend
+        run: npm ci
+        working-directory: frontend
+      - name: Install isolated browser runner
+        run: npm install --no-package-lock --ignore-scripts
+        working-directory: frontend/e2e
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend/e2e
+      - name: Apply real PostgreSQL migrations and verify API test suite
+        run: dotnet test backend/TaskFlow.Postgres.Tests/TaskFlow.Postgres.Tests.csproj -c Release
+      - name: Start real local ASP.NET API
+        run: |
+          dotnet run --project backend/TaskFlow.Api/TaskFlow.Api.csproj --no-launch-profile -c Release --no-build --urls http://127.0.0.1:5143 > /tmp/taskflow-api.log 2>&1 &
+          echo "$!" > /tmp/taskflow-api.pid
+          for i in $(seq 1 45); do
+            if curl --silent --fail http://127.0.0.1:5143/health/ready >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          echo "API did not become ready; consult CI artifact."
+          exit 1
+      - name: Exercise real browser → API → PostgreSQL
+        run: npx playwright test --config=playwright.real.config.js
+        working-directory: frontend/e2e
+        env:
+          CI: "true"
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-stack-browser-failures
+          path: |
+            frontend/e2e/real-test-results/
+            frontend/e2e/playwright-report/
+            /tmp/taskflow-api.log
+          retention-days: 7
