@@ -21,9 +21,17 @@ public static class RequestObservability
         var start = Stopwatch.GetTimestamp();
         using var scope = logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = id });
 
+        var unhandledException = false;
         try
         {
             await next(context);
+        }
+        catch
+        {
+            // Count failures even when exception middleware has not written
+            // an HTTP 500 response yet. Never log the exception or its message.
+            unhandledException = true;
+            throw;
         }
         finally
         {
@@ -31,7 +39,7 @@ public static class RequestObservability
             // A route *pattern* is safe; a raw URL can contain user IDs and query secrets.
             var route = endpoint?.RoutePattern.RawText ?? "unmatched";
             var elapsed = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-            var status = context.Response.StatusCode;
+            var status = unhandledException ? 500 : context.Response.StatusCode;
             if (status >= 500)
             {
                 logger.LogWarning(
