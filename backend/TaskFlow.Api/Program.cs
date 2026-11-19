@@ -136,7 +136,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(allowedOrigins.ToArray())
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .WithExposedHeaders(RequestObservability.HeaderName);
     });
 });
 
@@ -170,6 +171,17 @@ builder.Services.AddRateLimiter(options =>
     var logBucketDiagnostics =
         trustRenderPublicEdge &&
         builder.Configuration.GetValue<bool>("Security:LogAuthBucketTags");
+
+    options.AddPolicy("frontend-diagnostics", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: "telemetry:" + AuthClientIpPartition.GetKey(context, false),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 12,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
 
     options.AddPolicy("authentication", context =>
     {
@@ -207,6 +219,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
+// Correlation is assigned *before* auth/authorization so rejected requests are traced.
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILoggerFactory>()
+        .CreateLogger("TaskFlow.Observability.Request");
+    await RequestObservability.InvokeAsync(context, next, logger);
+});
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -242,6 +261,26 @@ app.MapGet("/health/ready", async (TaskDbContext db, ILogger<Program> logger,
             statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 })
+.AllowAnonymous();
+
+// Only a fixed taxonomy is accepted; do not store free-form browser errors,
+// stack traces, route URLs, usernames or user-entered task contents.
+app.MapPost("/api/diagnostics/frontend", (
+    FrontendDiagnostic report,
+    HttpContext context,
+    ILogger<Program> logger) =>
+{
+    if (context.Request.ContentLength is > 1024 ||
+        !FrontendDiagnosticValidator.IsValid(report))
+    {
+        return Results.BadRequest();
+    }
+    logger.LogWarning(
+        "frontend_diagnostic code={Code} area={Area} correlation_id={CorrelationId}",
+        report.Code, report.Area, report.CorrelationId);
+    return Results.Accepted();
+})
+.RequireRateLimiting("frontend-diagnostics")
 .AllowAnonymous();
 
 // GET: Return only the logged-in user's tasks.
