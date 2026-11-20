@@ -448,7 +448,7 @@ test("month mode reschedules through keyboard-accessible date input", async ({ p
   await page.getByRole("group", { name: "Calendar display" }).getByRole("button", { name: "Month" }).click();
   const month = page.getByRole("region", { name: "Monthly task calendar" });
   await month.getByRole("button", { name: "Move Monthly move to date" }).click();
-  await month.getByLabel("Move to").fill("2026-11-20");
+  await month.locator("#month-move-303").fill("2026-11-20");
   await month.getByRole("button", { name: "Apply" }).click();
   await expect.poll(() => api.calls.filter(call => call.pathname === "/api/tasks/303/due-date").length).toBe(1);
   await expect(month.getByRole("region", { name: "Friday, November 20, 2026" })).toContainText("Monthly move");
