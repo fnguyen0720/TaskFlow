@@ -154,3 +154,16 @@ test("account recovery clearly remains disabled until an email sender is configu
   expect(response.status()).toBe(200);
   expect((await response.json()).emailDeliveryEnabled).toBe(false);
 });
+
+test("reset link opened during an active session is consumed and scrubbed from URL", async ({ page, request }) => {
+  const email = createEmail();
+  await register(request, email);
+  await signIn(page, email);
+  const fragment = "#resetPassword=example-token&email=" + encodeURIComponent(email);
+  await page.goto("/" + fragment);
+  await expect(page.getByRole("heading", { name: "Set a new password" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("");
+  await expect(page.getByRole("button", { name: "Back to TaskFlow" })).toBeVisible();
+  await page.getByRole("button", { name: "Back to TaskFlow" }).click();
+  await expect(page.getByRole("navigation", { name: "Task views" })).toBeVisible();
+});
