@@ -419,3 +419,50 @@ test("productivity insights fit 320px mobile and show an empty workspace safely"
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(320);
 });
+
+test("month mode navigates months, opens tasks and quick-adds a chosen date", async ({ page }) => {
+  await installMockApi(page, { initialTasks: [
+    fixtureTask(301, "November review", "2026-11-19"),
+    fixtureTask(302, "December delivery", "2026-12-01"),
+  ] });
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ }).click();
+  await page.getByRole("group", { name: "Calendar display" }).getByRole("button", { name: "Month" }).click();
+  const month = page.getByRole("region", { name: "Monthly task calendar" });
+  await expect(month).toContainText("November review");
+  await expect(month.getByRole("heading", { name: "November 2026" })).toBeVisible();
+  await month.getByRole("button", { name: "Next month" }).click();
+  await expect(month.getByRole("heading", { name: "December 2026" })).toBeVisible();
+  await expect(month).toContainText("December delivery");
+  await month.getByRole("button", { name: "Add task for Tuesday, December 1, 2026" }).click();
+  await expect(page.getByRole("textbox", { name: "New task title" })).toBeFocused();
+  await expect(page.getByLabel("Due date")).toHaveValue("2026-12-01");
+  await month.getByRole("button", { name: "This month" }).click();
+  await expect(month.getByRole("heading", { name: "November 2026" })).toBeVisible();
+});
+
+test("month mode reschedules through keyboard-accessible date input", async ({ page }) => {
+  const api = await installMockApi(page, { initialTasks: [fixtureTask(303, "Monthly move", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ }).click();
+  await page.getByRole("group", { name: "Calendar display" }).getByRole("button", { name: "Month" }).click();
+  const month = page.getByRole("region", { name: "Monthly task calendar" });
+  await month.getByRole("button", { name: "Move Monthly move to date" }).click();
+  await month.getByRole("textbox", { name: "Move to" }).fill("2026-11-20");
+  await month.getByRole("button", { name: "Apply" }).click();
+  await expect.poll(() => api.calls.filter(call => call.pathname === "/api/tasks/303/due-date").length).toBe(1);
+  await expect(month.getByRole("region", { name: "Friday, November 20, 2026" })).toContainText("Monthly move");
+});
+
+test("weekly date jump from PR12 selects a distant week and fits mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 750 });
+  await installMockApi(page, { initialTasks: [fixtureTask(304, "Future target", "2027-01-01")] });
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ }).click();
+  await page.getByLabel("Jump to date").fill("2027-01-01");
+  await page.getByRole("button", { name: "Go", exact: true }).click();
+  const week = page.getByRole("region", { name: "Weekly task calendar" });
+  await expect(week).toContainText("Future target");
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(width).toBeLessThanOrEqual(320);
+});
