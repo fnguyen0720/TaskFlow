@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatDateForInput } from "../../utils/taskUtils.js";
 import TaskCreateForm from "./TaskCreateForm.jsx";
 import TaskFilters from "./TaskFilters.jsx";
 import TaskList from "./TaskList.jsx";
 import WeeklyCalendar from "./WeeklyCalendar.jsx";
+import MonthlyCalendar from "./MonthlyCalendar.jsx";
 import UndoDeleteToast from "./UndoDeleteToast.jsx";
 
 const TASK_VIEWS = [
@@ -19,6 +20,7 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
   const current = TASK_VIEWS.find(option => option.id === view);
   const tasksInView = views[view];
   const isCalendar = view === "calendar";
+  const [calendarMode, setCalendarMode] = useState("week");
   const titleRef = useRef(null);
   useEffect(() => {
     if (!quickCreateSignal) return;
@@ -70,9 +72,21 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
       <TaskCreateForm form={form} onAdd={actions.add} titleRef={titleRef} />
       <TaskFilters filters={filters} showStatus={view === "all" || isCalendar} defaultSortLabel={view === "upcoming" ? "Default (due date)" : "Default"} />
       {isCalendar && !data.loading && !data.error ? (
-        <WeeklyCalendar tasks={data.filteredTasks} onOpenTask={actions.openDetails}
-          onAddTask={addOnDate} adding={form.adding}
-          onRescheduleTask={actions.reschedule} loadingTask={data.loadingTask} />
+        <>
+          <div className="calendar-mode-switch" role="group" aria-label="Calendar display">
+            <button type="button" aria-pressed={calendarMode === "week"}
+              onClick={() => setCalendarMode("week")}>Week</button>
+            <button type="button" aria-pressed={calendarMode === "month"}
+              onClick={() => setCalendarMode("month")}>Month</button>
+          </div>
+          {calendarMode === "week"
+            ? <WeeklyCalendar tasks={data.filteredTasks} onOpenTask={actions.openDetails}
+                onAddTask={addOnDate} adding={form.adding}
+                onRescheduleTask={actions.reschedule} loadingTask={data.loadingTask} />
+            : <MonthlyCalendar tasks={data.filteredTasks} onOpenTask={actions.openDetails}
+                onAddTask={addOnDate} adding={form.adding}
+                onRescheduleTask={actions.reschedule} loadingTask={data.loadingTask} />}
+        </>
       ) : (
         <TaskList data={data} editing={editing} actions={actions}
           viewEmptyMessage={tasksInView?.length === 0 ? current.empty : undefined} />
