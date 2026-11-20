@@ -383,3 +383,39 @@ test("command palette has a useful empty state on narrow mobile screens", async 
   await palette.getByRole("button", { name: "Close command palette" }).click();
   await expect(palette).toHaveCount(0);
 });
+
+test("productivity insights show current category and due-date snapshot", async ({ page }) => {
+  const tasks = [
+    fixtureTask(201, "Late project", "2026-11-18"),
+    fixtureTask(202, "Today task", "2026-11-19"),
+    fixtureTask(203, "Future project", "2026-11-23"),
+  ];
+  tasks[0].category = "Work";
+  tasks[1].category = "Work";
+  tasks[2].category = "Personal";
+  tasks[2].completed = true;
+  await installMockApi(page, { initialTasks: tasks });
+  await signIn(page);
+  const section = page.getByRole("region", { name: "Productivity insights" });
+  await expect(section).toBeVisible();
+  await expect(section.getByRole("button", { name: "Show insights" })).toHaveAttribute("aria-expanded", "false");
+  await section.getByRole("button", { name: "Show insights" }).click();
+  await expect(section.getByRole("button", { name: "Hide insights" })).toHaveAttribute("aria-expanded", "true");
+  await expect(section.getByRole("region", { name: "Tasks by category" })).toContainText("Work");
+  await expect(section.getByRole("region", { name: "Active task schedule" })).toContainText("Overdue");
+  await expect(section.getByRole("region", { name: "Active task schedule" })).toContainText("Due today");
+  await expect(section).toContainText("Current task snapshot");
+  await section.getByRole("button", { name: "Hide insights" }).click();
+  await expect(section.getByRole("region", { name: "Tasks by category" })).toHaveCount(0);
+});
+
+test("productivity insights fit 320px mobile and show an empty workspace safely", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 750 });
+  await installMockApi(page);
+  await signIn(page);
+  const section = page.getByRole("region", { name: "Productivity insights" });
+  await section.getByRole("button", { name: "Show insights" }).click();
+  await expect(section).toContainText("Add a task to see the category breakdown.");
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(width).toBeLessThanOrEqual(320);
+});
