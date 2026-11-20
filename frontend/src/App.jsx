@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.jsx";
+import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
@@ -15,6 +17,16 @@ import { buildNotifications } from "./utils/notificationCenter.js";
 import { remindersDue } from "./utils/reminders.js";
 
 function App() {
+  const [recoveryScreen, setRecoveryScreen] = useState(isResetLink);
+  // The browser can navigate to an emailed fragment link in the SAME tab
+  // without reloading the SPA. Recognize that navigation even when signed in.
+  useEffect(() => {
+    const onHashChange = () => {
+      if (isResetLink()) setRecoveryScreen(true);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
   const [detailId, setDetailId] = useState(null);
   const [view, setView] = useState("all");
   const [filter, setFilter] = useState("all");
@@ -106,7 +118,7 @@ function App() {
     activeReminders,
   };
 
-  if (!token) {
+  if (!token || recoveryScreen) {
   return (
     <div className="app auth-page">
       <h1>TaskFlow</h1>
@@ -114,7 +126,8 @@ function App() {
         Stay organized. Get things done.
       </p>
 
-      <form onSubmit={handleAuth} className="auth-form">
+      {recoveryScreen ? <AccountRecovery key="recovery" initialEmail={authEmail}
+        onBack={() => setRecoveryScreen(false)} backLabel={token ? "Back to TaskFlow" : "Back to sign in"} /> : <form onSubmit={handleAuth} className="auth-form">
         <h2>
           {authMode === "login"
             ? "Welcome back"
@@ -173,7 +186,9 @@ function App() {
             ? "Need an account? Register"
             : "Already have an account? Sign in"}
         </button>
-      </form>
+        {authMode === "login" && <button type="button" className="auth-switch"
+          onClick={() => setRecoveryScreen(true)}>Forgot password?</button>}
+      </form>}
     </div>
   );
 }
@@ -189,6 +204,7 @@ function App() {
           <button type="button" className="notification-close" onClick={() => setNotification(null)} aria-label="Dismiss notification">×</button>
         </div>
       )}
+      <EmailVerificationNotice token={token} />
       <DashboardHeader logout={logout} notifications={notifications}
         notificationCenter={notificationCenter} notificationSettings={notificationSettings}
         onOpenTask={setDetailId} />

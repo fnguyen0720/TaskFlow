@@ -140,3 +140,30 @@ test("real browser can configure recurrence and see its in-app reminder", async 
   const occurrences = (await after.json()).filter(item => item.title === title);
   expect(occurrences.find(item => !item.completed).dueDate).toMatch(/^2026-11-21/);
 });
+
+test("account recovery clearly remains disabled until an email sender is configured", async ({ page, request }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Forgot password?" }).click();
+  await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
+  await expect(page.getByText("Email recovery isn't available yet. No emails are being sent.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send reset link" })).toBeDisabled();
+  await page.getByRole("button", { name: "Back to sign in" }).click();
+  await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
+
+  const response = await request.get(`${API}/api/account/capabilities`);
+  expect(response.status()).toBe(200);
+  expect((await response.json()).emailDeliveryEnabled).toBe(false);
+});
+
+test("reset link opened during an active session is consumed and scrubbed from URL", async ({ page, request }) => {
+  const email = createEmail();
+  await register(request, email);
+  await signIn(page, email);
+  const fragment = "#resetPassword=example-token&email=" + encodeURIComponent(email);
+  await page.goto("/" + fragment);
+  await expect(page.getByRole("heading", { name: "Set a new password" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("");
+  await expect(page.getByRole("button", { name: "Back to TaskFlow" })).toBeVisible();
+  await page.getByRole("button", { name: "Back to TaskFlow" }).click();
+  await expect(page.getByRole("navigation", { name: "Task views" })).toBeVisible();
+});

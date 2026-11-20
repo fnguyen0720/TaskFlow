@@ -86,6 +86,16 @@ builder.Services
     .AddIdentityApiEndpoints<ApplicationUser>()
     .AddEntityFrameworkStores<TaskDbContext>();
 
+// Email delivery is fail-closed: incomplete configuration stops startup.
+// The default installation sends no mail. Existing accounts may continue
+// signing in until verified-address enforcement is separately rolled out.
+builder.Services.AddSingleton<AccountEmailDelivery>();
+builder.Services.AddHttpClient<TaskFlowIdentityEmailSender>();
+builder.Services.AddTransient<Microsoft.AspNetCore.Identity.IEmailSender<ApplicationUser>>(
+    sp => sp.GetRequiredService<TaskFlowIdentityEmailSender>());
+builder.Services.Configure<Microsoft.AspNetCore.Identity.DataProtectionTokenProviderOptions>(
+    options => options.TokenLifespan = TimeSpan.FromHours(2));
+
 builder.Services.AddAuthorization();
 builder.Services.AddOpenApi();
 
@@ -213,6 +223,11 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// Validate the complete email configuration before accepting any HTTP traffic.
+// Without this eager resolution, a partial provider setup could appear healthy
+// until the first Identity email attempt.
+_ = app.Services.GetRequiredService<AccountEmailDelivery>();
+
 // The Render service auto-deploys main. Expand the production PostgreSQL
 // schema BEFORE starting the new API so existing tasks remain available.
 // This upgrade is additive and idempotent; a failed preflight aborts startup.
@@ -247,6 +262,11 @@ app.UseAuthorization();
 var identityEndpoints = app.MapGroup("");
 identityEndpoints.RequireRateLimiting("authentication");
 identityEndpoints.MapIdentityApi<ApplicationUser>();
+
+// Public feature capability. No secrets, provider identifiers or email addresses.
+app.MapGet("/api/account/capabilities", (AccountEmailDelivery delivery) =>
+    Results.Ok(new { emailDeliveryEnabled = delivery.Enabled }))
+    .AllowAnonymous();
 
 // Read-only endpoints for production uptime and database readiness monitoring.
 // Never return connection strings, error details, migrations, or application data.
