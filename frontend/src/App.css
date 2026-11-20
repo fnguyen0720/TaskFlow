@@ -602,3 +602,12 @@ html, body, #root {
 .notification-settings-saved{font-size:11px;color:#8bdbb1}
 .notification-settings-save{padding:9px 12px;border:1px solid #7e70d4;border-radius:7px;background:#6355cc;color:#fff;font-size:11px;cursor:pointer}
 .notification-settings-save:disabled{opacity:.5;cursor:not-allowed}
+
+/* PR #22 — account recovery and verification */
+.account-help{margin:0 0 8px;color:#a5a5b7;font-size:12px;line-height:1.6;text-align:center}
+.verification-banner{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px;padding:14px 18px;border:1px solid #5c4e83;border-radius:10px;background:rgba(101,87,179,.13)}
+.verification-banner strong{color:#f0edff;font-size:13px}
+.verification-banner p{margin:7px 0 0;color:#bdbae1;font-size:11px;line-height:1.6}
+.verification-banner button{flex-shrink:0;border:1px solid #8b7cff;background:#302a51;border-radius:8px;color:#ddd5ff;padding:10px 13px;font-size:11px;cursor:pointer}
+.verification-banner button:disabled{opacity:.5;cursor:not-allowed}
+@media (max-width:600px){.verification-banner{flex-direction:column;align-items:flex-start}}
