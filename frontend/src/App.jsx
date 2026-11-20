@@ -3,6 +3,7 @@ import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.
 import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
+import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
 import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
@@ -20,6 +21,8 @@ function App() {
   const [recoveryScreen, setRecoveryScreen] = useState(isResetLink);
   const [detailId, setDetailId] = useState(null);
   const [detailDirty, setDetailDirty] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [quickCreateSignal, setQuickCreateSignal] = useState(0);
   const [view, setView] = useState("all");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -43,6 +46,22 @@ function App() {
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
     toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails, rescheduleTask, undoMove, undoableMove, dismissMove,
   } = useTasks({ token, onUnauthorized: clearAuth, showNotification });
+
+  useEffect(() => {
+    if (!token || recoveryScreen || detailId != null) return;
+    const onShortcut = event => {
+      if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, [token, recoveryScreen, detailId]);
+
+  useEffect(() => {
+    if (!token || recoveryScreen || detailId != null) setCommandOpen(false);
+  }, [token, recoveryScreen, detailId]);
 
   const createDirty = Boolean(
     newTask.trim() || newPriority !== "Medium" || newCategory !== "General" ||
@@ -86,6 +105,7 @@ function App() {
     setEditReminder("");
     setDetailId(null);
     setDetailDirty(false);
+    setCommandOpen(false);
   }, [setNewTask, setNewPriority, setNewCategory, setNewDueDate, setNewRecurrence,
     setNewReminder, setEditingId, setEditingError, setEditTitle, setEditPriority,
     setEditCategory, setEditDueDate, setEditRecurrence, setEditReminder]);
@@ -178,10 +198,21 @@ function App() {
     setEditReminder("");
   };
   const changeView = nextView => {
-    if (nextView === view) return;
-    if (editDirty && !window.confirm("Discard task edits and switch views?")) return;
+    if (nextView === view) return true;
+    if (editDirty && !window.confirm("Discard task edits and switch views?")) return false;
     if (editingId !== null) cancelEditingWithoutPrompt();
     setView(nextView);
+    return true;
+  };
+  const openTaskFromPalette = id => {
+    if (editDirty && !window.confirm("Discard task edits and open another task?")) return false;
+    if (editingId !== null) cancelEditingWithoutPrompt();
+    setDetailId(id);
+    return true;
+  };
+  const quickCreateFromPalette = () => {
+    setQuickCreateSignal(count => count + 1);
+    return true;
   };
   const cancelEditingWithoutPrompt = () => {
     setEditingId(null);
@@ -285,7 +316,7 @@ function App() {
       <EmailVerificationNotice token={token} />
       <DashboardHeader logout={logout} notifications={notifications}
         notificationCenter={notificationCenter} notificationSettings={notificationSettings}
-        onOpenTask={setDetailId} />
+        onOpenTask={setDetailId} onOpenCommand={() => setCommandOpen(true)} />
       {loading ? (
         <section className="workspace-loading" role="status" aria-live="polite" aria-label="Loading workspace">
           <div className="workspace-loading-heading" />
@@ -300,7 +331,10 @@ function App() {
         </>
       ) : null}
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
-        planner={{ view, setView: changeView, views }} />
+        planner={{ view, setView: changeView, views, quickCreateSignal }} />
+      {commandOpen && !detailTask && <CommandPalette tasks={visibleTasks}
+        onClose={() => setCommandOpen(false)} onOpenTask={openTaskFromPalette}
+        onChangeView={changeView} onQuickCreate={quickCreateFromPalette} />}
       {detailTask && (
         <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
           onDirtyChange={setDetailDirty}

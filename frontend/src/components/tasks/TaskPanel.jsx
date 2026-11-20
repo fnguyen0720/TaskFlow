@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { formatDateForInput } from "../../utils/taskUtils.js";
 import TaskCreateForm from "./TaskCreateForm.jsx";
 import TaskFilters from "./TaskFilters.jsx";
@@ -15,11 +15,19 @@ const TASK_VIEWS = [
 ];
 
 export default function TaskPanel({ data, form, filters, editing, actions, planner }) {
-  const { view, setView, views } = planner;
+  const { view, setView, views, quickCreateSignal } = planner;
   const current = TASK_VIEWS.find(option => option.id === view);
   const tasksInView = views[view];
   const isCalendar = view === "calendar";
   const titleRef = useRef(null);
+  useEffect(() => {
+    if (!quickCreateSignal) return;
+    const frame = requestAnimationFrame(() => {
+      titleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      titleRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [quickCreateSignal]);
 
   function addOnDate(date) {
     form.setDueDate(formatDateForInput(date));
