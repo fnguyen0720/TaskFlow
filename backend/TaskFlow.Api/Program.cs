@@ -265,7 +265,7 @@ identityEndpoints.MapIdentityApi<ApplicationUser>();
 
 // Public feature capability. No secrets, provider identifiers or email addresses.
 app.MapGet("/api/account/capabilities", (AccountEmailDelivery delivery) =>
-    Results.Ok(new { emailDeliveryEnabled = delivery.Enabled }))
+    Results.Ok(new { emailDeliveryEnabled = delivery.PublicRecoveryEnabled }))
     .AllowAnonymous();
 
 // Read-only endpoints for production uptime and database readiness monitoring.

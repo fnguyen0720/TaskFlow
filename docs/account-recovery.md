@@ -45,16 +45,26 @@ users should verify their email as soon as delivery is enabled.
 ## Configuring a verified sender (separate operator action)
 
 A real sender requires a verified domain with the email provider and
-four **server-only** configuration values on Render:
+four **server-only** credentials/origin values on Render plus an explicit
+delivery mode. The mode defaults to `Disabled` even when credentials are present:
 
 ```text
+Email__DeliveryMode=Test
+Email__TestRecipients=you@your-owned-inbox.example
 Email__ResendApiKey=<secret from verified Resend account>
 Email__FromAddress=TaskFlow <no-reply@your-verified-domain.example>
 Email__PublicApiOrigin=https://taskflow-k63f.onrender.com
 Email__FrontendOrigin=https://task-flow-pi-lake.vercel.app
 ```
 
-All four are required. Configuration is resolved eagerly at API startup;
+The four provider/origin settings are required for `Test` or `Live` mode.
+`Test` requires an exact allowlist of recipient mailboxes and suppresses delivery
+to all other accounts. Public `/api/account/capabilities` continues to report
+`emailDeliveryEnabled: false` in Test mode; the UI does not advertise account
+recovery to users. After independent DNS verification, a successful test
+inbox delivery and manual operator review, change `Email__DeliveryMode=Live`
+in a separate approved deployment. Do not enable it automatically on a
+provider status alone. Configuration is resolved eagerly at API startup;
 an incomplete configuration aborts backend startup before any requests are served.
 A reset link opened by an already signed-in browser also opens the recovery
 screen and immediately scrubs the fragment token from the URL. Sender errors contain no
@@ -72,7 +82,7 @@ rate limits and post-reset sign-in.
 ## Deployment / rollback
 
 This is code-only; there is no PostgreSQL migration. The sender remains
-disabled until fully configured, so existing logins and tasks are
+disabled until `Email__DeliveryMode` is explicitly set to `Test` or `Live`, so existing logins and tasks are
 unaffected. Verify GitHub checks and Vercel preview before merge.
 After deployment, check Render health, existing login, `/api/account/capabilities`
 (false), and production smoke. Do not claim real email delivery works

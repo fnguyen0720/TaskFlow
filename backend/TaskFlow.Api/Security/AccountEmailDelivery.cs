@@ -1,40 +1,66 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Net.Mail;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Identity;
+
+public enum EmailDeliveryMode
+{
+    Disabled,
+    Test,
+    Live
+}
 
 public sealed class AccountEmailDelivery
 {
-    public bool Enabled { get; }
+    public EmailDeliveryMode Mode { get; }
+    public bool Enabled => Mode != EmailDeliveryMode.Disabled;
+    // This is the only value exposed by /api/account/capabilities.
+    // Private test mode must not activate public account recovery.
+    public bool PublicRecoveryEnabled => Mode == EmailDeliveryMode.Live;
     public string? ApiKey { get; }
     public string? From { get; }
     public string? ApiOrigin { get; }
     public string? FrontendOrigin { get; }
+    private readonly HashSet<string> _testRecipients = new(StringComparer.OrdinalIgnoreCase);
 
     public AccountEmailDelivery(IConfiguration configuration)
     {
-        var apiKey = configuration["Email:ResendApiKey"];
-        var from = configuration["Email:FromAddress"];
-        var api = configuration["Email:PublicApiOrigin"];
-        var frontend = configuration["Email:FrontendOrigin"];
+        var mode = configuration["Email:DeliveryMode"]?.Trim() ?? "Disabled";
+        if (!Enum.TryParse<EmailDeliveryMode>(mode, true, out var parsed) ||
+            !Enum.IsDefined(parsed))
+            throw new InvalidOperationException("Email:DeliveryMode must be Disabled, Test, or Live.");
+        Mode = parsed;
 
-        // A partial configuration must never silently enable delivery.
-        Enabled = !string.IsNullOrWhiteSpace(apiKey) &&
-                  !string.IsNullOrWhiteSpace(from) &&
-                  !string.IsNullOrWhiteSpace(api) &&
-                  !string.IsNullOrWhiteSpace(frontend);
-        if (!Enabled)
-        {
-            if (new[] { apiKey, from, api, frontend }.Any(x => !string.IsNullOrWhiteSpace(x)))
-                throw new InvalidOperationException("Email delivery requires all four Email settings.");
-            return;
-        }
+        var apiKey = configuration["Email:ResendApiKey"]?.Trim();
+        var from = configuration["Email:FromAddress"]?.Trim();
+        var api = configuration["Email:PublicApiOrigin"]?.Trim();
+        var frontend = configuration["Email:FrontendOrigin"]?.Trim();
+        var values = new[] { apiKey, from, api, frontend };
+        var configured = values.Count(x => !string.IsNullOrWhiteSpace(x));
+
+        // Keep the existing fail-closed rule for partially supplied secrets.
+        if ((configured > 0 && configured < 4) || (Enabled && configured != 4))
+            throw new InvalidOperationException("Email delivery requires all four Email settings.");
+        if (!Enabled) return;
 
         if (!TryTrustedOrigin(api, out var apiOrigin) ||
             !TryTrustedOrigin(frontend, out var frontendOrigin) ||
-            from!.Contains('\r') || from.Contains('\n') ||
-            !from.Contains('@'))
-        {
+            !TryValidSender(from))
             throw new InvalidOperationException("Email sender or trusted HTTPS origins are invalid.");
+
+        if (Mode == EmailDeliveryMode.Test)
+        {
+            foreach (var candidate in (configuration["Email:TestRecipients"] ?? "").Split(
+                         ',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (!TryValidMailbox(candidate))
+                    throw new InvalidOperationException("Email:TestRecipients contains an invalid address.");
+                _testRecipients.Add(candidate);
+            }
+            if (_testRecipients.Count == 0)
+                throw new InvalidOperationException("Test email delivery needs an explicit recipient allowlist.");
         }
 
         ApiKey = apiKey;
@@ -42,6 +68,21 @@ public sealed class AccountEmailDelivery
         ApiOrigin = apiOrigin;
         FrontendOrigin = frontendOrigin;
     }
+
+    public bool CanDeliverTo(string email) =>
+        Enabled && TryValidMailbox(email) &&
+        (Mode == EmailDeliveryMode.Live || _testRecipients.Contains(email));
+
+    private static bool TryValidMailbox(string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        !value.Contains('\r') && !value.Contains('\n') &&
+        MailAddress.TryCreate(value, out var mailbox) &&
+        string.Equals(mailbox.Address, value, StringComparison.OrdinalIgnoreCase);
+
+    private static bool TryValidSender(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && !value.Contains('\r') && !value.Contains('\n') &&
+        MailAddress.TryCreate(value, out var sender) &&
+        sender.Address.Contains('@');
 
     private static bool TryTrustedOrigin(string? value, out string origin)
     {
@@ -54,8 +95,8 @@ public sealed class AccountEmailDelivery
         return true;
     }
 
-    // Identity generates a URL from the request Host. Re-anchor outgoing links
-    // to the explicitly trusted production API host, not an attacker Host header.
+    // Identity creates a URL using the inbound Host header. Never send that
+    // origin to the user: preserve only the required parameters and known path.
     public string TrustedConfirmationLink(string untrustedLink)
     {
         if (!Enabled) throw new InvalidOperationException("Email delivery is unavailable.");
@@ -67,7 +108,7 @@ public sealed class AccountEmailDelivery
         return ApiOrigin + "/confirmEmail" + input.Query;
     }
 
-    // Fragment tokens never reach frontend hosting logs via HTTP requests.
+    // The URL fragment is not sent to the frontend host in an HTTP request.
     public string ResetLink(string email, string code)
     {
         if (!Enabled) throw new InvalidOperationException("Email delivery is unavailable.");
@@ -77,8 +118,6 @@ public sealed class AccountEmailDelivery
     }
 }
 
-// Identity's built-in cryptographic tokens stay within Identity; this sender
-// only handles delivery. No reset tokens or email bodies are logged.
 public sealed class TaskFlowIdentityEmailSender : IEmailSender<ApplicationUser>
 {
     private readonly HttpClient _http;
@@ -92,28 +131,43 @@ public sealed class TaskFlowIdentityEmailSender : IEmailSender<ApplicationUser>
     }
 
     public Task SendConfirmationLinkAsync(ApplicationUser user, string email, string confirmationLink) =>
+        !_config.CanDeliverTo(email) ? Task.CompletedTask :
         DeliverAsync(email, "Confirm your TaskFlow email",
             "Confirm your TaskFlow email by opening this link:\n" +
-            (_config.Enabled ? _config.TrustedConfirmationLink(confirmationLink) : "") +
+            _config.TrustedConfirmationLink(confirmationLink) +
             "\n\nIf you did not create this account, ignore this message.");
 
     public Task SendPasswordResetCodeAsync(ApplicationUser user, string email, string resetCode) =>
+        !_config.CanDeliverTo(email) ? Task.CompletedTask :
         DeliverAsync(email, "Reset your TaskFlow password",
             "You requested a password reset. Open this link to set a new password:\n" +
-            (_config.Enabled ? _config.ResetLink(email, resetCode) : "") +
+            _config.ResetLink(email, resetCode) +
             "\n\nIf you did not request this, ignore this message.");
 
-    // The built-in Identity API uses reset-code delivery, not reset-link
-    // delivery. Never forward an arbitrary host-derived link.
     public Task SendPasswordResetLinkAsync(ApplicationUser user, string email, string resetLink) =>
         Task.FromException(new NotSupportedException("Use reset-code delivery."));
 
     private async Task DeliverAsync(string email, string subject, string body)
     {
-        if (!_config.Enabled) return; // Disabled on production until explicitly configured.
+        if (!_config.CanDeliverTo(email)) return;
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _config.ApiKey);
-        request.Content = JsonContent.Create(new { from = _config.From, to = new[] { email }, subject, text = body });
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _config.ApiKey);
+        // The key is deterministic for this exact message, but contains no
+        // raw email address or recovery token. Resend deduplicates retries
+        // bearing the same key for its 24-hour idempotency retention period.
+        var payload = Encoding.UTF8.GetBytes(_config.From + "\n" +
+            email.ToLowerInvariant() + "\n" + subject + "\n" + body);
+        var digest = HMACSHA256.HashData(Encoding.UTF8.GetBytes(_config.ApiKey!), payload);
+        request.Headers.TryAddWithoutValidation(
+            "Idempotency-Key", "taskflow-" + Convert.ToHexStringLower(digest));
+        request.Content = JsonContent.Create(new
+        {
+            from = _config.From,
+            to = new[] { email },
+            subject,
+            text = body
+        });
         using var response = await _http.SendAsync(request);
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException("Email provider rejected the request.");

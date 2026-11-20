@@ -66,6 +66,8 @@ public sealed class AccountRecoveryTests
 
         var complete = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
         {
+            ["Email:DeliveryMode"] = "Test",
+            ["Email:TestRecipients"] = "test@example.test",
             ["Email:ResendApiKey"] = "fake-key",
             ["Email:FromAddress"] = "TaskFlow <no-reply@example.test>",
             ["Email:PublicApiOrigin"] = "https://api.example.test",
@@ -73,10 +75,92 @@ public sealed class AccountRecoveryTests
         }).Build();
         var enabled = new AccountEmailDelivery(complete);
         Assert.True(enabled.Enabled);
+        Assert.False(enabled.PublicRecoveryEnabled);
+        Assert.True(enabled.CanDeliverTo("test@example.test"));
+        Assert.False(enabled.CanDeliverTo("other@example.test"));
         Assert.Equal("https://api.example.test/confirmEmail?userId=x&code=y",
             enabled.TrustedConfirmationLink("https://attacker.invalid/confirmEmail?userId=x&amp;code=y"));
         Assert.StartsWith("https://app.example.test/#resetPassword=",
             enabled.ResetLink("test@example.test", "abc-123"));
+    }
+
+    private static AccountEmailDelivery ConfiguredEmail(
+        string mode = "Test", string recipients = "allowed@example.test")
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?>
+            {
+                ["Email:DeliveryMode"] = mode,
+                ["Email:TestRecipients"] = recipients,
+                ["Email:ResendApiKey"] = "fake-key",
+                ["Email:FromAddress"] = "TaskFlow <no-reply@example.test>",
+                ["Email:PublicApiOrigin"] = "https://api.example.test",
+                ["Email:FrontendOrigin"] = "https://app.example.test"
+            }).Build();
+        return new AccountEmailDelivery(config);
+    }
+
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+        public List<string> Keys { get; } = new();
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            Assert.Equal("https://api.resend.com/emails", request.RequestUri?.ToString());
+            Keys.Add(Assert.Single(request.Headers.GetValues("Idempotency-Key")));
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        }
+    }
+
+    [Fact]
+    public async Task TestMode_AllowsOnlyNamedRecipients_AndProviderRetriesUseStableKeys()
+    {
+        var config = ConfiguredEmail();
+        Assert.True(config.Enabled);
+        Assert.False(config.PublicRecoveryEnabled);
+        var handler = new CapturingHandler();
+        using var client = new HttpClient(handler);
+        var sender = new TaskFlowIdentityEmailSender(client, config);
+        var user = new ApplicationUser();
+
+        await sender.SendPasswordResetCodeAsync(user, "blocked@example.test", "token");
+        Assert.Equal(0, handler.Calls);
+        await sender.SendPasswordResetCodeAsync(user, "allowed@example.test", "token");
+        await sender.SendPasswordResetCodeAsync(user, "allowed@example.test", "token");
+        Assert.Equal(2, handler.Calls);
+        Assert.Equal(handler.Keys[0], handler.Keys[1]);
+        await sender.SendPasswordResetCodeAsync(user, "allowed@example.test", "second-token");
+        Assert.NotEqual(handler.Keys[1], handler.Keys[2]);
+        Assert.Equal(3, handler.Calls);
+        Assert.DoesNotContain("allowed@", handler.Keys[0]);
+        Assert.DoesNotContain("token", handler.Keys[0]);
+    }
+
+    [Fact]
+    public async Task DisabledMode_DoesNotSendEvenWithCompleteCredentials()
+    {
+        var config = ConfiguredEmail("Disabled");
+        Assert.False(config.Enabled);
+        Assert.False(config.PublicRecoveryEnabled);
+        var handler = new CapturingHandler();
+        using var client = new HttpClient(handler);
+        var sender = new TaskFlowIdentityEmailSender(client, config);
+        await sender.SendConfirmationLinkAsync(
+            new ApplicationUser(), "allowed@example.test",
+            "https://untrusted.example/confirmEmail?userId=x&code=y");
+        Assert.Equal(0, handler.Calls);
+    }
+
+    [Fact]
+    public void LiveMode_RequiresExplicitActivation_TestModeRequiresAllowlist()
+    {
+        var live = ConfiguredEmail("Live");
+        Assert.True(live.PublicRecoveryEnabled);
+        Assert.True(live.CanDeliverTo("other@example.test"));
+        Assert.Throws<InvalidOperationException>(() => ConfiguredEmail("Test", ""));
+        Assert.Throws<InvalidOperationException>(() => ConfiguredEmail("Surprise"));
     }
 
     private sealed class PartialProviderFactory : CustomWebApplicationFactory
