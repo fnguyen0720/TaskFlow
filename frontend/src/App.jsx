@@ -1,4 +1,6 @@
 import { useState } from "react";
+import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.jsx";
+import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
@@ -15,6 +17,7 @@ import { buildNotifications } from "./utils/notificationCenter.js";
 import { remindersDue } from "./utils/reminders.js";
 
 function App() {
+  const [recoveryScreen, setRecoveryScreen] = useState(isResetLink);
   const [detailId, setDetailId] = useState(null);
   const [view, setView] = useState("all");
   const [filter, setFilter] = useState("all");
@@ -114,7 +117,8 @@ function App() {
         Stay organized. Get things done.
       </p>
 
-      <form onSubmit={handleAuth} className="auth-form">
+      {recoveryScreen ? <AccountRecovery key="recovery" initialEmail={authEmail}
+        onBack={() => setRecoveryScreen(false)} /> : <form onSubmit={handleAuth} className="auth-form">
         <h2>
           {authMode === "login"
             ? "Welcome back"
@@ -173,7 +177,9 @@ function App() {
             ? "Need an account? Register"
             : "Already have an account? Sign in"}
         </button>
-      </form>
+        {authMode === "login" && <button type="button" className="auth-switch"
+          onClick={() => setRecoveryScreen(true)}>Forgot password?</button>}
+      </form>}
     </div>
   );
 }
@@ -189,6 +195,7 @@ function App() {
           <button type="button" className="notification-close" onClick={() => setNotification(null)} aria-label="Dismiss notification">×</button>
         </div>
       )}
+      <EmailVerificationNotice token={token} />
       <DashboardHeader logout={logout} notifications={notifications}
         notificationCenter={notificationCenter} notificationSettings={notificationSettings}
         onOpenTask={setDetailId} />
