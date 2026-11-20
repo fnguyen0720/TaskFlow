@@ -31,3 +31,13 @@ test("daily focus is prioritized and omits completed tasks", () => {
   assert.deepEqual([focus.overdue,focus.dueToday,focus.upcoming,focus.recurring],[1,1,1,1]);
   assert.deepEqual(focus.priorityTasks.map(t=>t.id),[1,2,3]);
 });
+
+test("dismissed upcoming notice does not hide a newly due task", () => {
+  const taskDue = task(21,"2026-11-20",{reminderDaysBefore:7});
+  const dismissed = [{taskId:21,kind:"upcoming",isRead:true,isDismissed:true}];
+  assert.deepEqual(buildNotifications([taskDue], dismissed, new Date(2026,10,19,12)), []);
+  assert.deepEqual(buildNotifications([taskDue], dismissed, new Date(2026,10,20,12))
+    .map(x => [x.kind, x.isRead]), [["due-today", false]]);
+  assert.deepEqual(buildNotifications([taskDue], dismissed, new Date(2026,10,21,12))
+    .map(x => x.kind), ["overdue"]);
+});
