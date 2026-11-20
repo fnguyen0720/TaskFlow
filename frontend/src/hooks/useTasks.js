@@ -260,13 +260,8 @@ const addTask = async (e) => {
     ...currentTasks,
   ]);
 
-  // Clear form immediately
-  setNewTask("");
-  setNewDueDate("");
-  setNewPriority("Medium");
-  setNewCategory("General");
-  setNewRecurrence("None");
-  setNewReminder("");
+  // Retain the complete draft until the server confirms creation.
+  // Failed requests remove only the optimistic row, never form inputs.
 
   try {
     const response = await fetchWithDiagnostics(
@@ -302,6 +297,13 @@ const addTask = async (e) => {
       )
     );
 
+    if (currentToken.current !== token) return;
+    setNewTask("");
+    setNewDueDate("");
+    setNewPriority("Medium");
+    setNewCategory("General");
+    setNewRecurrence("None");
+    setNewReminder("");
     showNotification("Task added.");
   } catch {
     console.warn("Task creation request failed");
