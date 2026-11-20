@@ -289,6 +289,8 @@ const addTask = async (e) => {
     }
 
     const createdTask = await response.json();
+    // Never publish an old account's result after sign-out or account switch.
+    if (currentToken.current !== token) return;
 
     // Replace temporary task with real database task
     setTasks((currentTasks) =>
@@ -296,8 +298,6 @@ const addTask = async (e) => {
         task.id === tempId ? createdTask : task
       )
     );
-
-    if (currentToken.current !== token) return;
     setNewTask("");
     setNewDueDate("");
     setNewPriority("Medium");
@@ -306,6 +306,7 @@ const addTask = async (e) => {
     setNewReminder("");
     showNotification("Task added.");
   } catch {
+    if (currentToken.current !== token) return;
     console.warn("Task creation request failed");
 
     // Roll back
