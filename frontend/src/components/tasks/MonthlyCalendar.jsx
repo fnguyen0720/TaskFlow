@@ -33,6 +33,7 @@ export default function MonthlyCalendar({ tasks, onOpenTask, onAddTask, adding, 
         </div>
       </div>
       <p className="calendar-guidance">Open a task to see details, use Move to reschedule, or add a task to a chosen date.</p>
+      <div className="month-grid-scroll" role="region" aria-label="Scrollable month grid" tabIndex="0">
       <div className="month-grid" role="group" aria-label="Month days">
         {weekdayLabels.map(label => <div key={label} className="month-weekday" aria-hidden="true">{label}</div>)}
         {days.map(day => {
@@ -71,6 +72,7 @@ export default function MonthlyCalendar({ tasks, onOpenTask, onAddTask, adding, 
             </section>
           );
         })}
+      </div>
       </div>
     </section>
   );
