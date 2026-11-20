@@ -7,7 +7,7 @@ export default function TaskEditor({ task, editing, onSave, onCancel, busy }) {
     <div
       className="edit-container"
       onKeyDown={event => {
-        if (event.key === "Escape") {
+        if (event.key === "Escape" && !busy) {
           event.stopPropagation();
           onCancel();
         }
@@ -19,12 +19,14 @@ export default function TaskEditor({ task, editing, onSave, onCancel, busy }) {
         value={title}
         onChange={event => setTitle(event.target.value)}
         autoFocus
+        disabled={busy}
         aria-label={"Edit title for " + task.title}
         maxLength={100}
       />
       <div className="edit-options">
         <select
           className="edit-priority"
+          disabled={busy}
           value={priority}
           aria-label={"Priority for " + task.title}
           onChange={event => setPriority(event.target.value)}
@@ -33,6 +35,7 @@ export default function TaskEditor({ task, editing, onSave, onCancel, busy }) {
         </select>
         <select
           className="edit-category"
+          disabled={busy}
           value={category}
           aria-label={"Category for " + task.title}
           onChange={event => setCategory(event.target.value)}
@@ -41,27 +44,29 @@ export default function TaskEditor({ task, editing, onSave, onCancel, busy }) {
         </select>
         <input
           className="edit-due-date"
+          disabled={busy}
           type="date"
           value={dueDate}
           aria-label={"Due date for " + task.title}
           onChange={event => setDueDate(event.target.value)}
         />
-        <select value={recurrence} onChange={event => setRecurrence(event.target.value)} aria-label={"Repeat " + task.title}>
+        <select disabled={busy} value={recurrence} onChange={event => setRecurrence(event.target.value)} aria-label={"Repeat " + task.title}>
           {["None", "Daily", "Weekly", "Monthly"].map(rule => <option key={rule} value={rule}>{rule}</option>)}
         </select>
-        <select value={reminder} onChange={event => setReminder(event.target.value)} aria-label={"Reminder for " + task.title}>
+        <select disabled={busy} value={reminder} onChange={event => setReminder(event.target.value)} aria-label={"Reminder for " + task.title}>
           <option value="">Reminder off</option>
           <option value="0">On due date</option>
           <option value="1">1 day before</option>
           <option value="7">7 days before</option>
         </select>
         <button type="button" className="save-button" disabled={!title.trim() || busy || (!dueDate && (recurrence !== "None" || reminder !== ""))} aria-label={"Save changes to " + task.title} onClick={() => onSave(task.id)}>
-          Save
+          {busy ? "Saving…" : "Save"}
         </button>
-        <button type="button" className="cancel-button" aria-label={"Cancel editing " + task.title} onClick={onCancel}>
+        <button type="button" disabled={busy} className="cancel-button" aria-label={"Cancel editing " + task.title} onClick={onCancel}>
           Cancel
         </button>
       </div>
+      {editing.error && <p role="alert" className="edit-error">{editing.error}</p>}
     </div>
   );
 }
