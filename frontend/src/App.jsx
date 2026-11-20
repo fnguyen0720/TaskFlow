@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.jsx";
 import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
@@ -69,7 +69,7 @@ function App() {
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
   }, [hasUnsavedWork]);
 
-  const clearDrafts = () => {
+  const clearDrafts = useCallback(() => {
     setNewTask("");
     setNewPriority("Medium");
     setNewCategory("General");
@@ -86,7 +86,9 @@ function App() {
     setEditReminder("");
     setDetailId(null);
     setDetailDirty(false);
-  };
+  }, [setNewTask, setNewPriority, setNewCategory, setNewDueDate, setNewRecurrence,
+    setNewReminder, setEditingId, setEditingError, setEditTitle, setEditPriority,
+    setEditCategory, setEditDueDate, setEditRecurrence, setEditReminder]);
 
   // Password reset links can arrive via same-tab hash navigation.
   useEffect(() => {
@@ -98,7 +100,7 @@ function App() {
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, [hasUnsavedWork]);
+  }, [hasUnsavedWork, clearDrafts]);
 
   const logout = () => {
     if (hasUnsavedWork && !window.confirm("Discard unsaved changes and log out?")) return;
