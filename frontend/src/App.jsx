@@ -208,8 +208,19 @@ function App() {
       <DashboardHeader logout={logout} notifications={notifications}
         notificationCenter={notificationCenter} notificationSettings={notificationSettings}
         onOpenTask={setDetailId} />
-      <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
-      <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={setView} />
+      {loading ? (
+        <section className="workspace-loading" role="status" aria-live="polite" aria-label="Loading workspace">
+          <div className="workspace-loading-heading" />
+          <div className="workspace-loading-cards" aria-hidden="true">
+            {Array.from({ length: 4 }, (_, index) => <div key={index} className="workspace-loading-card" />)}
+          </div>
+        </section>
+      ) : !error ? (
+        <>
+          <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
+          <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={setView} />
+        </>
+      ) : null}
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
         planner={{ view, setView, views }} />
       {detailTask && (
