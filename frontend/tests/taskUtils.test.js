@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { formatDueDate, getDueDateClass, getTaskStats, getTaskViews, getWeekDays, selectTasks } from "../src/utils/taskUtils.js";
+import { formatDueDate, getDueDateClass, getTaskStats, getTaskViews, getWeekDays, getMonthDays, getWeekOffsetForDate, formatDateForInput, selectTasks } from "../src/utils/taskUtils.js";
 
 const now = new Date(2026, 10, 16, 12);
 const date = (day) => new Date(2026, 10, day, 12).toISOString();
@@ -107,4 +107,38 @@ test("weekly calendar groups date-only deadlines across month and DST boundaries
   assert.equal(next[0].date.getDate(), 2);
   assert.deepEqual(next[0].tasks.map(task => task.id), [3]);
   assert.equal(next.some(day => day.isToday), false);
+});
+
+test("date jump selects Monday-based weeks across daylight saving and year changes", () => {
+  const reference = new Date(2026, 10, 1, 12);
+  assert.equal(getWeekOffsetForDate("2026-11-01", reference), 0);
+  assert.equal(getWeekOffsetForDate("2026-11-02", reference), 1);
+  assert.equal(getWeekOffsetForDate("2026-10-25", reference), -1);
+  assert.equal(getWeekOffsetForDate("2027-01-01", reference), 9);
+  assert.equal(getWeekOffsetForDate("2026-02-30", reference), null);
+});
+
+test("month grid includes Monday-first leading days, adjacent dates and exact UTC-midnight deadlines", () => {
+  const entries = [
+    { id: 1, dueDate: "2026-11-01T00:00:00Z" },
+    { id: 2, dueDate: "2026-11-30T00:00:00Z" },
+    { id: 3, dueDate: "2026-12-01T00:00:00Z" },
+  ];
+  const result = getMonthDays(entries, new Date(2026, 10, 19, 12));
+  assert.equal(result.days.length, 42);
+  assert.equal(formatDueDate(result.days[0].date, new Date(2026, 9, 26)), "📅 Today");
+  assert.equal(formatDateForInput(result.days[0].date), "2026-10-26");
+  assert.deepEqual(result.days.find(d => formatDateForInput(d.date) === "2026-11-01").tasks.map(t => t.id), [1]);
+  assert.deepEqual(result.days.find(d => formatDateForInput(d.date) === "2026-11-30").tasks.map(t => t.id), [2]);
+  assert.deepEqual(result.days.find(d => formatDateForInput(d.date) === "2026-12-01").tasks.map(t => t.id), [3]);
+  assert.equal(result.days.filter(d => d.inMonth).length, 30);
+  assert.equal(result.days.filter(d => d.isToday).length, 1);
+});
+
+test("month navigation handles a February starting Monday and year changes", () => {
+  const february = getMonthDays([], new Date(2027, 2, 7), -1);
+  assert.equal(february.days.length, 28);
+  assert.equal(formatDateForInput(february.days[0].date), "2027-02-01");
+  const january = getMonthDays([], new Date(2026, 11, 20), 1);
+  assert.equal(formatDateForInput(january.month), "2027-01-01");
 });
