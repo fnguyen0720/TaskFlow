@@ -1,6 +1,6 @@
 import NotificationCenter from "./NotificationCenter.jsx";
 
-export default function DashboardHeader({ logout, notifications, notificationCenter, notificationSettings, onOpenTask }) {
+export default function DashboardHeader({ logout, notifications, notificationCenter, notificationSettings, onOpenTask, onOpenCommand }) {
   return (
     <header className="dashboard-header">
       <div>
@@ -9,6 +9,7 @@ export default function DashboardHeader({ logout, notifications, notificationCen
         <p className="subtitle">A little progress each day adds up to big results.</p>
       </div>
       <div className="dashboard-header-actions">
+        <button type="button" className="command-launcher" onClick={onOpenCommand} aria-label="Open search and commands">Search <kbd>⌘K</kbd></button>
         <NotificationCenter notifications={notifications} loading={notificationCenter.loading}
           error={notificationCenter.error} pending={notificationCenter.pending}
           onUpdate={notificationCenter.update}
