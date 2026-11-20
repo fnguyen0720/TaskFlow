@@ -94,7 +94,11 @@ function App() {
   useEffect(() => {
     const onHashChange = () => {
       if (!isResetLink()) return;
-      if (hasUnsavedWork && !window.confirm("Discard unsaved TaskFlow changes?")) return;
+      if (hasUnsavedWork && !window.confirm("Discard unsaved TaskFlow changes?")) {
+        // Never leave a rejected reset token visible in the address-bar fragment.
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
       clearDrafts();
       setRecoveryScreen(true);
     };
