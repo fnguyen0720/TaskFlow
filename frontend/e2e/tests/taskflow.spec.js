@@ -108,3 +108,33 @@ test("move control remains usable on a 320px mobile viewport", async ({ page }) 
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(320);
 });
+
+test("failed task loading never shows false dashboard totals, and retry restores the workspace", async ({ page }) => {
+  await installMockApi(page, {
+    initialTasks: [fixtureTask(12, "Recover the workspace", "2026-11-19")],
+    failTaskReads: 1,
+  });
+  await signIn(page);
+  await expect(page.getByRole("alert")).toContainText("Unable to load your tasks");
+  await expect(page.locator(".overview")).toHaveCount(0);
+  await expect(page.locator(".dashboard-intro")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.locator(".overview")).toBeVisible();
+  await expect(page.locator(".overview")).toContainText("1");
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Recover the workspace");
+});
+
+test("workspace loading placeholder fits a narrow mobile screen", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 750 });
+  await installMockApi(page);
+  await page.route("**/mock-api/api/tasks", async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return route.fallback();
+  });
+  await signIn(page);
+  await expect(page.getByRole("navigation", { name: "Task views" })).toBeVisible();
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(width).toBeLessThanOrEqual(320);
+});
