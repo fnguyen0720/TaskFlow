@@ -18,7 +18,7 @@ export function isResetLink() {
   return window.location.hash.startsWith("#resetPassword=");
 }
 
-export default function AccountRecovery({ onBack, initialEmail = "" }) {
+export default function AccountRecovery({ onBack, initialEmail = "", backLabel = "Back to sign in" }) {
   const [reset] = useState(readResetFragment);
   const [email, setEmail] = useState(reset?.email || initialEmail);
   const [password, setPassword] = useState("");
@@ -85,7 +85,7 @@ export default function AccountRecovery({ onBack, initialEmail = "" }) {
       <button type="submit" disabled={checking || !enabled || pending || (reset && Boolean(notice))}>
         {pending ? "Please wait…" : reset ? "Reset password" : "Send reset link"}
       </button>
-      <button type="button" className="auth-switch" onClick={onBack}>Back to sign in</button>
+      <button type="button" className="auth-switch" onClick={onBack}>{backLabel}</button>
     </form>
   );
 }
