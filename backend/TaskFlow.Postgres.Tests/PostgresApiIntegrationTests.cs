@@ -103,6 +103,55 @@ public sealed class PostgresApiIntegrationTests : IClassFixture<PostgresApiFacto
     }
 
     [Fact]
+    public async Task NotificationPreferences_ArePrivateValidatedAndPersistInPostgres()
+    {
+        using var owner = await _factory.AuthenticatedClientAsync();
+        using var other = await _factory.AuthenticatedClientAsync();
+        using var anon = _factory.NewClient();
+
+        using var anonymousRead = await anon.GetAsync("/api/notifications/preferences");
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousRead.StatusCode);
+        using var initial = await owner.GetAsync("/api/notifications/preferences");
+        Assert.Equal(HttpStatusCode.OK, initial.StatusCode);
+        var defaults = await JsonAsync(initial);
+        Assert.True(defaults.GetProperty("overdueEnabled").GetBoolean());
+        Assert.True(defaults.GetProperty("dueTodayEnabled").GetBoolean());
+        Assert.True(defaults.GetProperty("upcomingEnabled").GetBoolean());
+
+        using var missing = await owner.PutAsJsonAsync("/api/notifications/preferences",
+            new { overdueEnabled = false });
+        Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+
+        using var saved = await owner.PutAsJsonAsync("/api/notifications/preferences",
+            new { overdueEnabled = false, dueTodayEnabled = true, upcomingEnabled = false });
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        using var ownerAgain = await owner.GetAsync("/api/notifications/preferences");
+        var persisted = await JsonAsync(ownerAgain);
+        Assert.False(persisted.GetProperty("overdueEnabled").GetBoolean());
+        Assert.True(persisted.GetProperty("dueTodayEnabled").GetBoolean());
+        Assert.False(persisted.GetProperty("upcomingEnabled").GetBoolean());
+
+        using var otherResponse = await other.GetAsync("/api/notifications/preferences");
+        var separate = await JsonAsync(otherResponse);
+        Assert.True(separate.GetProperty("overdueEnabled").GetBoolean());
+        Assert.True(separate.GetProperty("upcomingEnabled").GetBoolean());
+        using var anonymousWrite = await anon.PutAsJsonAsync("/api/notifications/preferences",
+            new { overdueEnabled = false, dueTodayEnabled = false, upcomingEnabled = false });
+        Assert.Equal(HttpStatusCode.Unauthorized, anonymousWrite.StatusCode);
+    }
+
+    [Fact]
+    public async Task NotificationPreferencesMigration_IsAppliedAndRestartSafe()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var applied = await scope.ServiceProvider.GetRequiredService<TaskDbContext>()
+            .Database.GetAppliedMigrationsAsync();
+        Assert.Contains("20261120150001_AddNotificationPreferencesPostgres", applied);
+        await RecurringProductionMigration.EnsureAppliedAsync(_factory.Services);
+        await RecurringProductionMigration.EnsureAppliedAsync(_factory.Services);
+    }
+
+    [Fact]
     public async Task NotificationState_RequiresOwnerAndPersistsAcrossClients()
     {
         using var owner = await _factory.AuthenticatedClientAsync();
