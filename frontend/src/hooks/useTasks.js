@@ -11,6 +11,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
   const [newTask, setNewTask] = useState("");
   const [newPriority, setNewPriority] = useState("Medium");
   const [editingId, setEditingId] = useState(null);
+  const [editingError, setEditingError] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [editPriority, setEditPriority] = useState("Medium");
   const [newDueDate, setNewDueDate] = useState("");
@@ -154,6 +155,7 @@ const toggleTask = async (id) => {
 
 const startEditing = (task) => {
 
+  setEditingError("");
   setEditingId(task.id);
 
   setEditTitle(task.title);
@@ -170,17 +172,12 @@ const startEditing = (task) => {
 
 
 
-// Edit task
+// Keep the form and its values intact until the server confirms the edit.
+// This allows a failed save to be retried without retyping any changes.
 const editTask = async (id) => {
-if (loadingTask?.id === id) return;
-
-const previousTask = tasks.find(task => task.id === id);
-if (!previousTask) return;
-
-setLoadingTask({
-  id,
-  action: "edit",
-});
+  if (loadingTask || editingId !== id) return;
+  const previousTask = tasks.find(task => task.id === id);
+  if (!previousTask) return;
 
   const updatedValues = {
     title: editTitle.trim(),
@@ -190,77 +187,48 @@ setLoadingTask({
     recurrenceRule: editRecurrence,
     reminderDaysBefore: editReminder === "" ? null : Number(editReminder),
   };
-
-
-  // Optimistically update UI
-  setTasks((currentTasks) =>
-    currentTasks.map((task) =>
-      task.id === id
-        ? {
-            ...task,
-            ...updatedValues,
-          }
-        : task
-    )
-  );
-
-
-  // Exit edit mode immediately
-  setEditingId(null);
-  setEditTitle("");
-  setEditPriority("Medium");
-  setEditCategory("General");
-  setEditDueDate("");
-  setEditRecurrence("None");
-  setEditReminder("");
+  setEditingError("");
+  setLoadingTask({ id, action: "edit" });
 
   try {
-    const response = await fetchWithDiagnostics(
-      `${API_BASE_URL}/api/tasks/${id}/title`,
-      {
-        method: "PUT",
+    const response = await fetchWithDiagnostics(`${API_BASE_URL}/api/tasks/${id}/title`, {
+      method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-        body: JSON.stringify(updatedValues),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to edit task");
+      body: JSON.stringify(updatedValues),
+    });
+    if (currentToken.current !== token) return;
+    if (response.status === 401) {
+      onUnauthorized();
+      return;
     }
+    if (!response.ok) throw new Error("Couldn't save changes. Your edits are still here. Please try again.");
 
-    await response.json();
-
+    const savedTask = await response.json();
+    if (currentToken.current !== token) return;
+    setTasks(current => current.map(task => task.id === id ? { ...task, ...savedTask } : task));
     if ((previousTask.dueDate?.slice(0, 10) ?? null) !== updatedValues.dueDate) {
       setLastMove(current => current?.id === id ? null : current);
     }
+    setEditingId(null);
+    setEditTitle("");
+    setEditPriority("Medium");
+    setEditCategory("General");
+    setEditDueDate("");
+    setEditRecurrence("None");
+    setEditReminder("");
+    setEditingError("");
     showNotification("Task updated.");
   } catch {
+    if (currentToken.current !== token) return;
     console.warn("Task edit request failed");
-
-    // Roll back UI
-    setTasks(current => current.map(task => task.id === id ? {
-      ...task,
-      title: previousTask.title,
-      priority: previousTask.priority,
-      category: previousTask.category,
-      dueDate: previousTask.dueDate,
-      recurrenceRule: previousTask.recurrenceRule,
-      reminderDaysBefore: previousTask.reminderDaysBefore,
-    } : task));
-
-    showNotification(
-      "Couldn't update task. Please try again.",
-      "error"
-    );
-  }
-  finally {
-    setLoadingTask(null);
+    setEditingError("Couldn't save changes. Your edits are still here. Please try again.");
+  } finally {
+    setLoadingTask(current => current?.id === id && current?.action === "edit" ? null : current);
   }
 };
-
 
 
 // Add task
@@ -434,7 +402,7 @@ finally {
     error, setError,
     newTask, setNewTask,
     newPriority, setNewPriority,
-    editingId, setEditingId,
+    editingId, setEditingId, editingError, setEditingError,
     editTitle, setEditTitle,
     editPriority, setEditPriority,
     newDueDate, setNewDueDate,
