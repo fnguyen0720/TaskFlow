@@ -466,3 +466,47 @@ test("weekly date jump from PR12 selects a distant week and fits mobile", async 
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(320);
 });
+
+test("PWA manifest and raster icons are available with correct dimensions", async ({ page }) => {
+  const manifestResponse = await page.request.get("/manifest.webmanifest");
+  expect(manifestResponse.ok()).toBe(true);
+  const manifest = await manifestResponse.json();
+  expect(manifest.name).toContain("TaskFlow");
+  expect(manifest.display).toBe("standalone");
+  expect(manifest.start_url).toBe("/");
+  for (const size of [192, 512]) {
+    const icon = manifest.icons.find(entry => entry.sizes === size + "x" + size);
+    expect(icon).toBeDefined();
+    const response = await page.request.get(icon.src);
+    expect(response.ok()).toBe(true);
+    const bytes = await response.body();
+    expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+    expect(bytes.readUInt32BE(16)).toBe(size);
+    expect(bytes.readUInt32BE(20)).toBe(size);
+  }
+  const workerResponse = await page.request.get("/sw.js");
+  expect(workerResponse.ok()).toBe(true);
+  const worker = await workerResponse.text();
+  expect(worker).not.toContain("caches.open");
+  expect(worker).not.toContain("localStorage");
+});
+
+test("month view scrolls inside its own region on narrow mobile screens", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 750 });
+  await installMockApi(page, { initialTasks: [fixtureTask(400, "Mobile calendar task", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ }).click();
+  await page.getByRole("group", { name: "Calendar display" }).getByRole("button", { name: "Month" }).click();
+  const scroll = page.getByRole("region", { name: "Scrollable month grid" });
+  await expect(scroll).toBeVisible();
+  const dimensions = await scroll.evaluate(element => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+    viewportWidth: document.documentElement.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
+  expect(dimensions.viewportWidth).toBeLessThanOrEqual(320);
+  await scroll.focus();
+  await scroll.press("ArrowRight");
+  await expect(scroll).toBeFocused();
+});
