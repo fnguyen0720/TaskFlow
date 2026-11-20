@@ -1,6 +1,7 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [] } = {}) {
+export async function installMockApi(page, { initialTasks = [], failTaskReads = 0 } = {}) {
+  let remainingFailedReads = failTaskReads;
   const tasks = structuredClone(initialTasks);
   let nextId = Math.max(0, ...tasks.map(task => Number(task.id) || 0)) + 1;
   const calls = [];
@@ -28,6 +29,10 @@ export async function installMockApi(page, { initialTasks = [] } = {}) {
 
     if (pathname === "/api/tasks" && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (remainingFailedReads > 0) {
+        remainingFailedReads--;
+        return respond(503, { title: "Service temporarily unavailable" });
+      }
       return respond(200, tasks);
     }
     if (pathname === "/api/tasks" && method === "POST") {
