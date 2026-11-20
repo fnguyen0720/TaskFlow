@@ -109,7 +109,7 @@ function App() {
     activeReminders,
   };
 
-  if (!token) {
+  if (!token || recoveryScreen) {
   return (
     <div className="app auth-page">
       <h1>TaskFlow</h1>
@@ -118,7 +118,7 @@ function App() {
       </p>
 
       {recoveryScreen ? <AccountRecovery key="recovery" initialEmail={authEmail}
-        onBack={() => setRecoveryScreen(false)} /> : <form onSubmit={handleAuth} className="auth-form">
+        onBack={() => setRecoveryScreen(false)} backLabel={token ? "Back to TaskFlow" : "Back to sign in"} /> : <form onSubmit={handleAuth} className="auth-form">
         <h2>
           {authMode === "login"
             ? "Welcome back"
