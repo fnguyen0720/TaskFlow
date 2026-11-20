@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { fetchWithDiagnostics } from "../../utils/diagnostics.js";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
@@ -9,8 +9,7 @@ function readResetFragment() {
   const parsed = new URLSearchParams(fragment);
   const code = parsed.get("resetPassword");
   const email = parsed.get("email");
-  // Remove the token from browser history before any other navigation.
-  window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  // Keep parsing pure: React StrictMode may invoke state initializers twice.
   return code && email ? { code, email } : null;
 }
 
@@ -20,6 +19,12 @@ export function isResetLink() {
 
 export default function AccountRecovery({ onBack, initialEmail = "", backLabel = "Back to sign in" }) {
   const [reset] = useState(readResetFragment);
+  // Scrub the token immediately after React commits, before browser paint.
+  // This effect is idempotent under development StrictMode double mounting.
+  useLayoutEffect(() => {
+    if (reset) window.history.replaceState(
+      null, "", window.location.pathname + window.location.search);
+  }, [reset]);
   const [email, setEmail] = useState(reset?.email || initialEmail);
   const [password, setPassword] = useState("");
   const [enabled, setEnabled] = useState(false);
