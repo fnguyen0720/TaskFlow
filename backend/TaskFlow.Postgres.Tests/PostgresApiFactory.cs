@@ -48,6 +48,9 @@ public sealed class PostgresApiFactory : WebApplicationFactory<Program>, IAsyncL
                 ["DatabaseProvider"] = "Postgres",
                 ["DATABASE_URL"] = _connectionString,
                 ["ConnectionStrings:DefaultConnection"] = _connectionString,
+                // Shared disposable test server creates many accounts quickly.
+                // Production auth limits remain at 20 requests/minute.
+                ["Testing:RelaxAuthRateLimit"] = "true",
             }));
     }
 

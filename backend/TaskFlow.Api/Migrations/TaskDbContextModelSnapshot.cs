@@ -208,6 +208,16 @@ namespace TaskFlow.Api.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("NotificationPreferences", b =>
+                {
+                    b.Property<string>("UserId").HasColumnType("TEXT");
+                    b.Property<bool>("OverdueEnabled").HasColumnType("INTEGER").HasDefaultValue(true);
+                    b.Property<bool>("DueTodayEnabled").HasColumnType("INTEGER").HasDefaultValue(true);
+                    b.Property<bool>("UpcomingEnabled").HasColumnType("INTEGER").HasDefaultValue(true);
+                    b.HasKey("UserId");
+                    b.ToTable("NotificationPreferences");
+                });
+
             modelBuilder.Entity("TaskNotificationState", b =>
                 {
                     b.Property<string>("UserId").HasColumnType("TEXT");
@@ -334,6 +344,14 @@ namespace TaskFlow.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
+            modelBuilder.Entity("NotificationPreferences", b =>
+                {
+                    b.HasOne("ApplicationUser", null).WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
 #pragma warning restore 612, 618
         }
     }

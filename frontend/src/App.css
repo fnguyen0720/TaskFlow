@@ -586,3 +586,19 @@ html, body, #root {
 .daily-focus-date{color:#a5a3b7;font-size:10px;white-space:nowrap}.daily-focus-priority{font-size:10px;padding:3px 5px;border-radius:5px}
 .daily-focus-empty{margin:9px 0 0;color:#a6a6b6;font-size:12px}
 @media (max-width:700px){.dashboard-header{flex-direction:column}.dashboard-header-actions{width:100%;justify-content:space-between}.daily-focus-list{grid-template-columns:1fr}.notification-dropdown{left:0;right:auto}.daily-focus-heading{align-items:flex-start}.app{width:min(100% - 28px,1180px)}}
+
+/* PR #21 — notification preferences */
+.notification-dropdown-actions{gap:12px}
+.notification-settings{padding:17px 18px;border-bottom:1px solid #343247}
+.notification-settings-title strong{color:#f1effa;font-size:13px}
+.notification-settings-title p,.notification-settings-note{color:#a3a2b3;font-size:11px;line-height:1.5}
+.notification-settings-option{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid #2b2d3d;cursor:pointer}
+.notification-settings-option span{display:flex;flex-direction:column;gap:5px}
+.notification-settings-option strong{font-size:11px;color:#f2f0f8}
+.notification-settings-option small{font-size:10px;color:#9b9faf}
+.notification-settings-option input{width:17px;height:17px;accent-color:#8b7cff;cursor:pointer;flex-shrink:0}
+.notification-settings-note{margin:12px 0}
+.notification-settings-error{font-size:11px;color:#f39cac}
+.notification-settings-saved{font-size:11px;color:#8bdbb1}
+.notification-settings-save{padding:9px 12px;border:1px solid #7e70d4;border-radius:7px;background:#6355cc;color:#fff;font-size:11px;cursor:pointer}
+.notification-settings-save:disabled{opacity:.5;cursor:not-allowed}

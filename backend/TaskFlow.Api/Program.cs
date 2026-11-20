@@ -202,7 +202,8 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: partitionKey,
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 20,
+                PermitLimit = builder.Environment.IsDevelopment() &&
+                    builder.Configuration.GetValue<bool>("Testing:RelaxAuthRateLimit") ? 200 : 20,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true
@@ -310,6 +311,49 @@ app.MapGet("/api/tasks", async (
         .ThenBy(t => t.DueDate == null)
         .ThenBy(t => t.DueDate)
         .ToListAsync();
+})
+.RequireAuthorization();
+
+// Notification filters are per-account, never derived from a client-provided
+// user identifier. No email address or task content is stored in preferences.
+app.MapGet("/api/notifications/preferences", async (
+    ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var saved = await db.NotificationPreferences.AsNoTracking()
+        .FirstOrDefaultAsync(p => p.UserId == userId);
+    return Results.Ok(new
+    {
+        OverdueEnabled = saved?.OverdueEnabled ?? true,
+        DueTodayEnabled = saved?.DueTodayEnabled ?? true,
+        UpcomingEnabled = saved?.UpcomingEnabled ?? true
+    });
+})
+.RequireAuthorization();
+
+app.MapPut("/api/notifications/preferences", async (
+    NotificationPreferencesUpdate input, ClaimsPrincipal user, TaskDbContext db) =>
+{
+    if (input.OverdueEnabled is null || input.DueTodayEnabled is null ||
+        input.UpcomingEnabled is null)
+        return Results.BadRequest("Every notification preference is required.");
+
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var saved = await db.NotificationPreferences.FirstOrDefaultAsync(p => p.UserId == userId);
+    if (saved is null)
+    {
+        saved = new NotificationPreferences { UserId = userId };
+        db.NotificationPreferences.Add(saved);
+    }
+    saved.OverdueEnabled = input.OverdueEnabled.Value;
+    saved.DueTodayEnabled = input.DueTodayEnabled.Value;
+    saved.UpcomingEnabled = input.UpcomingEnabled.Value;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new
+    {
+        saved.OverdueEnabled, saved.DueTodayEnabled, saved.UpcomingEnabled
+    });
 })
 .RequireAuthorization();
 

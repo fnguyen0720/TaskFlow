@@ -10,6 +10,7 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<TaskItem> Tasks { get; set; }
     public DbSet<TaskNotificationState> TaskNotificationStates { get; set; }
+    public DbSet<NotificationPreferences> NotificationPreferences { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -20,6 +21,17 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(task => task.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<NotificationPreferences>(entity =>
+        {
+            entity.HasKey(preference => preference.UserId);
+            entity.Property(preference => preference.OverdueEnabled).HasDefaultValue(true);
+            entity.Property(preference => preference.DueTodayEnabled).HasDefaultValue(true);
+            entity.Property(preference => preference.UpcomingEnabled).HasDefaultValue(true);
+            entity.HasOne<ApplicationUser>().WithMany()
+                .HasForeignKey(preference => preference.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.Entity<TaskNotificationState>(entity =>
         {

@@ -53,3 +53,28 @@ test("daily focus opens due tasks and notification state is private to owner", a
   await focus.getByRole("button", { name: new RegExp(title) }).click();
   await expect(page.getByRole("dialog")).toContainText(title);
 });
+
+test("notification preferences filter alerts and persist across a reload", async ({ page, request }) => {
+  await createUserAndLogin(page, request);
+  const title = `Muted reminder ${randomUUID().slice(0,8)}`;
+  await page.getByRole("textbox", { name: "New task title" }).fill(title);
+  await page.getByLabel("Due date").fill("2026-11-19");
+  await page.getByRole("button", { name: /Add task/ }).click();
+  await expect(page.getByRole("button", { name: /Notifications, 1 unread/ })).toBeVisible();
+
+  await page.getByRole("button", { name: /Notifications, 1 unread/ }).click();
+  await page.getByRole("button", { name: "Preferences" }).click();
+  const settings = page.getByRole("region", { name: "Notification preferences" });
+  await expect(settings).toBeVisible();
+  await settings.getByRole("checkbox", { name: /Due today/ }).uncheck();
+  await settings.getByRole("button", { name: "Save preferences" }).click();
+  await expect(settings.getByText("Preferences saved.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Notifications, 0 unread/ })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Notifications, 0 unread/ })).toBeVisible();
+  await page.getByRole("button", { name: /Notifications, 0 unread/ }).click();
+  await page.getByRole("button", { name: "Preferences" }).click();
+  await expect(page.getByRole("region", { name: "Notification preferences" })
+    .getByRole("checkbox", { name: /Due today/ })).not.toBeChecked();
+});

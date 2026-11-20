@@ -1,6 +1,6 @@
 import NotificationCenter from "./NotificationCenter.jsx";
 
-export default function DashboardHeader({ logout, notifications, notificationCenter, onOpenTask }) {
+export default function DashboardHeader({ logout, notifications, notificationCenter, notificationSettings, onOpenTask }) {
   return (
     <header className="dashboard-header">
       <div>
@@ -13,6 +13,7 @@ export default function DashboardHeader({ logout, notifications, notificationCen
           error={notificationCenter.error} pending={notificationCenter.pending}
           onUpdate={notificationCenter.update}
           onMarkAllRead={notificationCenter.markAllRead}
+          settings={notificationSettings}
           onOpenTask={onOpenTask} />
         <button type="button" className="logout-button" onClick={logout}>Log out ↗</button>
       </div>

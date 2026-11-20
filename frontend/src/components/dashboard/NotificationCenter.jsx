@@ -1,4 +1,5 @@
 import { useState } from "react";
+import NotificationSettings from "./NotificationSettings.jsx";
 
 const label = {
   overdue: "Overdue",
@@ -7,9 +8,10 @@ const label = {
 };
 
 export default function NotificationCenter({
-  notifications, loading, error, pending, onUpdate, onMarkAllRead, onOpenTask,
+  notifications, loading, error, pending, onUpdate, onMarkAllRead, onOpenTask, settings,
 }) {
   const [open, setOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const unread = notifications.filter(item => !item.isRead).length;
 
   return (
@@ -32,9 +34,13 @@ export default function NotificationCenter({
           <div className="notification-dropdown-actions">
             <button type="button" disabled={pending || loading || unread === 0}
               onClick={() => onMarkAllRead(notifications)}>Mark all read</button>
+            <button type="button" aria-expanded={showSettings} onClick={() => setShowSettings(value => !value)}>
+              {showSettings ? "Back to alerts" : "Preferences"}
+            </button>
           </div>
-          {error && <p role="alert" className="notification-center-error">{error}</p>}
-          {loading ? <p className="notification-center-empty">Loading notifications…</p> :
+          {showSettings && <NotificationSettings settings={settings} />}
+          {!showSettings && error && <p role="alert" className="notification-center-error">{error}</p>}
+          {!showSettings && (loading ? <p className="notification-center-empty">Loading notifications…</p> :
             notifications.length === 0 ?
               <p className="notification-center-empty">You're all caught up. No active reminders.</p> :
               <ul className="notification-items">
@@ -56,7 +62,7 @@ export default function NotificationCenter({
                     </div>
                   </li>
                 ))}
-              </ul>}
+              </ul>)}
           <p className="notification-center-footnote">Reminders appear while TaskFlow is open.</p>
         </section>
       )}
