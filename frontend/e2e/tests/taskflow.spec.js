@@ -166,3 +166,45 @@ test("stale task reads cannot overwrite a new sign-in session", async ({ page })
   await page.waitForTimeout(800);
   await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText("Old session task");
 });
+
+test("failed inline edit keeps all draft fields and retries without retyping", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(31, "Original title", "2026-11-19")],
+    failTaskEdits: 1,
+  });
+  await signIn(page);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Original title");
+  await page.getByRole("button", { name: "Edit Original title" }).click();
+  await page.getByRole("textbox", { name: "Edit title for Original title" }).fill("Draft survives failure");
+  await page.getByRole("combobox", { name: "Priority for Original title" }).selectOption("High");
+  await page.getByRole("combobox", { name: "Category for Original title" }).selectOption("Work");
+  await page.getByRole("button", { name: "Save changes to Original title" }).click();
+
+  await expect(page.getByRole("alert")).toContainText("Your edits are still here");
+  await expect(page.getByRole("textbox", { name: "Edit title for Original title" })).toHaveValue("Draft survives failure");
+  await expect(page.getByRole("combobox", { name: "Priority for Original title" })).toHaveValue("High");
+  await expect(page.getByRole("combobox", { name: "Category for Original title" })).toHaveValue("Work");
+  expect(api.tasks[0].title).toBe("Original title");
+
+  await page.getByRole("button", { name: "Save changes to Original title" }).click();
+  await expect(page.getByRole("button", { name: "Edit Draft survives failure" })).toBeVisible();
+  expect(api.tasks[0].title).toBe("Draft survives failure");
+  expect(api.tasks[0].priority).toBe("High");
+  expect(api.calls.filter(call => call.pathname === "/api/tasks/31/title")).toHaveLength(2);
+});
+
+test("failed inline edit remains cancellable without saving draft", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(32, "Stored title", "2026-11-19")],
+    failTaskEdits: 1,
+  });
+  await signIn(page);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Stored title");
+  await page.getByRole("button", { name: "Edit Stored title" }).click();
+  await page.getByRole("textbox", { name: "Edit title for Stored title" }).fill("Unsaved draft");
+  await page.getByRole("button", { name: "Save changes to Stored title" }).click();
+  await expect(page.getByRole("alert")).toContainText("Your edits are still here");
+  await page.getByRole("button", { name: "Cancel editing Stored title" }).click();
+  await expect(page.getByRole("button", { name: "Edit Stored title" })).toBeVisible();
+  expect(api.tasks[0].title).toBe("Stored title");
+});

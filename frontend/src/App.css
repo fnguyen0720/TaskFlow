@@ -629,3 +629,13 @@ html, body, #root {
 @media (prefers-reduced-motion: reduce) {
   .workspace-loading-heading, .workspace-loading-card { animation: none; }
 }
+
+
+/* Keep a failed edit's retry message beside its still-editable draft. */
+.edit-error {
+  margin: 8px 0 0;
+  color: #ffb9b9;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.edit-container :is(input, select, button):disabled { cursor: wait; }
