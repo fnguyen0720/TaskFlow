@@ -295,3 +295,91 @@ test("switching task views asks before discarding inline edits", async ({ page }
   await expect(calendar).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("textbox", { name: "Edit title for Edit in progress" })).toHaveCount(0);
 });
+
+test("Cmd/Ctrl+K searches tasks and Enter opens the selected task", async ({ page }) => {
+  await installMockApi(page, { initialTasks: [
+    fixtureTask(101, "Prepare the release", "2026-11-19"),
+    fixtureTask(102, "Write documentation", "2026-11-19"),
+  ] });
+  await signIn(page);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Prepare the release");
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Search and commands" });
+  await expect(palette).toBeVisible();
+  const search = palette.getByRole("combobox", { name: "Search tasks and commands" });
+  await expect(search).toBeFocused();
+  await search.fill("documentation");
+  await expect(palette.getByRole("option", { name: /Write documentation/ })).toBeVisible();
+  await search.press("Enter");
+  await expect(palette).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Write documentation" })).toBeVisible();
+});
+
+test("command palette supports arrow navigation, Escape, and explicit launcher", async ({ page }) => {
+  await installMockApi(page);
+  await signIn(page);
+  const launcher = page.getByRole("button", { name: "Open search and commands" });
+  await launcher.click();
+  const palette = page.getByRole("dialog", { name: "Search and commands" });
+  const search = palette.getByRole("combobox", { name: "Search tasks and commands" });
+  await search.fill("calendar");
+  await search.press("ArrowDown");
+  await expect(palette.getByRole("option", { name: /Go to Calendar/ })).toHaveAttribute("aria-selected", "true");
+  await search.press("ArrowUp");
+  await expect(palette.getByRole("option", { name: /Go to Calendar/ })).toHaveAttribute("aria-selected", "true");
+  await search.press("Enter");
+  await expect(page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ })).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Meta+k");
+  await expect(palette).toBeVisible();
+  await search.press("Escape");
+  await expect(palette).toHaveCount(0);
+  await expect(launcher).toBeFocused();
+});
+
+test("quick-create command focuses the existing form and preserves its draft", async ({ page }) => {
+  await installMockApi(page);
+  await signIn(page);
+  const title = page.getByRole("textbox", { name: "New task title" });
+  await title.fill("Keep this draft");
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Search and commands" });
+  await palette.getByRole("combobox", { name: "Search tasks and commands" }).fill("create");
+  await palette.getByRole("option", { name: /Create a new task/ }).click();
+  await expect(palette).toHaveCount(0);
+  await expect(title).toBeFocused();
+  await expect(title).toHaveValue("Keep this draft");
+});
+
+test("command navigation respects declined unsaved-edit discard", async ({ page }) => {
+  await installMockApi(page, { initialTasks: [fixtureTask(103, "Do not lose this edit", "2026-11-19")] });
+  await signIn(page);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Do not lose this edit");
+  await page.getByRole("button", { name: "Edit Do not lose this edit" }).click();
+  const title = page.getByRole("textbox", { name: "Edit title for Do not lose this edit" });
+  await title.fill("Unsubmitted edit");
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Search and commands" });
+  await palette.getByRole("combobox", { name: "Search tasks and commands" }).fill("calendar");
+  page.once("dialog", dialog => dialog.dismiss());
+  await palette.getByRole("option", { name: /Go to Calendar/ }).click();
+  await expect(palette).toBeVisible();
+  await expect(title).toHaveValue("Unsubmitted edit");
+  page.once("dialog", dialog => dialog.accept());
+  await palette.getByRole("option", { name: /Go to Calendar/ }).click();
+  await expect(palette).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("command palette has a useful empty state on narrow mobile screens", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 750 });
+  await installMockApi(page);
+  await signIn(page);
+  await page.getByRole("button", { name: "Open search and commands" }).click();
+  const palette = page.getByRole("dialog", { name: "Search and commands" });
+  await palette.getByRole("combobox", { name: "Search tasks and commands" }).fill("no matching task xyz");
+  await expect(palette.getByRole("status")).toContainText("No matching tasks or commands");
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(width).toBeLessThanOrEqual(320);
+  await palette.getByRole("button", { name: "Close command palette" }).click();
+  await expect(palette).toHaveCount(0);
+});
