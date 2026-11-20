@@ -204,6 +204,7 @@ test("failed inline edit remains cancellable without saving draft", async ({ pag
   await page.getByRole("textbox", { name: "Edit title for Stored title" }).fill("Unsaved draft");
   await page.getByRole("button", { name: "Save changes to Stored title" }).click();
   await expect(page.getByRole("alert")).toContainText("Your edits are still here");
+  page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Cancel editing Stored title" }).click();
   await expect(page.getByRole("button", { name: "Edit Stored title" })).toBeVisible();
   expect(api.tasks[0].title).toBe("Stored title");
