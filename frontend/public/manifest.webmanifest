@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "TaskFlow — Personal Task Planner",
+  "short_name": "TaskFlow",
+  "description": "Plan, organize and track tasks in your personal workspace.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0c0d12",
+  "theme_color": "#171525",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
