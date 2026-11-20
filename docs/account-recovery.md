@@ -54,8 +54,10 @@ Email__PublicApiOrigin=https://taskflow-k63f.onrender.com
 Email__FrontendOrigin=https://task-flow-pi-lake.vercel.app
 ```
 
-All four are required. An incomplete configuration aborts backend
-startup to prevent half-configured recovery. Sender errors contain no
+All four are required. Configuration is resolved eagerly at API startup;
+an incomplete configuration aborts backend startup before any requests are served.
+A reset link opened by an already signed-in browser also opens the recovery
+screen and immediately scrubs the fragment token from the URL. Sender errors contain no
 token or provider response body. Do **not** put these keys in
 `VITE_*` variables, client code, GitHub Actions logs or the repository.
 The provider receives the destination address and recovery link only
