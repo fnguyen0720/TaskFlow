@@ -5,8 +5,10 @@ export default function TaskCreateForm({ form, onAdd, titleRef }) {
 
   return (
     <form onSubmit={onAdd} className="task-form" aria-label="Add a new task">
+      <div className="task-create-fields">
       <input
         ref={titleRef}
+        disabled={adding}
         type="text"
         placeholder="What would you like to get done?"
         value={title}
@@ -14,20 +16,20 @@ export default function TaskCreateForm({ form, onAdd, titleRef }) {
         aria-label="New task title"
         maxLength={100}
       />
-      <select value={priority} onChange={event => setPriority(event.target.value)} aria-label="Priority">
+      <select disabled={adding} value={priority} onChange={event => setPriority(event.target.value)} aria-label="Priority">
         {TASK_PRIORITIES.map(value => <option key={value} value={value}>{value}</option>)}
       </select>
-      <select value={category} onChange={event => setCategory(event.target.value)} aria-label="Category">
+      <select disabled={adding} value={category} onChange={event => setCategory(event.target.value)} aria-label="Category">
         {TASK_CATEGORIES.map(value => <option key={value} value={value}>{value}</option>)}
       </select>
-      <input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="Due date" />
+      <input disabled={adding} type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="Due date" />
       <label className="task-schedule-control">Repeat
-        <select value={recurrence} onChange={event => setRecurrence(event.target.value)} aria-label="Repeat task">
+        <select disabled={adding} value={recurrence} onChange={event => setRecurrence(event.target.value)} aria-label="Repeat task">
           {["None", "Daily", "Weekly", "Monthly"].map(rule => <option key={rule} value={rule}>{rule}</option>)}
         </select>
       </label>
       <label className="task-schedule-control">Remind me
-        <select value={reminder} onChange={event => setReminder(event.target.value)} aria-label="Task reminder">
+        <select disabled={adding} value={reminder} onChange={event => setReminder(event.target.value)} aria-label="Task reminder">
           <option value="">Off</option>
           <option value="0">On due date</option>
           <option value="1">1 day before</option>
@@ -37,6 +39,8 @@ export default function TaskCreateForm({ form, onAdd, titleRef }) {
       <button type="submit" disabled={adding || !title.trim() || (!dueDate && (recurrence !== "None" || reminder !== ""))}>
         {adding ? "Adding…" : "＋ Add task"}
       </button>
+      {form.dirty && <button type="button" className="draft-discard-button" disabled={adding} onClick={form.discard}>Discard draft</button>}
+      </div>
     </form>
   );
 }
