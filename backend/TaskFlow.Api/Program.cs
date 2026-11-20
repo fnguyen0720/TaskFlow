@@ -202,7 +202,8 @@ builder.Services.AddRateLimiter(options =>
             partitionKey: partitionKey,
             factory: _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = 20,
+                PermitLimit = builder.Environment.IsDevelopment() &&
+                    builder.Configuration.GetValue<bool>("Testing:RelaxAuthRateLimit") ? 200 : 20,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
                 AutoReplenishment = true
