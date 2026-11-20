@@ -9,6 +9,6 @@ public sealed class NotificationPreferences
 }
 
 public sealed record NotificationPreferencesUpdate(
-    bool OverdueEnabled,
-    bool DueTodayEnabled,
-    bool UpcomingEnabled);
+    bool? OverdueEnabled,
+    bool? DueTodayEnabled,
+    bool? UpcomingEnabled);
