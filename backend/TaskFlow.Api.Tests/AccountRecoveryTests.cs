@@ -79,6 +79,28 @@ public sealed class AccountRecoveryTests
             enabled.ResetLink("test@example.test", "abc-123"));
     }
 
+    private sealed class PartialProviderFactory : CustomWebApplicationFactory
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Email:ResendApiKey"] = "partial-test-key"
+                }));
+        }
+    }
+
+    [Fact]
+    public void IncompleteEmailConfiguration_RefusesStartupBeforeRequests()
+    {
+        using var factory = new PartialProviderFactory();
+        var exception = Assert.ThrowsAny<Exception>(() => factory.CreateClient());
+        Assert.Contains("Email delivery requires all four Email settings.",
+            exception.ToString());
+    }
+
     [Fact]
     public async Task IdentityConfirmationAndPasswordReset_AreSingleUseAndNonEnumerating()
     {
