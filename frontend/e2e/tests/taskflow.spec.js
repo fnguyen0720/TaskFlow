@@ -138,3 +138,31 @@ test("workspace loading placeholder fits a narrow mobile screen", async ({ page 
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(320);
 });
+
+test("stale task reads cannot overwrite a new sign-in session", async ({ page }) => {
+  await installMockApi(page);
+  let reads = 0;
+  await page.route("**/mock-api/api/tasks", async route => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const readNumber = ++reads;
+    if (readNumber === 1) {
+      // Simulate an old session's in-flight request finishing last.
+      await new Promise(resolve => setTimeout(resolve, 700));
+    }
+    const task = fixtureTask(readNumber === 1 ? 41 : 42,
+      readNumber === 1 ? "Old session task" : "Current session task", "2026-11-19");
+    try {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([task]) });
+    } catch {
+      // The browser may have already aborted the first request on logout.
+    }
+  });
+
+  await signIn(page);
+  await expect.poll(() => reads).toBeGreaterThanOrEqual(1);
+  await page.getByRole("button", { name: /Log out/ }).click();
+  await signIn(page);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Current session task");
+  await page.waitForTimeout(800);
+  await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText("Old session task");
+});
