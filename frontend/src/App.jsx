@@ -45,7 +45,7 @@ function App() {
     tasks, setTasks, loading, error, setError, newTask, setNewTask,
     newPriority, setNewPriority, newCategory, setNewCategory, newDueDate, setNewDueDate,
     newRecurrence, setNewRecurrence, newReminder, setNewReminder,
-    editingId, setEditingId, editTitle, setEditTitle, editPriority, setEditPriority,
+    editingId, setEditingId, editingError, setEditingError, editTitle, setEditTitle, editPriority, setEditPriority,
     editCategory, setEditCategory, editDueDate, setEditDueDate,
     editRecurrence, setEditRecurrence, editReminder, setEditReminder, loadingTask,
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
@@ -92,7 +92,7 @@ function App() {
     sort, setSort,
   };
   const editing = {
-    id: editingId,
+    id: editingId, error: editingError,
     title: editTitle, setTitle: setEditTitle,
     priority: editPriority, setPriority: setEditPriority,
     category: editCategory, setCategory: setEditCategory,
@@ -102,6 +102,7 @@ function App() {
   };
   const cancelEditing = () => {
     setEditingId(null);
+    setEditingError("");
     setEditTitle("");
     setEditPriority("Medium");
     setEditCategory("General");
