@@ -140,3 +140,17 @@ test("real browser can configure recurrence and see its in-app reminder", async 
   const occurrences = (await after.json()).filter(item => item.title === title);
   expect(occurrences.find(item => !item.completed).dueDate).toMatch(/^2026-11-21/);
 });
+
+test("account recovery clearly remains disabled until an email sender is configured", async ({ page, request }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Forgot password?" }).click();
+  await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
+  await expect(page.getByText("Email recovery isn't available yet. No emails are being sent.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send reset link" })).toBeDisabled();
+  await page.getByRole("button", { name: "Back to sign in" }).click();
+  await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
+
+  const response = await request.get(`${API}/api/account/capabilities`);
+  expect(response.status()).toBe(200);
+  expect((await response.json()).emailDeliveryEnabled).toBe(false);
+});
