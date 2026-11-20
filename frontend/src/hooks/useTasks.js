@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUndoableDelete } from "./useUndoableDelete.js";
 import { fetchWithDiagnostics } from "../utils/diagnostics.js";
 
@@ -27,72 +27,68 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
   const { pendingDeletes, pendingDeleteIds, deleteTask, undoDelete } = useUndoableDelete({
     token, tasks, setTasks, showNotification,
   });
-    const fetchTasks = async () => {
+  // Abort superseded requests and ignore any response from an old session.
+  // A fast retry must never be overwritten by an earlier, slower response.
+  const taskReadSequence = useRef(0);
+  const activeTaskRead = useRef(null);
+  const currentToken = useRef(token);
+  currentToken.current = token;
 
-      try {
+  const fetchTasks = async () => {
+    if (!token || currentToken.current !== token) return;
+    activeTaskRead.current?.abort();
+    const controller = new AbortController();
+    const sequence = ++taskReadSequence.current;
+    activeTaskRead.current = controller;
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      sequence === taskReadSequence.current &&
+      currentToken.current === token;
 
-        setLoading(true);
-
-        setError("");
-
-        const response = await fetchWithDiagnostics(
-          `${API_BASE_URL}/api/tasks`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (response.status === 401) {
-          onUnauthorized();
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch tasks");
-        }
-
-        const data = await response.json();
-
-
-
-        setTasks(data);
-
-      } catch {
-
-        console.warn("Task list request failed");
-
-        setError("Unable to load your tasks. Please try again.");
-
-      } finally {
-
-        setLoading(false);
-
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetchWithDiagnostics(`${API_BASE_URL}/api/tasks`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      if (!isCurrent()) return;
+      if (response.status === 401) {
+        onUnauthorized();
+        return;
       }
-
-    };
-
-
-
-
-
-    const retryFetchTasks = () => {
-
-      fetchTasks();
-
-    };
-
-  // Get tasks from backend
-
-    useEffect(() => {
-      if (token) {
-        fetchTasks();
-      } else {
+      if (!response.ok) throw new Error("Failed to fetch tasks");
+      const data = await response.json();
+      if (isCurrent()) setTasks(data);
+    } catch (error) {
+      if (!isCurrent() || error?.name === "AbortError") return;
+      console.warn("Task list request failed");
+      setError("Unable to load your tasks. Please try again.");
+    } finally {
+      if (isCurrent()) {
+        activeTaskRead.current = null;
         setLoading(false);
-        setTasks([]);
       }
-    }, [token]);
+    }
+  };
+
+  const retryFetchTasks = () => { void fetchTasks(); };
+
+  useEffect(() => {
+    // Clear the previous account's tasks when the session changes.
+    setTasks([]);
+    setError("");
+    if (token) {
+      void fetchTasks();
+    } else {
+      setLoading(false);
+    }
+    return () => {
+      ++taskReadSequence.current;
+      activeTaskRead.current?.abort();
+      activeTaskRead.current = null;
+    };
+  }, [token]);
 
 
 // Toggle task
