@@ -271,7 +271,7 @@ function App() {
       ) : !error ? (
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
-          <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={setView} />
+          <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
         </>
       ) : null}
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
