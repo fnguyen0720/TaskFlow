@@ -40,6 +40,8 @@ jobs:
       DatabaseProvider: Postgres
       DATABASE_URL: "Host=127.0.0.1;Port=5432;Database=taskflow_integration;Username=taskflow_test;Password=disposable_ci_password;Pooling=false"
       ASPNETCORE_ENVIRONMENT: Development
+      # Only the isolated local CI API may exceed production auth request budgets.
+      Testing__RelaxAuthRateLimit: "true"
       Cors__AllowedOrigins__1: "http://127.0.0.1:5174"
     steps:
       - uses: actions/checkout@v4
