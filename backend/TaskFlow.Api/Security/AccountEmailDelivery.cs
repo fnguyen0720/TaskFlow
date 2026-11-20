@@ -32,7 +32,7 @@ public sealed class AccountEmailDelivery
         if (!TryTrustedOrigin(api, out var apiOrigin) ||
             !TryTrustedOrigin(frontend, out var frontendOrigin) ||
             from!.Contains('\r') || from.Contains('\n') ||
-            !from.Contains('@', StringComparison.Ordinal))
+            !from.Contains('@'))
         {
             throw new InvalidOperationException("Email sender or trusted HTTPS origins are invalid.");
         }
