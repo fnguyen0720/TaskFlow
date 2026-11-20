@@ -25,6 +25,9 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
         builder.Entity<NotificationPreferences>(entity =>
         {
             entity.HasKey(preference => preference.UserId);
+            entity.Property(preference => preference.OverdueEnabled).HasDefaultValue(true);
+            entity.Property(preference => preference.DueTodayEnabled).HasDefaultValue(true);
+            entity.Property(preference => preference.UpcomingEnabled).HasDefaultValue(true);
             entity.HasOne<ApplicationUser>().WithMany()
                 .HasForeignKey(preference => preference.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
