@@ -10,7 +10,9 @@ const calendarDate = (value) => {
       const year = Number(match[1]);
       const month = Number(match[2]);
       const day = Number(match[3]);
-      const result = new Date(year, month - 1, day);
+      const result = new Date(0);
+      result.setHours(0, 0, 0, 0);
+      result.setFullYear(year, month - 1, day);
       // Reject invalid dates rather than silently rolling them into another month.
       if (result.getFullYear() !== year || result.getMonth() !== month - 1 || result.getDate() !== day) {
         return null;
@@ -32,7 +34,11 @@ export function formatDateForInput(date) {
 }
 
 // UTC day numbers are used only for arithmetic, avoiding DST-length days.
-const dayNumber = (date) => Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000;
+const dayNumber = (date) => {
+  const midnight = new Date(0);
+  midnight.setUTCFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+  return midnight.getTime() / 86400000;
+};
 const dueDayNumber = (value) => {
   const date = calendarDate(value);
   return date ? dayNumber(date) : null;
@@ -133,4 +139,41 @@ export function getWeekDays(tasks, reference = new Date(), weekOffset = 0) {
     }
   }
   return days;
+}
+
+/** The Monday-based week offset of a date, including DST and year changes. */
+export function getWeekOffsetForDate(value, reference = new Date()) {
+  const target = calendarDate(value);
+  const today = calendarDate(reference);
+  if (!target || !today) return null;
+  const mondayNumber = dayNumber(today) - (today.getDay() + 6) % 7;
+  return Math.floor((dayNumber(target) - mondayNumber) / 7);
+}
+
+/** A 35/42-cell month grid, Monday first, retaining neighboring-month dates. */
+export function getMonthDays(tasks, reference = new Date(), monthOffset = 0) {
+  const first = new Date(reference.getFullYear(), reference.getMonth() + monthOffset, 1);
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  const start = new Date(first);
+  start.setDate(1 - (first.getDay() + 6) % 7);
+  const endPadding = (7 - (last.getDay() + 6) % 7 - 1 + 7) % 7;
+  const total = Math.ceil((last.getDate() + (first.getDay() + 6) % 7 + endPadding) / 7) * 7;
+  const today = dayNumber(reference);
+  const buckets = new Map();
+  for (const task of tasks) {
+    const day = calendarDate(task.dueDate);
+    if (!day) continue;
+    const key = dayNumber(day);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(task);
+  }
+  const days = Array.from({ length: total }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const number = dayNumber(date);
+    return { date, isToday: number === today,
+      inMonth: date.getMonth() === first.getMonth() && date.getFullYear() === first.getFullYear(),
+      tasks: buckets.get(number) || [] };
+  });
+  return { month: first, days };
 }
