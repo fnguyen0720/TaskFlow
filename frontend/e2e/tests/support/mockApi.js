@@ -1,8 +1,10 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingFailedEdits = failTaskEdits;
+  let remainingFailedCreates = failTaskCreates;
+  let remainingFailedDetails = failTaskDetails;
   const tasks = structuredClone(initialTasks);
   let nextId = Math.max(0, ...tasks.map(task => Number(task.id) || 0)) + 1;
   const calls = [];
@@ -37,6 +39,10 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       return respond(200, tasks);
     }
     if (pathname === "/api/tasks" && method === "POST") {
+      if (remainingFailedCreates > 0) {
+        remainingFailedCreates--;
+        return respond(503, { title: "Temporarily unavailable" });
+      }
       const task = {
         id: nextId++, title: body.title, priority: body.priority,
         category: body.category, dueDate: body.dueDate, completed: false,
@@ -60,6 +66,20 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         recurrenceRule: body.recurrenceRule, reminderDaysBefore: body.reminderDaysBefore,
       });
       return respond(200, task);
+    }
+
+    const details = /^\/api\/tasks\/(\d+)\/details$/.exec(pathname);
+    if (details && method === "PUT") {
+      const task = tasks.find(item => item.id === Number(details[1]));
+      if (!task) return respond(404, {});
+      if (remainingFailedDetails > 0) {
+        remainingFailedDetails--;
+        return respond(503, { title: "Temporarily unavailable" });
+      }
+      task.notes = body.notes;
+      task.checklist = body.checklist;
+      if (body.updateDueDate) task.dueDate = body.dueDate ? body.dueDate + "T00:00:00Z" : null;
+      return respond(200, { notes: task.notes, checklist: task.checklist, dueDate: task.dueDate });
     }
 
     const dueDate = /^\/api\/tasks\/(\d+)\/due-date$/.exec(pathname);
