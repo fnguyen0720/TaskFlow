@@ -2,11 +2,14 @@ import { useState } from "react";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
+import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
 import TaskPanel from "./components/tasks/TaskPanel.jsx";
 import { useAuth } from "./hooks/useAuth.js";
 import { useNotification } from "./hooks/useNotification.js";
 import { useTasks } from "./hooks/useTasks.js";
+import { useNotificationCenter } from "./hooks/useNotificationCenter.js";
+import { buildNotifications } from "./utils/notificationCenter.js";
 import { remindersDue } from "./utils/reminders.js";
 
 function App() {
@@ -22,6 +25,7 @@ function App() {
     authLoading, authError, logout: clearAuth, handleAuth, switchAuthMode,
   } = useAuth();
   const { notification, setNotification, showNotification } = useNotification();
+  const notificationCenter = useNotificationCenter({ token, onUnauthorized: clearAuth });
   const {
     tasks, setTasks, loading, error, setError, newTask, setNewTask,
     newPriority, setNewPriority, newCategory, setNewCategory, newDueDate, setNewDueDate,
@@ -46,6 +50,7 @@ function App() {
   // the server until the Undo window expires.
   const visibleTasks = tasks.filter(task => !pendingDeleteIds.has(task.id));
   const activeReminders = remindersDue(visibleTasks);
+  const notifications = buildNotifications(visibleTasks, notificationCenter.states);
   const { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate } = getTaskStats(visibleTasks);
   const detailTask = visibleTasks.find(task => task.id === detailId);
   const views = getTaskViews(visibleTasks);
@@ -180,8 +185,10 @@ function App() {
           <button type="button" className="notification-close" onClick={() => setNotification(null)} aria-label="Dismiss notification">×</button>
         </div>
       )}
-      <DashboardHeader logout={logout} />
+      <DashboardHeader logout={logout} notifications={notifications}
+        notificationCenter={notificationCenter} onOpenTask={setDetailId} />
       <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
+      <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={setView} />
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
         planner={{ view, setView, views }} />
       {detailTask && (

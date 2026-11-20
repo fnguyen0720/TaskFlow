@@ -313,6 +313,48 @@ app.MapGet("/api/tasks", async (
 })
 .RequireAuthorization();
 
+// Read/dismiss state is persisted server-side and contains no task text.
+// Never accept a user ID from the client; even a known task ID is insufficient.
+app.MapGet("/api/notifications/state", async (
+    ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    return await db.TaskNotificationStates.AsNoTracking()
+        .Where(state => state.UserId == userId)
+        .Select(state => new
+        {
+            state.TaskId, state.Kind, state.IsRead, state.IsDismissed
+        }).ToListAsync();
+})
+.RequireAuthorization();
+
+app.MapPut("/api/notifications/state/{taskId:int}/{kind}", async (
+    int taskId, string kind, NotificationStateUpdate update,
+    ClaimsPrincipal user, TaskDbContext db) =>
+{
+    if (!TaskNotificationKinds.IsValid(kind) ||
+        !TaskNotificationKinds.IsValidAction(update.Action))
+        return Results.BadRequest("Unsupported notification action or category.");
+
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    if (!await db.Tasks.AnyAsync(task => task.Id == taskId && task.UserId == userId))
+        return Results.NotFound();
+
+    var state = await db.TaskNotificationStates.FirstOrDefaultAsync(item =>
+        item.UserId == userId && item.TaskId == taskId && item.Kind == kind);
+    if (state is null)
+    {
+        state = new TaskNotificationState { UserId = userId, TaskId = taskId, Kind = kind };
+        db.TaskNotificationStates.Add(state);
+    }
+
+    if (update.Action == "read") state.IsRead = true;
+    else { state.IsRead = true; state.IsDismissed = true; }
+    await db.SaveChangesAsync();
+    return Results.Ok(new { state.TaskId, state.Kind, state.IsRead, state.IsDismissed });
+})
+.RequireAuthorization();
+
 // POST: Create a task owned by the logged-in user.
 app.MapPost("/api/tasks", async (
     TaskItem task,
