@@ -69,12 +69,32 @@ function App() {
     return () => window.removeEventListener("beforeunload", warnBeforeUnload);
   }, [hasUnsavedWork]);
 
+  const clearDrafts = () => {
+    setNewTask("");
+    setNewPriority("Medium");
+    setNewCategory("General");
+    setNewDueDate("");
+    setNewRecurrence("None");
+    setNewReminder("");
+    setEditingId(null);
+    setEditingError("");
+    setEditTitle("");
+    setEditPriority("Medium");
+    setEditCategory("General");
+    setEditDueDate("");
+    setEditRecurrence("None");
+    setEditReminder("");
+    setDetailId(null);
+    setDetailDirty(false);
+  };
+
   // Password reset links can arrive via same-tab hash navigation.
   useEffect(() => {
     const onHashChange = () => {
-      if (isResetLink() && (!hasUnsavedWork || window.confirm("Discard unsaved TaskFlow changes?"))) {
-        setRecoveryScreen(true);
-      }
+      if (!isResetLink()) return;
+      if (hasUnsavedWork && !window.confirm("Discard unsaved TaskFlow changes?")) return;
+      clearDrafts();
+      setRecoveryScreen(true);
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -82,9 +102,8 @@ function App() {
 
   const logout = () => {
     if (hasUnsavedWork && !window.confirm("Discard unsaved changes and log out?")) return;
+    clearDrafts();
     clearAuth();
-    setDetailId(null);
-    setDetailDirty(false);
     setTasks([]);
     setError("");
     setNotification(null);
