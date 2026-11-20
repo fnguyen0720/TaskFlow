@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.jsx";
 import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
@@ -18,16 +18,8 @@ import { remindersDue } from "./utils/reminders.js";
 
 function App() {
   const [recoveryScreen, setRecoveryScreen] = useState(isResetLink);
-  // The browser can navigate to an emailed fragment link in the SAME tab
-  // without reloading the SPA. Recognize that navigation even when signed in.
-  useEffect(() => {
-    const onHashChange = () => {
-      if (isResetLink()) setRecoveryScreen(true);
-    };
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
   const [detailId, setDetailId] = useState(null);
+  const [detailDirty, setDetailDirty] = useState(false);
   const [view, setView] = useState("all");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -52,13 +44,86 @@ function App() {
     toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails, rescheduleTask, undoMove, undoableMove, dismissMove,
   } = useTasks({ token, onUnauthorized: clearAuth, showNotification });
 
-  const logout = () => {
-    clearAuth();
+  const createDirty = Boolean(
+    newTask.trim() || newPriority !== "Medium" || newCategory !== "General" ||
+    newDueDate || newRecurrence !== "None" || newReminder !== ""
+  );
+  const editingTask = tasks.find(task => task.id === editingId);
+  const editDirty = Boolean(editingTask && (
+    editTitle !== editingTask.title ||
+    editPriority !== (editingTask.priority || "Medium") ||
+    editCategory !== (editingTask.category || "General") ||
+    editDueDate !== (editingTask.dueDate?.slice(0, 10) || "") ||
+    editRecurrence !== (editingTask.recurrenceRule ?? "None") ||
+    editReminder !== (editingTask.reminderDaysBefore == null ? "" : String(editingTask.reminderDaysBefore))
+  ));
+  const hasUnsavedWork = createDirty || editDirty || detailDirty;
+
+  useEffect(() => {
+    if (!hasUnsavedWork) return;
+    const warnBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [hasUnsavedWork]);
+
+  const clearDrafts = useCallback(() => {
+    setNewTask("");
+    setNewPriority("Medium");
+    setNewCategory("General");
+    setNewDueDate("");
+    setNewRecurrence("None");
+    setNewReminder("");
+    setEditingId(null);
+    setEditingError("");
+    setEditTitle("");
+    setEditPriority("Medium");
+    setEditCategory("General");
+    setEditDueDate("");
+    setEditRecurrence("None");
+    setEditReminder("");
     setDetailId(null);
+    setDetailDirty(false);
+  }, [setNewTask, setNewPriority, setNewCategory, setNewDueDate, setNewRecurrence,
+    setNewReminder, setEditingId, setEditingError, setEditTitle, setEditPriority,
+    setEditCategory, setEditDueDate, setEditRecurrence, setEditReminder]);
+
+  // Password reset links can arrive via same-tab hash navigation.
+  useEffect(() => {
+    const onHashChange = () => {
+      if (!isResetLink()) return;
+      if (hasUnsavedWork && !window.confirm("Discard unsaved TaskFlow changes?")) {
+        // Never leave a rejected reset token visible in the address-bar fragment.
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        return;
+      }
+      clearDrafts();
+      setRecoveryScreen(true);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [hasUnsavedWork, clearDrafts]);
+
+  const logout = () => {
+    if (hasUnsavedWork && !window.confirm("Discard unsaved changes and log out?")) return;
+    clearDrafts();
+    clearAuth();
     setTasks([]);
     setError("");
     setNotification(null);
     dismissMove();
+  };
+  const discardCreateDraft = () => {
+    if (addingTask) return;
+    if (createDirty && !window.confirm("Discard your new task draft?")) return;
+    setNewTask("");
+    setNewPriority("Medium");
+    setNewCategory("General");
+    setNewDueDate("");
+    setNewRecurrence("None");
+    setNewReminder("");
   };
 
   // Pending deletions are hidden from the dashboard, but not removed from
@@ -84,6 +149,7 @@ function App() {
     dueDate: newDueDate, setDueDate: setNewDueDate, adding: addingTask,
     recurrence: newRecurrence, setRecurrence: setNewRecurrence,
     reminder: newReminder, setReminder: setNewReminder,
+    dirty: createDirty, discard: discardCreateDraft,
   };
   const filters = {
     status: filter, setStatus: setFilter,
@@ -101,6 +167,7 @@ function App() {
     reminder: editReminder, setReminder: setEditReminder,
   };
   const cancelEditing = () => {
+    if (editDirty && !window.confirm("Discard changes to this task?")) return;
     setEditingId(null);
     setEditingError("");
     setEditTitle("");
@@ -109,6 +176,16 @@ function App() {
     setEditDueDate("");
     setEditRecurrence("None");
     setEditReminder("");
+  };
+  const changeView = nextView => {
+    if (nextView === view) return;
+    if (editDirty && !window.confirm("Discard task edits and switch views?")) return;
+    if (editingId !== null) cancelEditingWithoutPrompt();
+    setView(nextView);
+  };
+  const cancelEditingWithoutPrompt = () => {
+    setEditingId(null);
+    setEditingError("");
   };
   const actions = {
     add: addTask, toggle: toggleTask, delete: deleteTask, undoDelete,
@@ -219,14 +296,15 @@ function App() {
       ) : !error ? (
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
-          <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={setView} />
+          <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
         </>
       ) : null}
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
-        planner={{ view, setView, views }} />
+        planner={{ view, setView: changeView, views }} />
       {detailTask && (
         <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
-          onClose={() => setDetailId(null)} />
+          onDirtyChange={setDetailDirty}
+          onClose={() => { setDetailId(null); setDetailDirty(false); }} />
       )}
       <footer className="app-footer"><span>TaskFlow</span><span>Make room for what matters.</span></footer>
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function TaskDetails({ task, onSave, onClose }) {
+export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
   const dialogRef = useRef(null);
   const nextKey = useRef((task.checklist ?? []).length);
   const [initialDueDate] = useState(task.dueDate?.slice(0, 10) ?? "");
@@ -11,6 +11,28 @@ export default function TaskDetails({ task, onSave, onClose }) {
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const initialSnapshot = useRef(JSON.stringify({
+    dueDate: task.dueDate?.slice(0, 10) ?? "",
+    notes: task.notes ?? "",
+    checklist: (task.checklist ?? []).map(({ text, completed }) => ({ text, completed })),
+  }));
+  const dirty = JSON.stringify({
+    dueDate,
+    notes,
+    checklist: items.map(({ text, completed }) => ({ text, completed })),
+  }) !== initialSnapshot.current;
+
+  useEffect(() => {
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
+
+  function requestClose() {
+    if (saving) return;
+    if (dirty && !window.confirm("Discard unsaved task details and notes?")) return;
+    onClose();
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -52,12 +74,12 @@ export default function TaskDetails({ task, onSave, onClose }) {
     <dialog ref={dialogRef} className="task-detail-dialog" aria-labelledby="task-detail-title"
       onCancel={event => {
         event.preventDefault();
-        if (!saving) onClose();
+        requestClose();
       }}>
       <form onSubmit={submit}>
         <header className="task-detail-header">
           <h2 id="task-detail-title">{task.title}</h2>
-          <button type="button" disabled={saving} onClick={onClose} aria-label="Close task details">×</button>
+          <button type="button" disabled={saving} onClick={requestClose} aria-label="Close task details">×</button>
         </header>
         <label className="task-detail-date">
           Due date
@@ -85,7 +107,7 @@ export default function TaskDetails({ task, onSave, onClose }) {
         </fieldset>
         {error && <p className="auth-error" role="alert">{error}</p>}
         <footer className="task-detail-actions">
-          <button type="button" disabled={saving} onClick={onClose}>Cancel</button>
+          <button type="button" disabled={saving} onClick={requestClose}>Cancel</button>
           <button type="submit" disabled={saving || items.some(item => !item.text.trim())}>
             {saving ? "Saving…" : "Save details"}
           </button>

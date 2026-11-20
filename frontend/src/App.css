@@ -639,3 +639,15 @@ html, body, #root {
   line-height: 1.5;
 }
 .edit-container :is(input, select, button):disabled { cursor: wait; }
+
+
+/* Keep the new-task form's existing responsive grid with a draft control. */
+.task-create-fields { display: contents; }
+.task-form .draft-discard-button {
+  min-height: 44px;
+  background: transparent;
+  border: 1px solid #59516e;
+  color: #ded7f1;
+}
+.task-form .draft-discard-button:hover { background: #302941; }
+.task-form .draft-discard-button:disabled { cursor: not-allowed; opacity: .55; }

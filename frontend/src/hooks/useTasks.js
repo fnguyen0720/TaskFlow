@@ -260,13 +260,8 @@ const addTask = async (e) => {
     ...currentTasks,
   ]);
 
-  // Clear form immediately
-  setNewTask("");
-  setNewDueDate("");
-  setNewPriority("Medium");
-  setNewCategory("General");
-  setNewRecurrence("None");
-  setNewReminder("");
+  // Retain the complete draft until the server confirms creation.
+  // Failed requests remove only the optimistic row, never form inputs.
 
   try {
     const response = await fetchWithDiagnostics(
@@ -294,6 +289,8 @@ const addTask = async (e) => {
     }
 
     const createdTask = await response.json();
+    // Never publish an old account's result after sign-out or account switch.
+    if (currentToken.current !== token) return;
 
     // Replace temporary task with real database task
     setTasks((currentTasks) =>
@@ -301,9 +298,15 @@ const addTask = async (e) => {
         task.id === tempId ? createdTask : task
       )
     );
-
+    setNewTask("");
+    setNewDueDate("");
+    setNewPriority("Medium");
+    setNewCategory("General");
+    setNewRecurrence("None");
+    setNewReminder("");
     showNotification("Task added.");
   } catch {
+    if (currentToken.current !== token) return;
     console.warn("Task creation request failed");
 
     // Roll back
