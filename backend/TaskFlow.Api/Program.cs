@@ -223,6 +223,11 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+// Validate the complete email configuration before accepting any HTTP traffic.
+// Without this eager resolution, a partial provider setup could appear healthy
+// until the first Identity email attempt.
+_ = app.Services.GetRequiredService<AccountEmailDelivery>();
+
 // The Render service auto-deploys main. Expand the production PostgreSQL
 // schema BEFORE starting the new API so existing tasks remain available.
 // This upgrade is additive and idempotent; a failed preflight aborts startup.
