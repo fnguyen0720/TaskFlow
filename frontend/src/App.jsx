@@ -5,6 +5,7 @@ import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
 import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
+import ProductivityInsights from "./components/dashboard/ProductivityInsights.jsx";
 import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
 import TaskPanel from "./components/tasks/TaskPanel.jsx";
@@ -328,6 +329,7 @@ function App() {
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
+          <ProductivityInsights tasks={visibleTasks} />
         </>
       ) : null}
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
