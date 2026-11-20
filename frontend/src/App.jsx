@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.jsx";
 import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
@@ -18,6 +18,15 @@ import { remindersDue } from "./utils/reminders.js";
 
 function App() {
   const [recoveryScreen, setRecoveryScreen] = useState(isResetLink);
+  // The browser can navigate to an emailed fragment link in the SAME tab
+  // without reloading the SPA. Recognize that navigation even when signed in.
+  useEffect(() => {
+    const onHashChange = () => {
+      if (isResetLink()) setRecoveryScreen(true);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
   const [detailId, setDetailId] = useState(null);
   const [view, setView] = useState("all");
   const [filter, setFilter] = useState("all");
