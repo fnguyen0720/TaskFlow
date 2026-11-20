@@ -103,10 +103,10 @@ public sealed class TaskFlowIdentityEmailSender : IEmailSender<ApplicationUser>
             (_config.Enabled ? _config.ResetLink(email, resetCode) : "") +
             "\n\nIf you did not request this, ignore this message.");
 
+    // The built-in Identity API uses reset-code delivery, not reset-link
+    // delivery. Never forward an arbitrary host-derived link.
     public Task SendPasswordResetLinkAsync(ApplicationUser user, string email, string resetLink) =>
-        DeliverAsync(email, "Reset your TaskFlow password",
-            "You requested a password reset. Open the following link:\n" +
-            (_config.Enabled ? _config.TrustedConfirmationLink(resetLink) : ""));
+        Task.FromException(new NotSupportedException("Use reset-code delivery."));
 
     private async Task DeliverAsync(string email, string subject, string body)
     {
