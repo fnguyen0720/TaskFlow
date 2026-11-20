@@ -14,3 +14,10 @@ createRoot(document.getElementById("root")).render(
     </DiagnosticErrorBoundary>
   </StrictMode>
 );
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Online task functionality does not depend on service worker support.
+    });
+  });
+}
