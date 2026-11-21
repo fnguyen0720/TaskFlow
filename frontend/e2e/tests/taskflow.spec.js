@@ -566,7 +566,7 @@ test("mobile task form keeps due date and repeat controls in separate rows", asy
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 780 });
     const form = page.getByRole("form", { name: "Add a new task" });
-    const due = form.getByRole("textbox", { name: "Due date" });
+    const due = form.getByLabel("Due date");
     const repeat = form.getByRole("combobox", { name: "Repeat task" });
     const reminder = form.getByRole("combobox", { name: "Task reminder" });
     const dueBox = await due.boundingBox();
