@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
+import TaskActivityTimeline from "./TaskActivityTimeline.jsx";
 
-export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest }) {
+export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest, token, onUnauthorized }) {
   const dialogRef = useRef(null);
   const dueDateId = useId();
   const dueHelpId = useId();
@@ -130,6 +131,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
         {!error && (saving || dirty) && <p className="task-detail-save-status" role="status">
           {saving ? "Saving your changes…" : "Unsaved changes — review and save when ready."}
         </p>}
+        <TaskActivityTimeline taskId={task.id} token={token} onUnauthorized={onUnauthorized} />
         <footer className="task-detail-actions">
           <button type="button" disabled={saving} onClick={requestClose}>Cancel</button>
           <button type="submit" disabled={saving || items.some(item => !item.text.trim())}>
