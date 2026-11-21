@@ -128,7 +128,7 @@ test("failed task loading never shows false dashboard totals, and retry restores
 test("workspace loading placeholder fits a narrow mobile screen", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 750 });
   await installMockApi(page);
-  await page.route("**/mock-api/api/tasks", async (route) => {
+  await page.route("**/mock-api/api/tasks?*", async (route) => {
     if (route.request().method() !== "GET") return route.fallback();
     await new Promise(resolve => setTimeout(resolve, 250));
     return route.fallback();
@@ -142,7 +142,7 @@ test("workspace loading placeholder fits a narrow mobile screen", async ({ page 
 test("stale task reads cannot overwrite a new sign-in session", async ({ page }) => {
   await installMockApi(page);
   let reads = 0;
-  await page.route("**/mock-api/api/tasks", async route => {
+  await page.route("**/mock-api/api/tasks?*", async route => {
     if (route.request().method() !== "GET") return route.fallback();
     const readNumber = ++reads;
     if (readNumber === 1) {
@@ -842,4 +842,50 @@ test("account identity never exposes stale email after another tab signs out", a
   await otherTab.evaluate(() => localStorage.removeItem("taskflow_token"));
   await expect(page.locator(".account-identity")).toHaveCount(0);
   await otherTab.close();
+});
+
+test("large workspace loads every bounded page before exposing complete filters and counts", async ({ page }) => {
+  const fixtures = Array.from({ length: 205 }, (_, index) => ({
+    ...fixtureTask(index + 1001, `Task number ${index + 1}`, "2026-11-19"),
+    completed: index < 25,
+    category: index === 204 ? "Study" : "General",
+    priority: index === 204 ? "High" : "Medium",
+  }));
+  const api = await installMockApi(page, { initialTasks: fixtures });
+  await signIn(page);
+  await expect(page.getByText("205 tasks in your workspace")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(205);
+  await expect(page.locator(".overview")).toContainText("180");
+  const reads = api.calls.filter(call => call.method === "GET" && call.pathname === "/api/tasks");
+  expect(reads.map(call => new URLSearchParams(call.search).get("offset"))).toEqual(["0", "100", "200"]);
+  expect(reads.every(call => new URLSearchParams(call.search).get("limit") === "100")).toBe(true);
+
+  await page.getByPlaceholder("Search tasks").fill("Task number 205");
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Task number 205");
+  await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText("Task number 2");
+  expect(api.tasks).toHaveLength(205);
+});
+
+test("failed second page never displays a truncated workspace and retry reloads all pages", async ({ page }) => {
+  const fixtures = Array.from({ length: 112 }, (_, index) =>
+    fixtureTask(index + 2001, `Protected task ${index + 1}`, "2026-11-19"));
+  const api = await installMockApi(page, { initialTasks: fixtures });
+  let failedOnce = false;
+  await page.route("**/mock-api/api/tasks?*", async route => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === "GET" && url.searchParams.get("offset") === "100" && !failedOnce) {
+      failedOnce = true;
+      return route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+    }
+    return route.fallback();
+  });
+  await signIn(page);
+  await expect(page.getByRole("alert")).toContainText("Could not verify your task list");
+  await expect(page.getByText("Task count unavailable — please retry the server check.")).toBeVisible();
+  await expect(page.locator(".overview")).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Tasks" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByText("112 tasks in your workspace")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Protected task 112");
+  expect(api.tasks).toHaveLength(112);
 });
