@@ -768,7 +768,7 @@ test("expired API session returns to sign-in with an honest recovery message", a
   await page.getByPlaceholder("Email address").fill("tester@example.com");
   await page.getByPlaceholder("Password").fill("ValidPassword123!");
   await page.getByRole("button", { name: "Sign In" }).click();
-  await expect(page.getByRole("status")).toContainText("Your session expired. Sign in again");
+  await expect(page.locator(".auth-form [role=status]")).toContainText("Your session expired. Sign in again");
   await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Task views" })).toHaveCount(0);
   expect(api.tasks).toHaveLength(1);
@@ -801,6 +801,6 @@ test("sign-out in another tab immediately removes protected workspace data", asy
   await otherTab.goto("/");
   await otherTab.evaluate(() => localStorage.removeItem("taskflow_token"));
   await expect(page.getByRole("navigation", { name: "Task views" })).toHaveCount(0);
-  await expect(page.getByRole("status")).toContainText("signed out in another tab");
+  await expect(page.locator(".auth-form [role=status]")).toContainText("signed out in another tab");
   await otherTab.close();
 });
