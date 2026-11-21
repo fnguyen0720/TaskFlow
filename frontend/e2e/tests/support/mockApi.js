@@ -11,6 +11,9 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
   let remainingFailedCreates = failTaskCreates;
   let remainingFailedDetails = failTaskDetails;
   const tasks = structuredClone(initialTasks);
+  const activities = [];
+  let nextEventId = 1;
+  const record = (taskId, kind) => activities.push({ id: nextEventId++, taskId, kind, occurredAt: "2026-11-19T12:00:00Z" });
   let revision = 1;
   for (const task of tasks) task.version ??= `rev-${revision++}`;
   const changeVersion = task => { task.version = `rev-${revision++}`; };
@@ -60,6 +63,13 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) return respond(400, {});
       return respond(200, tasks.slice(offset, offset + limit));
     }
+    const activity = /^\\/api\\/tasks\\/(\\d+)\\/activity$/.exec(pathname);
+    if (activity && method === "GET") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (!tasks.some(t => t.id === Number(activity[1]))) return respond(404, {});
+      return respond(200, activities.filter(e => e.taskId === Number(activity[1]))
+        .sort((a, b) => b.id - a.id).slice(0, 50).map(({ id, kind, occurredAt }) => ({ id, kind, occurredAt })));
+    }
     if (pathname === "/api/tasks" && method === "POST") {
       if (remainingFailedCreates > 0) {
         remainingFailedCreates--;
@@ -72,6 +82,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         version: `rev-${revision++}`,
       };
       tasks.push(task);
+      record(task.id, "created");
       return respond(201, task);
     }
 
@@ -90,6 +101,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         recurrenceRule: body.recurrenceRule, reminderDaysBefore: body.reminderDaysBefore,
       });
       changeVersion(task);
+      record(task.id, "edited");
       return respond(200, task);
     }
 
@@ -102,10 +114,13 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         return respond(503, { title: "Temporarily unavailable" });
       }
       if (request.headers()["if-match"] && request.headers()["if-match"] !== `"${task.version}"`) return respond(409, { title: "Conflict" });
+      const oldDate = task.dueDate;
       task.notes = body.notes;
       task.checklist = body.checklist;
       if (body.updateDueDate) task.dueDate = body.dueDate ? body.dueDate + "T00:00:00Z" : null;
       changeVersion(task);
+      record(task.id, "edited");
+      if (oldDate !== task.dueDate) record(task.id, "rescheduled");
       return respond(200, task);
     }
 
@@ -116,13 +131,14 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       if (task.dueDate?.slice(0, 10) !== body.expectedDueDate) return respond(409, {});
       task.dueDate = body.dueDate ? body.dueDate + "T00:00:00Z" : null;
       changeVersion(task);
+      record(task.id, "rescheduled");
       return respond(200, { dueDate: task.dueDate });
     }
 
     return respond(404, { title: "Unexpected mock API request", method, pathname });
   });
 
-  return { tasks, calls, changeVersion };
+  return { tasks, calls, activities, changeVersion };
 }
 
 export async function signIn(page) {
