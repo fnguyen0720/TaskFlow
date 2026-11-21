@@ -116,4 +116,31 @@ public class TaskActivityTests
         using var response = await client.GetAsync("/api/tasks/1/activity");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task CompletionReopeningAndDateChangeCreateOrderedActivity()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        await factory.InitializeDatabaseAsync();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", await Login(client, $"activity-status-{Guid.NewGuid():N}@example.test"));
+        var created = await Create(client);
+        var id = created.GetProperty("id").GetInt32();
+
+        using (var completed = await client.PutAsync($"/api/tasks/{id}", null))
+            Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
+        using (var reopened = await client.PutAsync($"/api/tasks/{id}", null))
+            Assert.Equal(HttpStatusCode.OK, reopened.StatusCode);
+        using (var moved = await client.PutAsJsonAsync($"/api/tasks/{id}/due-date",
+            new { dueDate = "2026-11-23" }))
+            Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+
+        using var response = await client.GetAsync($"/api/tasks/{id}/activity");
+        response.EnsureSuccessStatusCode();
+        var items = (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToArray();
+        Assert.Equal(new[] { "rescheduled", "reopened", "completed", "created" },
+            items.Select(item => item.GetProperty("kind").GetString()).ToArray());
+    }
+
 }
