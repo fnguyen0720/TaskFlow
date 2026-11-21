@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
   const dialogRef = useRef(null);
+  const dueDateId = useId();
+  const dueHelpId = useId();
   const nextKey = useRef((task.checklist ?? []).length);
   const [initialDueDate] = useState(task.dueDate?.slice(0, 10) ?? "");
   const [dueDate, setDueDate] = useState(initialDueDate);
@@ -64,7 +66,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
       });
       onClose();
     } catch (error) {
-      setError(error.message || "Couldn't save task details. Please try again.");
+      setError((error?.message || "Couldn't save task details.") + " Your changes are still here. Try saving again.");
     } finally {
       setSaving(false);
     }
@@ -81,14 +83,25 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
           <h2 id="task-detail-title">{task.title}</h2>
           <button type="button" disabled={saving} onClick={requestClose} aria-label="Close task details">×</button>
         </header>
-        <label className="task-detail-date">
-          Due date
-          <input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)}
-            disabled={saving} />
-        </label>
+        <section className="task-detail-date" aria-label="Task due date">
+          <div className="task-detail-date-heading">
+            <label htmlFor={dueDateId}>Due date</label>
+            {dueDate && <button className="task-detail-date-clear" type="button" disabled={saving}
+              onClick={() => { setDueDate(""); setError(""); }}>Clear date</button>}
+          </div>
+          <p id={dueHelpId} className="task-detail-date-help">
+            {dueDate ? "Tap the date to change it." : "Optional — tap the field to choose a date."}
+          </p>
+          <div className="task-detail-date-shell">
+            <input id={dueDateId} type="date" value={dueDate}
+              aria-describedby={dueHelpId}
+              onChange={event => { setDueDate(event.target.value); setError(""); }}
+              disabled={saving} />
+          </div>
+        </section>
         <label className="task-detail-notes">
           Notes
-          <textarea value={notes} onChange={event => setNotes(event.target.value)}
+          <textarea value={notes} onChange={event => { setNotes(event.target.value); setError(""); }}
             maxLength={4000} rows={4} disabled={saving} />
         </label>
         <fieldset className="task-detail-checklist" disabled={saving}>
@@ -96,8 +109,8 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
           {items.map(({ key, text, completed }, index) => (
             <div key={key} className="task-detail-step">
               <input type="checkbox" checked={completed} aria-label={`Complete step ${index + 1}`}
-                onChange={event => updateItem(key, { completed: event.target.checked })} />
-              <input value={text} onChange={event => updateItem(key, { text: event.target.value })}
+                onChange={event => { updateItem(key, { completed: event.target.checked }); setError(""); }} />
+              <input value={text} onChange={event => { updateItem(key, { text: event.target.value }); setError(""); }}
                 aria-label={`Step ${index + 1}`} maxLength={160} required />
               <button type="button" aria-label={`Remove step ${index + 1}`}
                 onClick={() => setItems(current => current.filter(item => item.key !== key))}>×</button>
@@ -105,11 +118,14 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
           ))}
           <button type="button" onClick={addItem} disabled={items.length >= 30}>Add step</button>
         </fieldset>
-        {error && <p className="auth-error" role="alert">{error}</p>}
+        {error && <p className="task-detail-save-error" role="alert">{error}</p>}
+        {!error && (saving || dirty) && <p className="task-detail-save-status" role="status">
+          {saving ? "Saving your changes…" : "Unsaved changes — review and save when ready."}
+        </p>}
         <footer className="task-detail-actions">
           <button type="button" disabled={saving} onClick={requestClose}>Cancel</button>
           <button type="submit" disabled={saving || items.some(item => !item.text.trim())}>
-            {saving ? "Saving…" : "Save details"}
+            {saving ? "Saving…" : error ? "Retry save" : "Save details"}
           </button>
         </footer>
       </form>
