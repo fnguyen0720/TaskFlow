@@ -24,11 +24,11 @@ export default function TaskCreateForm({ form, onAdd, titleRef }) {
         {TASK_CATEGORIES.map(value => <option key={value} value={value}>{value}</option>)}
       </select>
       <input className="create-due-date" disabled={adding} type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="Due date" />
-      <label className="task-schedule-control create-repeat">Repeat
+      <div className="task-schedule-control create-repeat">
         <select disabled={adding} value={recurrence} onChange={event => setRecurrence(event.target.value)} aria-label="Repeat task">
           {["None", "Daily", "Weekly", "Monthly"].map(rule => <option key={rule} value={rule}>{rule}</option>)}
         </select>
-      </label>
+      </div>
       <label className="task-schedule-control create-reminder">Remind me
         <select disabled={adding} value={reminder} onChange={event => setReminder(event.target.value)} aria-label="Task reminder">
           <option value="">Off</option>
