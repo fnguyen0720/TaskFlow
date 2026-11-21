@@ -45,7 +45,8 @@ function App() {
     tasks, setTasks, loading, readStatus, error, setError, newTask, setNewTask,
     newPriority, setNewPriority, newCategory, setNewCategory, newDueDate, setNewDueDate,
     newRecurrence, setNewRecurrence, newReminder, setNewReminder,
-    editingId, setEditingId, editingError, setEditingError, editTitle, setEditTitle, editPriority, setEditPriority,
+    editingId, setEditingId, editingError, setEditingError, editVersion, setEditVersion,
+    reloadLatestTask, editTitle, setEditTitle, editPriority, setEditPriority,
     editCategory, setEditCategory, editDueDate, setEditDueDate,
     editRecurrence, setEditRecurrence, editReminder, setEditReminder, loadingTask,
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
@@ -102,6 +103,7 @@ function App() {
     setNewReminder("");
     setEditingId(null);
     setEditingError("");
+    setEditVersion(null);
     setEditTitle("");
     setEditPriority("Medium");
     setEditCategory("General");
@@ -190,6 +192,10 @@ function App() {
   };
   const editing = {
     id: editingId, error: editingError,
+    reloadLatest: async () => {
+      if (!window.confirm("Discard this draft and reload the latest task from the server?")) return;
+      if (await reloadLatestTask()) cancelEditingWithoutPrompt();
+    },
     title: editTitle, setTitle: setEditTitle,
     priority: editPriority, setPriority: setEditPriority,
     category: editCategory, setCategory: setEditCategory,
@@ -201,6 +207,7 @@ function App() {
     if (editDirty && !window.confirm("Discard changes to this task?")) return;
     setEditingId(null);
     setEditingError("");
+    setEditVersion(null);
     setEditTitle("");
     setEditPriority("Medium");
     setEditCategory("General");
@@ -228,6 +235,7 @@ function App() {
   const cancelEditingWithoutPrompt = () => {
     setEditingId(null);
     setEditingError("");
+    setEditVersion(null);
   };
   const actions = {
     add: addTask, toggle: toggleTask, delete: deleteTask, undoDelete,
@@ -350,7 +358,7 @@ function App() {
         onChangeView={changeView} onQuickCreate={quickCreateFromPalette} />}
       {detailTask && (
         <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
-          onDirtyChange={setDetailDirty}
+          onReloadLatest={reloadLatestTask} onDirtyChange={setDetailDirty}
           onClose={() => { setDetailId(null); setDetailDirty(false); }} />
       )}
       {!detailTask && !commandOpen && <MobileBottomNav view={view} onChangeView={changeView}

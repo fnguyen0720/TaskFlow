@@ -1,11 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 
-export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
+export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest }) {
   const dialogRef = useRef(null);
   const dueDateId = useId();
   const dueHelpId = useId();
   const nextKey = useRef((task.checklist ?? []).length);
   const [initialDueDate] = useState(task.dueDate?.slice(0, 10) ?? "");
+  const [initialVersion] = useState(task.version ?? null);
   const [dueDate, setDueDate] = useState(initialDueDate);
   const [notes, setNotes] = useState(task.notes ?? "");
   const [items, setItems] = useState(() =>
@@ -60,6 +61,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
     try {
       await onSave(task.id, {
         notes,
+        expectedVersion: initialVersion,
         updateDueDate: dueDate !== initialDueDate,
         dueDate: dueDate || null,
         checklist: items.map(({ text, completed }) => ({ text: text.trim(), completed })),
@@ -119,6 +121,12 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
           <button type="button" onClick={addItem} disabled={items.length >= 30}>Add step</button>
         </fieldset>
         {error && <p className="task-detail-save-error" role="alert">{error}</p>}
+        {error && /changed elsewhere|no longer available/.test(error) && (
+          <button className="task-conflict-reload" type="button" disabled={saving} onClick={async () => {
+            if (!window.confirm("Discard this draft and reload the latest task from the server?")) return;
+            if (await onReloadLatest()) onClose();
+          }}>Discard draft and reload latest</button>
+        )}
         {!error && (saving || dirty) && <p className="task-detail-save-status" role="status">
           {saving ? "Saving your changes…" : "Unsaved changes — review and save when ready."}
         </p>}
