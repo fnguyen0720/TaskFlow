@@ -2,6 +2,9 @@ import { TASK_CATEGORIES, TASK_PRIORITIES } from "./taskOptions.js";
 
 export default function TaskCreateForm({ form, onAdd, titleRef }) {
   const { title, setTitle, priority, setPriority, category, setCategory, dueDate, setDueDate, adding, recurrence, setRecurrence, reminder, setReminder } = form;
+  const dateText = dueDate
+    ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(`${dueDate}T12:00:00`))
+    : "Choose a date";
 
   return (
     <form onSubmit={onAdd} className="task-form" aria-label="Add a new task">
@@ -23,8 +26,10 @@ export default function TaskCreateForm({ form, onAdd, titleRef }) {
       <select className="create-category" disabled={adding} value={category} onChange={event => setCategory(event.target.value)} aria-label="Category">
         {TASK_CATEGORIES.map(value => <option key={value} value={value}>{value}</option>)}
       </select>
+      <label htmlFor="task-create-due-date" className="create-date-label">Due date</label>
       <div className="create-date-shell">
-        <input className="create-due-date" disabled={adding} type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="Due date" />
+        <span className="create-date-display" aria-hidden="true">{dateText}</span>
+        <input id="task-create-due-date" className="create-due-date" disabled={adding} type="date" value={dueDate} onChange={event => setDueDate(event.target.value)} aria-label="Due date" />
       </div>
       <div className="task-schedule-control create-repeat">
         <select disabled={adding} value={recurrence} onChange={event => setRecurrence(event.target.value)} aria-label="Repeat task">
