@@ -70,6 +70,10 @@ export default function TaskEditor({ task, editing, onSave, onCancel, busy }) {
       </div>
       {busy && <p role="status" className="edit-save-status">Saving changes…</p>}
       {editing.error && <p role="alert" className="edit-error">{editing.error} You can retry without retyping.</p>}
+      {editing.error?.startsWith("This task changed elsewhere") && (
+        <button type="button" className="task-conflict-reload" disabled={busy}
+          onClick={editing.reloadLatest}>Discard draft and reload latest</button>
+      )}
     </div>
   );
 }
