@@ -276,7 +276,7 @@ test("task details retain changes after a failed save and close after retry", as
   await detail.getByRole("button", { name: "Save details" }).click();
   await expect(detail.getByRole("alert")).toContainText("Couldn't save task details");
   await expect(detail.getByRole("textbox", { name: "Notes" })).toHaveValue("Notes survive network errors");
-  await detail.getByRole("button", { name: "Save details" }).click();
+  await detail.getByRole("button", { name: "Retry save" }).click();
   await expect(detail).toHaveCount(0);
   expect(api.tasks[0].notes).toBe("Notes survive network errors");
 });
