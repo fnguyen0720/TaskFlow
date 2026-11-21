@@ -835,3 +835,31 @@ html, body, #root {
     min-height: 44px;
   }
 }
+
+
+/* iOS Safari's native date editor has an intrinsic width that can spill past a
+   CSS grid track. Constrain both the host input and its WebKit inner value. */
+@media (max-width: 600px) {
+  .task-panel .task-form input.create-due-date {
+    display: block;
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding-inline: 10px;
+    font-size: 16px;
+  }
+  .task-panel .task-form input.create-due-date::-webkit-date-and-time-value {
+    min-width: 0;
+    max-width: 100%;
+    text-align: left;
+  }
+  .task-panel .task-form input.create-due-date::-webkit-datetime-edit {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+}

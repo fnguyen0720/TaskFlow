@@ -573,6 +573,12 @@ test("mobile task form keeps due date and repeat controls in separate rows", asy
     const repeatBox = await repeat.boundingBox();
     const reminderBox = await reminder.boundingBox();
     expect(dueBox).not.toBeNull();
+    const formBox = await form.boundingBox();
+    expect(formBox).not.toBeNull();
+    // Verify the native date control stays inside the form, not merely above Repeat.
+    expect(dueBox.x).toBeGreaterThanOrEqual(formBox.x - 1);
+    expect(dueBox.x + dueBox.width).toBeLessThanOrEqual(formBox.x + formBox.width - 1);
+    expect(dueBox.width).toBeGreaterThan(100);
     expect(repeatBox).not.toBeNull();
     expect(reminderBox).not.toBeNull();
     expect(dueBox.y + dueBox.height).toBeLessThanOrEqual(repeatBox.y - 4);
