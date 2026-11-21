@@ -227,6 +227,19 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                     b.ToTable("NotificationPreferences");
                 });
 
+            modelBuilder.Entity("TaskActivity", b =>
+                {
+                    b.Property<long>("Id").ValueGeneratedOnAdd().HasColumnType("bigint");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    b.Property<string>("UserId").IsRequired().HasColumnType("text");
+                    b.Property<int>("TaskId").HasColumnType("integer");
+                    b.Property<string>("Kind").IsRequired().HasColumnType("text");
+                    b.Property<DateTime>("OccurredAt").HasColumnType("timestamp with time zone");
+                    b.HasKey("Id");
+                    b.HasIndex("UserId", "TaskId", "OccurredAt");
+                    b.ToTable("TaskActivities");
+                });
+
             modelBuilder.Entity("TaskNotificationState", b =>
                 {
                     b.Property<string>("UserId").HasColumnType("text");
@@ -239,6 +252,13 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                     b.ToTable("TaskNotificationStates");
                 });
 
+            modelBuilder.Entity("TaskActivity", b =>
+                {
+                    b.HasOne("ApplicationUser", null).WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
             modelBuilder.Entity("TaskItem", b =>
                 {
                     b.Property<int>("Id")
