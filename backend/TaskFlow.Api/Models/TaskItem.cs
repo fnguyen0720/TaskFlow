@@ -29,5 +29,9 @@ public class TaskItem
     public IReadOnlyList<TaskChecklistItem> Checklist =>
         JsonSerializer.Deserialize<TaskChecklistItem[]>(ChecklistJson) ?? [];
 
+    // Read-only fingerprint for opt-in If-Match concurrency protection.
+    [NotMapped]
+    public string Version => TaskEditVersion.For(this);
+
     public string? UserId { get; set; }
 }
