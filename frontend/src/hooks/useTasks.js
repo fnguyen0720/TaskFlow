@@ -53,23 +53,41 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
     setError("");
     setVerifiedRead({ token, status: "pending" });
     try {
-      const response = await fetchWithDiagnostics(`${API_BASE_URL}/api/tasks`, {
-        headers: { Authorization: `Bearer ${token}` },
-        signal: controller.signal,
-      });
-      if (!isCurrent()) return;
-      if (response.status === 401) {
-        onUnauthorized(token);
-        return;
-      }
-      if (!response.ok) throw new Error("Failed to fetch tasks");
-      const data = await response.json();
-      if (!Array.isArray(data) || data.some(item => !item || typeof item !== "object" || !Number.isInteger(item.id) || typeof item.title !== "string")) {
-        throw new Error("Unexpected task list response");
+      // Keep the existing full-workspace dashboard semantics: fetch bounded
+      // server pages, but publish the snapshot only after every page succeeds.
+      // A later-page outage must never masquerade as a legitimate empty list.
+      const PAGE_SIZE = 100;
+      const loadedTasks = [];
+      const seenIds = new Set();
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const response = await fetchWithDiagnostics(
+          `${API_BASE_URL}/api/tasks?offset=${offset}&limit=${PAGE_SIZE}`, {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal,
+          });
+        if (!isCurrent()) return;
+        if (response.status === 401) {
+          onUnauthorized(token);
+          return;
+        }
+        if (!response.ok) throw new Error("Failed to fetch tasks");
+        const page = await response.json();
+        if (!Array.isArray(page) || page.length > PAGE_SIZE ||
+            page.some(item => !item || typeof item !== "object" ||
+              !Number.isInteger(item.id) || typeof item.title !== "string" ||
+              seenIds.has(item.id))) {
+          throw new Error("Unexpected task page response");
+        }
+        for (const item of page) {
+          seenIds.add(item.id);
+          loadedTasks.push(item);
+        }
+        if (!isCurrent()) return;
+        if (page.length < PAGE_SIZE) break;
       }
       if (isCurrent()) {
-        setTasks(data);
-        setVerifiedRead({ token, status: data.length === 0 ? "confirmed-empty" : "loaded" });
+        setTasks(loadedTasks);
+        setVerifiedRead({ token, status: loadedTasks.length === 0 ? "confirmed-empty" : "loaded" });
       }
     } catch (error) {
       if (!isCurrent() || error?.name === "AbortError") return;

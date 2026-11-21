@@ -1,7 +1,10 @@
+import { useState } from "react";
 import TaskItem from "./TaskItem.jsx";
 
 export default function TaskList({ data, editing, actions, viewEmptyMessage }) {
   const { tasks, filteredTasks, loading, error, loadingTask, readStatus } = data;
+  const [visibleCount, setVisibleCount] = useState(50);
+  const visibleTasks = filteredTasks.slice(0, visibleCount);
 
   return (
     <>
@@ -18,9 +21,19 @@ export default function TaskList({ data, editing, actions, viewEmptyMessage }) {
       )}
       {!loading && !error && readStatus !== "pending" && (
         <div className="task-list" role="list" aria-label="Tasks">
-          {filteredTasks.map(task => (
+          {visibleTasks.map(task => (
             <TaskItem key={task.id} task={task} editing={editing} loadingTask={loadingTask} actions={actions} />
           ))}
+        </div>
+      )}
+      {!loading && !error && readStatus === "loaded" && filteredTasks.length > 50 && (
+        <div className="task-page-controls" role="status">
+          <span>Showing {visibleTasks.length} of {filteredTasks.length} tasks</span>
+          {visibleCount < filteredTasks.length && (
+            <button type="button" onClick={() => setVisibleCount(count => count + 50)}>
+              Show more tasks
+            </button>
+          )}
         </div>
       )}
       {error && (

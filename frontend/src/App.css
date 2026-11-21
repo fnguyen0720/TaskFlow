@@ -1063,3 +1063,8 @@ html, body, #root {
   .dashboard-header-actions { flex-wrap:wrap; flex-shrink:1; min-width:0; }
   .account-identity { order:4; flex:1 1 100%; max-width:100%; min-width:0; }
 }
+
+/* Large task lists: display a bounded DOM slice while preserving global task counts. */
+.task-page-controls { display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 0;color:#a9a7c0;font-size:12px; }
+.task-page-controls button { min-height:44px;padding:9px 15px;border:1px solid #655796;border-radius:9px;background:#29243d;color:#efeaff;font-weight:600;cursor:pointer; }
+.task-page-controls button:hover { background:#37304f; }
