@@ -786,3 +786,52 @@ html, body, #root {
 @media (prefers-reduced-motion:reduce) {
   .mobile-bottom-nav button { transition:none; }
 }
+
+
+/* Keep task creation controls from overlapping in narrow iPhone/PWA layouts. */
+@media (max-width: 600px) {
+  .task-panel .task-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    column-gap: 10px;
+    row-gap: 12px;
+    min-width: 0;
+  }
+  .task-panel .task-form .task-create-fields { display: contents; }
+  .task-panel .task-form .create-title { grid-column: 1 / -1; }
+  .task-panel .task-form .create-priority { grid-column: 1; }
+  .task-panel .task-form .create-category { grid-column: 2; }
+  .task-panel .task-form .create-due-date { grid-column: 1 / -1; }
+  .task-panel .task-form .create-repeat { grid-column: 1; }
+  .task-panel .task-form .create-reminder { grid-column: 2; }
+  .task-panel .task-form .create-submit,
+  .task-panel .task-form .draft-discard-button { grid-column: 1 / -1; }
+  .task-panel .task-form .create-title,
+  .task-panel .task-form .create-priority,
+  .task-panel .task-form .create-category,
+  .task-panel .task-form .create-due-date,
+  .task-panel .task-form .task-schedule-control {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+  .task-panel .task-form .task-schedule-control {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .task-panel .task-form .task-schedule-control select {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+  .task-panel .task-form input,
+  .task-panel .task-form select,
+  .task-panel .task-form button {
+    min-height: 44px;
+  }
+}

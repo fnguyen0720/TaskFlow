@@ -559,3 +559,29 @@ test("mobile bottom bar hides on desktop and behind task details", async ({ page
   await expect(page.getByRole("dialog", { name: "Mobile details" })).toBeVisible();
   await expect(nav).toHaveCount(0);
 });
+
+test("mobile task form keeps due date and repeat controls in separate rows", async ({ page }) => {
+  await installMockApi(page);
+  await signIn(page);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 780 });
+    const form = page.getByRole("form", { name: "Add a new task" });
+    const due = form.getByLabel("Due date");
+    const repeat = form.getByRole("combobox", { name: "Repeat task" });
+    const reminder = form.getByRole("combobox", { name: "Task reminder" });
+    const dueBox = await due.boundingBox();
+    const repeatBox = await repeat.boundingBox();
+    const reminderBox = await reminder.boundingBox();
+    expect(dueBox).not.toBeNull();
+    expect(repeatBox).not.toBeNull();
+    expect(reminderBox).not.toBeNull();
+    expect(dueBox.y + dueBox.height).toBeLessThanOrEqual(repeatBox.y - 4);
+    expect(repeatBox.x + repeatBox.width).toBeLessThanOrEqual(reminderBox.x - 4);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await due.fill("2026-11-26");
+    await repeat.selectOption("Weekly");
+    await reminder.selectOption("1");
+    await expect(due).toHaveValue("2026-11-26");
+    await expect(repeat).toHaveValue("Weekly");
+  }
+});
