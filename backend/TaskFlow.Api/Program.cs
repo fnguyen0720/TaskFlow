@@ -263,6 +263,23 @@ var identityEndpoints = app.MapGroup("");
 identityEndpoints.RequireRateLimiting("authentication");
 identityEndpoints.MapIdentityApi<ApplicationUser>();
 
+// The signed-in account identity is read-only and scoped solely to the bearer token.
+// Never accept account IDs from clients or cache an identity response across users.
+app.MapGet("/api/account/me", async (ClaimsPrincipal principal, TaskDbContext db,
+    HttpContext context) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrEmpty(userId)) return Results.Unauthorized();
+
+    var email = await db.Users.AsNoTracking()
+        .Where(account => account.Id == userId)
+        .Select(account => account.Email)
+        .SingleOrDefaultAsync();
+    return email is null ? Results.Unauthorized() : Results.Ok(new { email });
+})
+.RequireAuthorization();
+
 // Public feature capability. No secrets, provider identifiers or email addresses.
 app.MapGet("/api/account/capabilities", (AccountEmailDelivery delivery) =>
     Results.Ok(new { emailDeliveryEnabled = delivery.Enabled }))
