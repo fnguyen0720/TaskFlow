@@ -1,6 +1,6 @@
 import NotificationCenter from "./NotificationCenter.jsx";
 
-export default function DashboardHeader({ logout, notifications, notificationCenter, notificationSettings, onOpenTask, onOpenCommand }) {
+export default function DashboardHeader({ logout, notifications, notificationCenter, notificationSettings, accountIdentity, onOpenTask, onOpenCommand }) {
   return (
     <header className="dashboard-header">
       <div>
@@ -9,6 +9,15 @@ export default function DashboardHeader({ logout, notifications, notificationCen
         <p className="subtitle">A little progress each day adds up to big results.</p>
       </div>
       <div className="dashboard-header-actions">
+        <div className="account-identity" aria-live="polite">
+          {accountIdentity.status === "loaded" ? (
+            <span className="account-identity-email" title={accountIdentity.email}>
+              Signed in as <strong>{accountIdentity.email}</strong>
+            </span>
+          ) : accountIdentity.status === "failed" ? (
+            <span className="account-identity-unavailable">Account unavailable <button type="button" onClick={accountIdentity.retry}>Retry</button></span>
+          ) : <span className="account-identity-pending">Checking account…</span>}
+        </div>
         <button type="button" className="command-launcher" onClick={onOpenCommand} aria-label="Open search and commands">Search <kbd>⌘K</kbd></button>
         <NotificationCenter notifications={notifications} loading={notificationCenter.loading}
           error={notificationCenter.error} pending={notificationCenter.pending}

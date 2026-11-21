@@ -804,3 +804,42 @@ test("sign-out in another tab immediately removes protected workspace data", asy
   await expect(page.locator(".auth-form [role=status]")).toContainText("signed out in another tab");
   await otherTab.close();
 });
+
+test("account identity shows the authenticated email without exposing it after logout", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(901, "Private account task", "2026-11-19")],
+  });
+  await signIn(page);
+  await expect(page.getByText("Signed in as")).toContainText("tester@example.com");
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Private account task");
+  await page.getByRole("button", { name: /Log out/ }).click();
+  await expect(page.getByText("tester@example.com")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Task views" })).toHaveCount(0);
+  expect(api.tasks).toHaveLength(1);
+  expect(api.calls.filter(call => call.pathname === "/api/account/me").length).toBeGreaterThan(0);
+});
+
+test("failed identity lookup offers retry without hiding or changing tasks", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(902, "Stable record", "2026-11-19")],
+    failAccountReads: 1,
+  });
+  await signIn(page);
+  await expect(page.locator(".account-identity-unavailable")).toContainText("Account unavailable");
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Stable record");
+  await page.locator(".account-identity").getByRole("button", { name: "Retry" }).click();
+  await expect(page.locator(".account-identity-email")).toContainText("tester@example.com");
+  expect(api.tasks).toHaveLength(1);
+  expect(api.calls.filter(call => call.method === "GET" && call.pathname === "/api/account/me")).toHaveLength(2);
+});
+
+test("account identity never exposes stale email after another tab signs out", async ({ page, context }) => {
+  await installMockApi(page);
+  await signIn(page);
+  await expect(page.locator(".account-identity-email")).toContainText("tester@example.com");
+  const otherTab = await context.newPage();
+  await otherTab.goto("/");
+  await otherTab.evaluate(() => localStorage.removeItem("taskflow_token"));
+  await expect(page.locator(".account-identity")).toHaveCount(0);
+  await otherTab.close();
+});

@@ -11,6 +11,7 @@ import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
 import TaskPanel from "./components/tasks/TaskPanel.jsx";
 import { useAuth } from "./hooks/useAuth.js";
+import { useAccountIdentity } from "./hooks/useAccountIdentity.js";
 import { useNotification } from "./hooks/useNotification.js";
 import { useTasks } from "./hooks/useTasks.js";
 import { useNotificationCenter } from "./hooks/useNotificationCenter.js";
@@ -37,6 +38,7 @@ function App() {
   } = useAuth();
   const handleUnauthorized = (requestToken) => clearAuth("expired", requestToken);
   const { notification, setNotification, showNotification } = useNotification();
+  const accountIdentity = useAccountIdentity({ token, onUnauthorized: handleUnauthorized });
   const notificationCenter = useNotificationCenter({ token, onUnauthorized: handleUnauthorized });
   const notificationSettings = useNotificationPreferences({ token, onUnauthorized: handleUnauthorized });
   const {
@@ -326,7 +328,7 @@ function App() {
       <EmailVerificationNotice token={token} />
       <DashboardHeader logout={logout} notifications={notifications}
         notificationCenter={notificationCenter} notificationSettings={notificationSettings}
-        onOpenTask={setDetailId} onOpenCommand={() => setCommandOpen(true)} />
+        accountIdentity={accountIdentity} onOpenTask={setDetailId} onOpenCommand={() => setCommandOpen(true)} />
       {(loading || readStatus === "pending") && !error ? (
         <section className="workspace-loading" role="status" aria-live="polite" aria-label="Loading workspace">
           <div className="workspace-loading-heading" />
