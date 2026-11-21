@@ -14,6 +14,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
   const [newPriority, setNewPriority] = useState("Medium");
   const [editingId, setEditingId] = useState(null);
   const [editingError, setEditingError] = useState("");
+  const [editVersion, setEditVersion] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editPriority, setEditPriority] = useState("Medium");
   const [newDueDate, setNewDueDate] = useState("");
@@ -88,12 +89,14 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
       if (isCurrent()) {
         setTasks(loadedTasks);
         setVerifiedRead({ token, status: loadedTasks.length === 0 ? "confirmed-empty" : "loaded" });
+        return true;
       }
     } catch (error) {
       if (!isCurrent() || error?.name === "AbortError") return;
       console.warn("Task list request failed");
       setError("Could not verify your task list. No tasks have been deleted. Please retry.");
       setVerifiedRead({ token, status: "failed" });
+      return false;
     } finally {
       if (isCurrent()) {
         activeTaskRead.current = null;
@@ -187,6 +190,7 @@ const startEditing = (task) => {
 
   setEditingError("");
   setEditingId(task.id);
+  setEditVersion(task.version ?? null);
 
   setEditTitle(task.title);
 
@@ -226,12 +230,17 @@ const editTask = async (id) => {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        ...(editVersion ? { "If-Match": `"${editVersion}"` } : {}),
       },
       body: JSON.stringify(updatedValues),
     });
     if (currentToken.current !== token) return;
     if (response.status === 401) {
       onUnauthorized(token);
+      return;
+    }
+    if (response.status === 409 || response.status === 404) {
+      setEditingError("This task changed elsewhere or was removed. Your draft is preserved. Review the latest task before saving again.");
       return;
     }
     if (!response.ok) throw new Error("Couldn't save changes. Your edits are still here. Please try again.");
@@ -243,6 +252,7 @@ const editTask = async (id) => {
       setLastMove(current => current?.id === id ? null : current);
     }
     setEditingId(null);
+    setEditVersion(null);
     setEditTitle("");
     setEditPriority("Medium");
     setEditCategory("General");
@@ -354,12 +364,13 @@ finally {
 
 
 
-  async function updateTaskFields(id, endpoint, changes, errorMessage, method = "PUT") {
+  async function updateTaskFields(id, endpoint, changes, errorMessage, method = "PUT", expectedVersion = null) {
     const response = await fetchWithDiagnostics(`${API_BASE_URL}/api/tasks/${id}/${endpoint}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        ...(expectedVersion ? { "If-Match": `"${expectedVersion}"` } : {}),
       },
       body: JSON.stringify(changes),
     });
@@ -368,16 +379,24 @@ finally {
       onUnauthorized(token);
       return;
     }
+    if (response.status === 409 && expectedVersion) {
+      throw new Error("This task changed elsewhere. Your draft has not been saved. Review the latest task before retrying.", { cause: 409 });
+    }
+    if (response.status === 404 && expectedVersion) {
+      throw new Error("This task is no longer available. Your draft has not been saved.", { cause: 404 });
+    }
     if (!response.ok) throw new Error(errorMessage, { cause: response.status });
     return response.json();
   }
 
   async function saveDetails(id, details) {
-    const result = await updateTaskFields(id, "details", details, "Couldn't save task details. Please try again.");
+    const result = await updateTaskFields(id, "details", details, "Couldn't save task details. Please try again.", "PUT", details.expectedVersion);
+    if (currentToken.current !== token) return;
+
     if (!result) return;
-    const { notes, checklist, dueDate } = result;
+    const { notes, checklist, dueDate, version } = result;
     setTasks(current => current.map(task => task.id === id ? {
-      ...task, notes, checklist,
+      ...task, notes, checklist, version,
       ...(details.updateDueDate ? { dueDate } : {}),
     } : task));
     if (details.updateDueDate) setLastMove(current => current?.id === id ? null : current);
@@ -428,7 +447,8 @@ finally {
   }
 
   return {
-    saveDetails, rescheduleTask, undoMove, undoableMove,
+    saveDetails, reloadLatestTask: fetchTasks, editVersion, setEditVersion,
+    rescheduleTask, undoMove, undoableMove,
     dismissMove: () => setLastMove(null),
     tasks: readStatus === "pending" && verifiedRead.token !== token ? [] : tasks, setTasks,
     readStatus, loading, setLoading,
