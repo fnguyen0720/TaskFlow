@@ -6,11 +6,20 @@ const PRIMARY_ITEMS = [
 ];
 
 export default function MobileBottomNav({ view, onChangeView, onQuickCreate }) {
+  function navigate(id) {
+    if (onChangeView(id) === false) return;
+    requestAnimationFrame(() => {
+      document.querySelector('[aria-label="Task management"]')?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+        block: "start",
+      });
+    });
+  }
   return (
     <nav className="mobile-bottom-nav" aria-label="Mobile quick navigation">
       {PRIMARY_ITEMS.map(item => (
         <button key={item.id} type="button" aria-current={view === item.id ? "page" : undefined}
-          onClick={() => onChangeView(item.id)}>
+          onClick={() => navigate(item.id)}>
           <span className="mobile-nav-icon" aria-hidden="true">{item.glyph}</span>
           <span>{item.label}</span>
         </button>
