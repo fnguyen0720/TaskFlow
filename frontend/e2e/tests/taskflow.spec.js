@@ -898,6 +898,8 @@ test("failed second page never displays a truncated workspace and retry reloads 
   await expect(page.getByRole("list", { name: "Tasks" })).toHaveCount(0);
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByText("112 tasks in your workspace")).toBeVisible();
+  await expect(page.locator(".task-page-controls")).toContainText("Showing 50 of 112 tasks");
+  await page.getByRole("searchbox", { name: "Search tasks" }).fill("Protected task 112");
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Protected task 112");
   expect(api.tasks).toHaveLength(112);
 });
