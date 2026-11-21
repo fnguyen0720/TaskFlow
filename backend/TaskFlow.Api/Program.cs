@@ -547,8 +547,10 @@ app.MapPut("/api/tasks/{id}", async (
 
     if (task.RecurrenceRule != "None" && task.DueDate.HasValue)
     {
-        db.Tasks.Add(TaskSchedule.NextOccurrence(task));
+        var nextTask = TaskSchedule.NextOccurrence(task);
+        db.Tasks.Add(nextTask);
         await db.SaveChangesAsync();
+        TaskActivityKinds.Record(db, userId, nextTask.Id, TaskActivityKinds.Created);
     }
     TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Completed);
     await db.SaveChangesAsync();
