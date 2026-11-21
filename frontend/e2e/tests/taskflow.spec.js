@@ -115,7 +115,7 @@ test("failed task loading never shows false dashboard totals, and retry restores
     failTaskReads: 1,
   });
   await signIn(page);
-  await expect(page.getByRole("alert")).toContainText("Unable to load your tasks");
+  await expect(page.getByRole("alert")).toContainText("Could not verify your task list");
   await expect(page.locator(".overview")).toHaveCount(0);
   await expect(page.locator(".dashboard-intro")).toHaveCount(0);
 
