@@ -59,7 +59,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
       });
       if (!isCurrent()) return;
       if (response.status === 401) {
-        onUnauthorized();
+        onUnauthorized(token);
         return;
       }
       if (!response.ok) throw new Error("Failed to fetch tasks");
@@ -213,7 +213,7 @@ const editTask = async (id) => {
     });
     if (currentToken.current !== token) return;
     if (response.status === 401) {
-      onUnauthorized();
+      onUnauthorized(token);
       return;
     }
     if (!response.ok) throw new Error("Couldn't save changes. Your edits are still here. Please try again.");
@@ -347,7 +347,7 @@ finally {
     });
 
     if (response.status === 401) {
-      onUnauthorized();
+      onUnauthorized(token);
       return;
     }
     if (!response.ok) throw new Error(errorMessage, { cause: response.status });

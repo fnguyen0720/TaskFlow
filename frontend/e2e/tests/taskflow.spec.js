@@ -758,3 +758,49 @@ test("failed task read exposes no fabricated zero count and retry restores the t
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Retry protected record");
   expect(api.tasks).toHaveLength(1);
 });
+
+test("expired API session returns to sign-in with an honest recovery message", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(801, "Protected task", "2026-11-19")],
+    unauthorizedTaskReads: 1,
+  });
+  await page.goto("/");
+  await page.getByPlaceholder("Email address").fill("tester@example.com");
+  await page.getByPlaceholder("Password").fill("ValidPassword123!");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page.locator(".auth-form [role=status]")).toContainText("Your session expired. Sign in again");
+  await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Task views" })).toHaveCount(0);
+  expect(api.tasks).toHaveLength(1);
+  await page.getByPlaceholder("Password").fill("ValidPassword123!");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Protected task");
+});
+
+test("temporary login outage explains retry and succeeds without changing tasks", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(802, "Persisted task", "2026-11-19")],
+    failLoginAttempts: 1,
+  });
+  await page.goto("/");
+  await page.getByPlaceholder("Email address").fill("tester@example.com");
+  await page.getByPlaceholder("Password").fill("ValidPassword123!");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page.getByRole("alert")).toContainText("temporarily unavailable");
+  await expect(page.getByPlaceholder("Password")).toHaveValue("ValidPassword123!");
+  await page.getByRole("button", { name: "Sign In" }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Persisted task");
+  expect(api.tasks).toHaveLength(1);
+});
+
+test("sign-out in another tab immediately removes protected workspace data", async ({ page, context }) => {
+  await installMockApi(page, { initialTasks: [fixtureTask(803, "Private task", "2026-11-19")] });
+  await signIn(page);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Private task");
+  const otherTab = await context.newPage();
+  await otherTab.goto("/");
+  await otherTab.evaluate(() => localStorage.removeItem("taskflow_token"));
+  await expect(page.getByRole("navigation", { name: "Task views" })).toHaveCount(0);
+  await expect(page.locator(".auth-form [role=status]")).toContainText("signed out in another tab");
+  await otherTab.close();
+});

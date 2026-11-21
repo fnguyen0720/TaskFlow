@@ -1,7 +1,9 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, failLoginAttempts = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
+  let remainingUnauthorizedReads = unauthorizedTaskReads;
+  let remainingFailedLogins = failLoginAttempts;
   let remainingInvalidReads = invalidTaskReads;
   let remainingEmptyReads = emptyTaskReads;
   let remainingFailedEdits = failTaskEdits;
@@ -26,6 +28,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
 
     if (pathname === "/register" && method === "POST") return respond(200, {});
     if (pathname === "/login" && method === "POST") {
+      if (remainingFailedLogins > 0) { remainingFailedLogins--; return respond(503, { title: "Unavailable" }); }
       if (body.email !== "tester@example.com" || body.password !== "ValidPassword123!") {
         return respond(401, { title: "Unauthorized", status: 401 });
       }
@@ -34,6 +37,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
 
     if (pathname === "/api/tasks" && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (remainingUnauthorizedReads > 0) { remainingUnauthorizedReads--; return respond(401, {}); }
       if (remainingFailedReads > 0) {
         remainingFailedReads--;
         return respond(503, { title: "Service temporarily unavailable" });

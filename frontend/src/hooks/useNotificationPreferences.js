@@ -26,7 +26,7 @@ export function useNotificationPreferences({ token, onUnauthorized }) {
           headers: { Authorization: `Bearer ${token}` },
         }, "tasks");
         if (response.status === 401) {
-          if (!cancelled) unauthorized.current();
+          if (!cancelled) unauthorized.current(token);
           return;
         }
         if (!response.ok) throw new Error("Failed to load preferences");
@@ -54,7 +54,7 @@ export function useNotificationPreferences({ token, onUnauthorized }) {
         body: JSON.stringify(next),
       }, "tasks");
       if (response.status === 401) {
-        unauthorized.current();
+        unauthorized.current(token);
         return false;
       }
       if (!response.ok) throw new Error("Failed to save preferences");
