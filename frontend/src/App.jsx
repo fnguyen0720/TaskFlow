@@ -33,11 +33,12 @@ function App() {
 
   const {
     token, authMode, authEmail, setAuthEmail, authPassword, setAuthPassword,
-    authLoading, authError, logout: clearAuth, handleAuth, switchAuthMode,
+    authLoading, authError, sessionNotice, logout: clearAuth, handleAuth, switchAuthMode,
   } = useAuth();
+  const handleUnauthorized = (requestToken) => clearAuth("expired", requestToken);
   const { notification, setNotification, showNotification } = useNotification();
-  const notificationCenter = useNotificationCenter({ token, onUnauthorized: clearAuth });
-  const notificationSettings = useNotificationPreferences({ token, onUnauthorized: clearAuth });
+  const notificationCenter = useNotificationCenter({ token, onUnauthorized: handleUnauthorized });
+  const notificationSettings = useNotificationPreferences({ token, onUnauthorized: handleUnauthorized });
   const {
     tasks, setTasks, loading, readStatus, error, setError, newTask, setNewTask,
     newPriority, setNewPriority, newCategory, setNewCategory, newDueDate, setNewDueDate,
@@ -47,7 +48,7 @@ function App() {
     editRecurrence, setEditRecurrence, editReminder, setEditReminder, loadingTask,
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
     toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails, rescheduleTask, undoMove, undoableMove, dismissMove,
-  } = useTasks({ token, onUnauthorized: clearAuth, showNotification });
+  } = useTasks({ token, onUnauthorized: handleUnauthorized, showNotification });
 
   useEffect(() => {
     if (!token || recoveryScreen || detailId != null) return;
@@ -111,6 +112,12 @@ function App() {
   }, [setNewTask, setNewPriority, setNewCategory, setNewDueDate, setNewRecurrence,
     setNewReminder, setEditingId, setEditingError, setEditTitle, setEditPriority,
     setEditCategory, setEditDueDate, setEditRecurrence, setEditReminder]);
+
+  // Clear account-specific drafts and transient UI on any session change.
+  useEffect(() => {
+    clearDrafts();
+    setNotification(null);
+  }, [token]);
 
   // Password reset links can arrive via same-tab hash navigation.
   useEffect(() => {
@@ -245,6 +252,7 @@ function App() {
             : "Create your account"}
         </h2>
 
+        {sessionNotice && <p role="status" className="auth-success">{sessionNotice}</p>}
         {authError && (
           <p
             role="alert"
