@@ -69,7 +69,6 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         id: nextId++, title: body.title, priority: body.priority,
         category: body.category, dueDate: body.dueDate, completed: false,
         notes: "", checklist: [], checklistJson: "[]",
-    version: `rev-${id}`,
         version: `rev-${revision++}`,
       };
       tasks.push(task);
