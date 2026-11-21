@@ -956,3 +956,48 @@ test("details conflict retains notes/checklist and reload requires explicit cons
   await page.getByRole("button", { name: "Shared details", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Shared details" }).getByRole("textbox", { name: "Notes" })).toHaveValue("Newer note from second tab");
 });
+
+test("task detail shows a privacy-minimal activity timeline after successful changes", async ({ page }) => {
+  const api = await installMockApi(page);
+  await signIn(page);
+  await page.getByRole("textbox", { name: "New task title" }).fill("Activity tracked task");
+  await page.getByRole("button", { name: /Add task/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Activity tracked task");
+  await page.getByRole("button", { name: "Activity tracked task", exact: true }).click();
+  const detail = page.getByRole("dialog", { name: "Activity tracked task" });
+  const activity = detail.getByRole("region", { name: "Task activity" });
+  await expect(activity).toContainText("Task created");
+  await expect(activity.locator("time")).toHaveCount(1);
+  expect(api.activities).toHaveLength(1);
+  await detail.getByRole("textbox", { name: "Notes" }).fill("A private note");
+  await detail.getByRole("button", { name: "Save details" }).click();
+  await expect(detail).toHaveCount(0);
+  await page.getByRole("button", { name: "Activity tracked task", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Task activity" })).toContainText("Task updated");
+  await expect(page.getByRole("region", { name: "Task activity" })).not.toContainText("A private note");
+  expect(api.activities.map(e => e.kind)).toEqual(["created", "edited"]);
+});
+
+test("stale edit conflicts do not add misleading activity records", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(4402, "Concurrency history", "2026-11-19")],
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Edit Concurrency history" }).click();
+  await page.getByRole("textbox", { name: "Edit title for Concurrency history" }).fill("Rejected draft");
+  api.tasks[0].title = "Updated in other tab";
+  api.changeVersion(api.tasks[0]);
+  await page.getByRole("button", { name: "Save changes to Concurrency history" }).click();
+  await expect(page.getByRole("alert")).toContainText("changed elsewhere");
+  expect(api.activities).toHaveLength(0);
+});
+
+test("task details show empty activity for existing tasks without historical backfill", async ({ page }) => {
+  await installMockApi(page, {
+    initialTasks: [fixtureTask(4403, "Old task", "2026-11-19")],
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Old task", exact: true }).click();
+  const activity = page.getByRole("region", { name: "Task activity" });
+  await expect(activity).toContainText("No activity recorded yet.");
+});
