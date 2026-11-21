@@ -63,7 +63,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) return respond(400, {});
       return respond(200, tasks.slice(offset, offset + limit));
     }
-    const activity = /^\\/api\\/tasks\\/(\\d+)\\/activity$/.exec(pathname);
+    const activity = /^\/api\/tasks\/(\d+)\/activity$/.exec(pathname);
     if (activity && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       if (!tasks.some(t => t.id === Number(activity[1]))) return respond(404, {});
