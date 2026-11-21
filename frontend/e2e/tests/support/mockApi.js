@@ -1,7 +1,9 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
+  let remainingInvalidReads = invalidTaskReads;
+  let remainingEmptyReads = emptyTaskReads;
   let remainingFailedEdits = failTaskEdits;
   let remainingFailedCreates = failTaskCreates;
   let remainingFailedDetails = failTaskDetails;
@@ -36,6 +38,8 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         remainingFailedReads--;
         return respond(503, { title: "Service temporarily unavailable" });
       }
+      if (remainingInvalidReads > 0) { remainingInvalidReads--; return respond(200, { tasks: [] }); }
+      if (remainingEmptyReads > 0) { remainingEmptyReads--; return respond(200, []); }
       return respond(200, tasks);
     }
     if (pathname === "/api/tasks" && method === "POST") {

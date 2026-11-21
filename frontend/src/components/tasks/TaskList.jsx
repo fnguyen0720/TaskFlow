@@ -1,22 +1,22 @@
 import TaskItem from "./TaskItem.jsx";
 
 export default function TaskList({ data, editing, actions, viewEmptyMessage }) {
-  const { tasks, filteredTasks, loading, error, loadingTask } = data;
+  const { tasks, filteredTasks, loading, error, loadingTask, readStatus } = data;
 
   return (
     <>
-      {loading && (
+      {(loading || readStatus === "pending") && !error && (
         <div className="status-message" role="status">
           <div className="spinner" /><p>Loading tasks…</p>
         </div>
       )}
-      {!loading && !error && filteredTasks.length === 0 && (
+      {!loading && !error && readStatus !== "pending" && filteredTasks.length === 0 && (
         <div className="empty-state">
           <p>{viewEmptyMessage ?? (tasks.length === 0 ? "Your space is ready." : "No tasks found.")}</p>
           {!viewEmptyMessage && <span>{tasks.length === 0 ? "Add your first task above to get started." : "Try adjusting your filters or search."}</span>}
         </div>
       )}
-      {!loading && !error && (
+      {!loading && !error && readStatus !== "pending" && (
         <div className="task-list" role="list" aria-label="Tasks">
           {filteredTasks.map(task => (
             <TaskItem key={task.id} task={task} editing={editing} loadingTask={loadingTask} actions={actions} />

@@ -1029,3 +1029,21 @@ html, body, #root {
     opacity:.55;
   }
 }
+
+
+/* Task list reliability: a server-confirmed empty account is not a data-loss diagnosis. */
+.task-account-empty {
+  margin: 0 0 16px;
+  padding: 15px 16px;
+  border: 1px solid #555075;
+  border-radius: 10px;
+  background: #222035;
+  color: #ded9f4;
+}
+.task-account-empty strong { display:block; font-size:13px; line-height:1.5; }
+.task-account-empty p { margin:7px 0 11px; color:#b9b5cd; font-size:12px; line-height:1.55; }
+.task-account-empty button {
+  min-height:44px; padding:8px 13px; border-radius:8px;
+  border:1px solid #7161bd; background:#39305d; color:#f5f1ff;
+  cursor:pointer; font-weight:600; font-size:12px;
+}

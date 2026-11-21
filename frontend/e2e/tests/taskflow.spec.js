@@ -115,7 +115,7 @@ test("failed task loading never shows false dashboard totals, and retry restores
     failTaskReads: 1,
   });
   await signIn(page);
-  await expect(page.getByRole("alert")).toContainText("Unable to load your tasks");
+  await expect(page.getByRole("alert")).toContainText("Could not verify your task list");
   await expect(page.locator(".overview")).toHaveCount(0);
   await expect(page.locator(".dashboard-intro")).toHaveCount(0);
 
@@ -708,4 +708,53 @@ test("mobile due date caption and displayed value stay centered without overflow
     await due.fill("");
     await expect(display).toHaveText("Choose a date");
   }
+});
+
+test("server-confirmed empty account is explicit and can recover without modifying tasks", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(701, "Existing protected record", "2026-11-19")],
+    emptyTaskReads: 1,
+  });
+  await signIn(page);
+  await expect(page.getByText("Server returned no tasks for this signed-in account.")).toBeVisible();
+  await expect(page.getByText("This result does not mean your tasks were deleted.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your space is ready." })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Loading workspace" })).toHaveCount(0);
+  await expect(page.locator(".overview")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Productivity insights" })).toBeVisible();
+  expect(api.tasks).toHaveLength(1);
+  await page.getByRole("button", { name: "Check server again" }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Existing protected record");
+  await expect(page.getByText("1 task in your workspace")).toBeVisible();
+  expect(api.tasks).toHaveLength(1);
+  expect(api.calls.filter(call => call.method === "GET" && call.pathname === "/api/tasks")).toHaveLength(2);
+});
+
+test("malformed 200 task response never masquerades as an empty account", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(702, "Still on server", "2026-11-19")],
+    invalidTaskReads: 1,
+  });
+  await signIn(page);
+  await expect(page.getByRole("alert")).toContainText("Could not verify your task list");
+  await expect(page.getByText("Task count unavailable — please retry the server check.")).toBeVisible();
+  await expect(page.getByText("Server returned no tasks for this signed-in account.")).toHaveCount(0);
+  await expect(page.locator(".overview")).toHaveCount(0);
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Still on server");
+  expect(api.tasks).toHaveLength(1);
+});
+
+test("failed task read exposes no fabricated zero count and retry restores the tasks", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(703, "Retry protected record", "2026-11-19")],
+    failTaskReads: 1,
+  });
+  await signIn(page);
+  await expect(page.getByRole("alert")).toContainText("Could not verify your task list");
+  await expect(page.locator(".panel-subtitle")).toContainText("Task count unavailable");
+  await expect(page.locator(".overview")).toHaveCount(0);
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Retry protected record");
+  expect(api.tasks).toHaveLength(1);
 });

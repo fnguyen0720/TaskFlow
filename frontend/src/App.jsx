@@ -39,7 +39,7 @@ function App() {
   const notificationCenter = useNotificationCenter({ token, onUnauthorized: clearAuth });
   const notificationSettings = useNotificationPreferences({ token, onUnauthorized: clearAuth });
   const {
-    tasks, setTasks, loading, error, setError, newTask, setNewTask,
+    tasks, setTasks, loading, readStatus, error, setError, newTask, setNewTask,
     newPriority, setNewPriority, newCategory, setNewCategory, newDueDate, setNewDueDate,
     newRecurrence, setNewRecurrence, newReminder, setNewReminder,
     editingId, setEditingId, editingError, setEditingError, editTitle, setEditTitle, editPriority, setEditPriority,
@@ -225,7 +225,7 @@ function App() {
     openDetails: setDetailId, reschedule: rescheduleTask, undoMove, dismissMove, startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
   };
   const data = {
-    tasks: visibleTasks, filteredTasks, totalCount, loading, error, loadingTask, pendingDeletes, undoableMove,
+    tasks: visibleTasks, filteredTasks, totalCount, loading, readStatus, error, loadingTask, pendingDeletes, undoableMove,
     activeReminders,
   };
 
@@ -319,14 +319,14 @@ function App() {
       <DashboardHeader logout={logout} notifications={notifications}
         notificationCenter={notificationCenter} notificationSettings={notificationSettings}
         onOpenTask={setDetailId} onOpenCommand={() => setCommandOpen(true)} />
-      {loading ? (
+      {(loading || readStatus === "pending") && !error ? (
         <section className="workspace-loading" role="status" aria-live="polite" aria-label="Loading workspace">
           <div className="workspace-loading-heading" />
           <div className="workspace-loading-cards" aria-hidden="true">
             {Array.from({ length: 4 }, (_, index) => <div key={index} className="workspace-loading-card" />)}
           </div>
         </section>
-      ) : !error ? (
+      ) : !error && (readStatus === "loaded" || readStatus === "confirmed-empty") ? (
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
