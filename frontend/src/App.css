@@ -1057,3 +1057,9 @@ html, body, #root {
   margin-left: 4px; border: 0; padding: 3px 4px; background: transparent;
   color: #b9a8ff; text-decoration: underline; cursor: pointer; font: inherit;
 }
+
+@media (max-width:700px) {
+  /* Keep existing header controls on their familiar row; identity gets its own line. */
+  .dashboard-header-actions { flex-wrap:wrap; flex-shrink:1; min-width:0; }
+  .account-identity { order:4; flex:1 1 100%; max-width:100%; min-width:0; }
+}
