@@ -863,3 +863,42 @@ html, body, #root {
     overflow: hidden;
   }
 }
+
+
+/* iOS Safari: a native date control can paint wider than a CSS grid item.
+   Give the date input its own definite containing block; clip within that
+   border without clipping the rest of the form or keyboard focus. */
+@media (max-width: 600px) {
+  .task-panel .task-form .create-date-shell {
+    grid-column: 1 / -1;
+    position: relative;
+    display: block;
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    block-size: 44px;
+    overflow: hidden;
+    border-radius: 7px;
+  }
+  .task-panel .task-form .create-date-shell > input.create-due-date {
+    position: absolute;
+    inset: 0;
+    display: block;
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    margin: 0;
+    border-radius: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .task-panel .task-form .create-date-shell:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .task-panel .task-form .create-date-shell > input.create-due-date:focus {
+    outline: none;
+  }
+}
