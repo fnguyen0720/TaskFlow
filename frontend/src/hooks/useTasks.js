@@ -8,6 +8,8 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // A zero count is meaningful only after the current account receives a valid 200 JSON array.
+  const [verifiedRead, setVerifiedRead] = useState({ token: null, status: "pending" });
   const [newTask, setNewTask] = useState("");
   const [newPriority, setNewPriority] = useState("Medium");
   const [editingId, setEditingId] = useState(null);
@@ -34,6 +36,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
   const activeTaskRead = useRef(null);
   const currentToken = useRef(token);
   currentToken.current = token;
+  const readStatus = verifiedRead.token === token ? verifiedRead.status : "pending";
 
   const fetchTasks = async () => {
     if (!token || currentToken.current !== token) return;
@@ -48,6 +51,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
 
     setLoading(true);
     setError("");
+    setVerifiedRead({ token, status: "pending" });
     try {
       const response = await fetchWithDiagnostics(`${API_BASE_URL}/api/tasks`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -60,11 +64,18 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
       }
       if (!response.ok) throw new Error("Failed to fetch tasks");
       const data = await response.json();
-      if (isCurrent()) setTasks(data);
+      if (!Array.isArray(data) || data.some(item => !item || typeof item !== "object" || !Number.isInteger(item.id) || typeof item.title !== "string")) {
+        throw new Error("Unexpected task list response");
+      }
+      if (isCurrent()) {
+        setTasks(data);
+        setVerifiedRead({ token, status: data.length === 0 ? "confirmed-empty" : "loaded" });
+      }
     } catch (error) {
       if (!isCurrent() || error?.name === "AbortError") return;
       console.warn("Task list request failed");
-      setError("Unable to load your tasks. Please try again.");
+      setError("Could not verify your task list. No tasks have been deleted. Please retry.");
+      setVerifiedRead({ token, status: "failed" });
     } finally {
       if (isCurrent()) {
         activeTaskRead.current = null;
@@ -79,6 +90,7 @@ export function useTasks({ token, onUnauthorized, showNotification }) {
     // Clear the previous account's tasks when the session changes.
     setTasks([]);
     setError("");
+    setVerifiedRead({ token, status: "pending" });
     if (token) {
       void fetchTasks();
     } else {
@@ -400,8 +412,8 @@ finally {
   return {
     saveDetails, rescheduleTask, undoMove, undoableMove,
     dismissMove: () => setLastMove(null),
-    tasks, setTasks,
-    loading, setLoading,
+    tasks: readStatus === "pending" && verifiedRead.token !== token ? [] : tasks, setTasks,
+    readStatus, loading, setLoading,
     error, setError,
     newTask, setNewTask,
     newPriority, setNewPriority,
