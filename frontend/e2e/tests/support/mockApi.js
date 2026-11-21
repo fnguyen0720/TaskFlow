@@ -1,9 +1,10 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, failLoginAttempts = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingUnauthorizedReads = unauthorizedTaskReads;
   let remainingFailedLogins = failLoginAttempts;
+  let remainingFailedAccountReads = failAccountReads;
   let remainingInvalidReads = invalidTaskReads;
   let remainingEmptyReads = emptyTaskReads;
   let remainingFailedEdits = failTaskEdits;
@@ -33,6 +34,12 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         return respond(401, { title: "Unauthorized", status: 401 });
       }
       return respond(200, { accessToken: "e2e-isolated-token", tokenType: "Bearer", expiresIn: 3600 });
+    }
+
+    if (pathname === "/api/account/me" && method === "GET") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (remainingFailedAccountReads > 0) { remainingFailedAccountReads--; return respond(503, { title: "Unavailable" }); }
+      return respond(200, { email: accountEmail });
     }
 
     if (pathname === "/api/tasks" && method === "GET") {
