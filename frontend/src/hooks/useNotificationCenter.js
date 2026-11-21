@@ -22,7 +22,7 @@ export function useNotificationCenter({ token, onUnauthorized }) {
         const response = await fetchWithDiagnostics(`${API}/api/notifications/state`, {
           headers: { Authorization: `Bearer ${token}` },
         }, "tasks");
-        if (response.status === 401) { if (!cancelled) unauthorizedRef.current(); return; }
+        if (response.status === 401) { if (!cancelled) unauthorizedRef.current(token); return; }
         if (!response.ok) throw new Error("Unable to load notification preferences.");
         const data = await response.json();
         if (!cancelled) { setStates(data); setStatesOwner(token); }
@@ -44,7 +44,7 @@ export function useNotificationCenter({ token, onUnauthorized }) {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       }, "tasks");
-    if (response.status === 401) { onUnauthorized(); throw new Error("Session expired."); }
+    if (response.status === 401) { onUnauthorized(token); throw new Error("Session expired."); }
     if (!response.ok) throw new Error("Notification update failed.");
     const updated = await response.json();
     setStatesOwner(token);
