@@ -331,14 +331,22 @@ app.MapPost("/api/diagnostics/frontend", (
 .RequireRateLimiting("frontend-diagnostics")
 .AllowAnonymous();
 
-// GET: Return only the logged-in user's tasks.
+// GET: All legacy clients still receive their complete account-specific task list.
+// New clients can request bounded pages, maintaining the same global sort order.
+// Stable Id tie-breaking prevents nondeterministic boundaries for equal-priority dates.
 app.MapGet("/api/tasks", async (
     ClaimsPrincipal user,
-    TaskDbContext db) =>
+    TaskDbContext db,
+    int? offset,
+    int? limit) =>
 {
-    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    if (offset.HasValue != limit.HasValue ||
+        (offset.HasValue && offset.Value < 0) ||
+        (limit.HasValue && (limit.Value < 1 || limit.Value > 100)))
+        return Results.BadRequest("Pagination requires offset >= 0 and limit between 1 and 100.");
 
-    return await db.Tasks
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var query = db.Tasks.AsNoTracking()
         .Where(t => t.UserId == userId)
         .OrderBy(t => t.Completed)
         .ThenBy(t =>
@@ -347,7 +355,13 @@ app.MapGet("/api/tasks", async (
         )
         .ThenBy(t => t.DueDate == null)
         .ThenBy(t => t.DueDate)
-        .ToListAsync();
+        .ThenBy(t => t.Id);
+
+    // Bounds are deliberately optional for backward compatibility.
+    if (offset.HasValue)
+        return Results.Ok(await query.Skip(offset.Value).Take(limit!.Value).ToListAsync());
+
+    return Results.Ok(await query.ToListAsync());
 })
 .RequireAuthorization();
 
