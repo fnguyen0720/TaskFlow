@@ -101,7 +101,7 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
                 onRescheduleTask={actions.reschedule} loadingTask={data.loadingTask} />}
         </>
       ) : (
-        <TaskList data={data} editing={editing} actions={actions}
+        <TaskList key={`${view}:${filters.search}:${filters.status}:${filters.category}:${filters.sort}`} data={data} editing={editing} actions={actions}
           viewEmptyMessage={tasksInView?.length === 0 ? current.empty : undefined} />
       )}
       <UndoDeleteToast pendingDeletes={data.pendingDeletes} onUndo={actions.undoDelete} />
