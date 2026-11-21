@@ -50,7 +50,13 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
         <div>
           <h2>{current.label}</h2>
           <p className="panel-subtitle">
-            {current.description ?? `${data.totalCount} ${data.totalCount === 1 ? "task" : "tasks"} in your workspace`}
+            {data.error || data.readStatus === "failed"
+              ? "Task count unavailable — please retry the server check."
+              : data.loading || data.readStatus === "pending"
+                ? "Checking your task list…"
+                : data.readStatus === "confirmed-empty"
+                  ? "Server returned no tasks for this signed-in account."
+                  : current.description ?? `${data.totalCount} ${data.totalCount === 1 ? "task" : "tasks"} in your workspace`}
           </p>
         </div>
       </div>
@@ -70,6 +76,13 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
         </section>
       )}
       <TaskCreateForm form={form} onAdd={actions.add} titleRef={titleRef} />
+      {!data.loading && !data.error && data.readStatus === "confirmed-empty" && (
+        <div className="task-account-empty" role="status">
+          <strong>No tasks were returned for this signed-in account.</strong>
+          <p>If you expected existing tasks, verify you're signed in to the same account you used before. This result does not mean your tasks were deleted.</p>
+          <button type="button" onClick={actions.retry}>Check server again</button>
+        </div>
+      )}
       <TaskFilters filters={filters} showStatus={view === "all" || isCalendar} defaultSortLabel={view === "upcoming" ? "Default (due date)" : "Default"} />
       {isCalendar && !data.loading && !data.error ? (
         <>
