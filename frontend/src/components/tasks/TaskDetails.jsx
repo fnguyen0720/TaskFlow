@@ -83,7 +83,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange }) {
           <h2 id="task-detail-title">{task.title}</h2>
           <button type="button" disabled={saving} onClick={requestClose} aria-label="Close task details">×</button>
         </header>
-        <section className="task-detail-date" aria-label="Task due date">
+        <section className="task-detail-date">
           <div className="task-detail-date-heading">
             <label htmlFor={dueDateId}>Due date</label>
             {dueDate && <button className="task-detail-date-clear" type="button" disabled={saving}
