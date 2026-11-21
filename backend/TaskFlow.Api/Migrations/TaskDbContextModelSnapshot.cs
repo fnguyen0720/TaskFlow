@@ -218,6 +218,18 @@ namespace TaskFlow.Api.Migrations
                     b.ToTable("NotificationPreferences");
                 });
 
+            modelBuilder.Entity("TaskActivity", b =>
+                {
+                    b.Property<long>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER");
+                    b.Property<string>("UserId").IsRequired().HasColumnType("TEXT");
+                    b.Property<int>("TaskId").HasColumnType("INTEGER");
+                    b.Property<string>("Kind").IsRequired().HasColumnType("TEXT");
+                    b.Property<DateTime>("OccurredAt").HasColumnType("TEXT");
+                    b.HasKey("Id");
+                    b.HasIndex("UserId", "TaskId", "OccurredAt");
+                    b.ToTable("TaskActivities");
+                });
+
             modelBuilder.Entity("TaskNotificationState", b =>
                 {
                     b.Property<string>("UserId").HasColumnType("TEXT");
@@ -230,6 +242,13 @@ namespace TaskFlow.Api.Migrations
                     b.ToTable("TaskNotificationStates");
                 });
 
+            modelBuilder.Entity("TaskActivity", b =>
+                {
+                    b.HasOne("ApplicationUser", null).WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
             modelBuilder.Entity("TaskItem", b =>
                 {
                     b.Property<int>("Id")
