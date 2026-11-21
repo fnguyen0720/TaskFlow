@@ -860,9 +860,9 @@ test("large workspace loads every bounded page before exposing complete filters 
   expect(reads.map(call => new URLSearchParams(call.search).get("offset"))).toEqual(["0", "100", "200"]);
   expect(reads.every(call => new URLSearchParams(call.search).get("limit") === "100")).toBe(true);
 
-  await page.getByPlaceholder("Search tasks").fill("Task number 205");
+  await page.getByRole("searchbox", { name: "Search tasks" }).fill("Task number 205");
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Task number 205");
-  await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText("Task number 2");
+  await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText("Task number 204");
   expect(api.tasks).toHaveLength(205);
 });
 
