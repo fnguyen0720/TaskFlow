@@ -3,6 +3,7 @@ import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.
 import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
+import MobileBottomNav from "./components/dashboard/MobileBottomNav.jsx";
 import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
 import ProductivityInsights from "./components/dashboard/ProductivityInsights.jsx";
@@ -342,6 +343,8 @@ function App() {
           onDirtyChange={setDetailDirty}
           onClose={() => { setDetailId(null); setDetailDirty(false); }} />
       )}
+      {!detailTask && !commandOpen && <MobileBottomNav view={view} onChangeView={changeView}
+        onQuickCreate={quickCreateFromPalette} />}
       <footer className="app-footer"><span>TaskFlow</span><span>Make room for what matters.</span></footer>
     </div>
   );
