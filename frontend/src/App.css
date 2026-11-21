@@ -1047,3 +1047,13 @@ html, body, #root {
   border:1px solid #7161bd; background:#39305d; color:#f5f1ff;
   cursor:pointer; font-weight:600; font-size:12px;
 }
+
+/* Account identity stays compact and never overflows narrow dashboard headers. */
+.account-identity { max-width: min(100%, 270px); font-size: 11px; line-height: 1.4; color: #aaa6c4; }
+.account-identity-email { display: block; overflow-wrap: anywhere; }
+.account-identity-email strong { color: #e8e4f9; font-weight: 600; }
+.account-identity-pending, .account-identity-unavailable { color: #aaa6c4; }
+.account-identity-unavailable button {
+  margin-left: 4px; border: 0; padding: 3px 4px; background: transparent;
+  color: #b9a8ff; text-decoration: underline; cursor: pointer; font: inherit;
+}
