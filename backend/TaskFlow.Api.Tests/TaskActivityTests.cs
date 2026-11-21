@@ -24,7 +24,7 @@ public class TaskActivityTests
     private static async Task<JsonElement> Create(HttpClient client)
     {
         using var result = await client.PostAsJsonAsync("/api/tasks",
-            new { title = "Tracked", priority = "Medium", category = "Work", dueDate = "2026-11-19" });
+            new { title = "Tracked", priority = "Medium", category = "Work" });
         result.EnsureSuccessStatusCode();
         using var json = JsonDocument.Parse(await result.Content.ReadAsStringAsync());
         return json.RootElement.Clone();
