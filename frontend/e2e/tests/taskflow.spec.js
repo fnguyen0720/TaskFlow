@@ -678,3 +678,34 @@ test("mobile inline task editor controls remain inside viewport and recover from
   await expect(page.getByRole("button", { name: "Edit Mobile change kept" })).toBeVisible();
   expect(api.tasks[0].dueDate?.slice(0, 10)).toBe("2026-11-25");
 });
+
+test("mobile due date caption and displayed value stay centered without overflowing", async ({ page }) => {
+  await installMockApi(page);
+  await signIn(page);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 780 });
+    const form = page.getByRole("form", { name: "Add a new task" });
+    const due = form.getByLabel("Due date", { exact: true });
+    const shell = form.locator(".create-date-shell");
+    const display = form.locator(".create-date-display");
+    await expect(form.locator(".create-date-label")).toBeVisible();
+    await expect(display).toHaveText("Choose a date");
+    await due.fill("2026-11-21");
+    await expect(due).toHaveValue("2026-11-21");
+    await expect(display).toContainText("Nov 21, 2026");
+    const shellBox = await shell.boundingBox();
+    const displayBox = await display.boundingBox();
+    const formBox = await form.boundingBox();
+    expect(shellBox).not.toBeNull();
+    expect(displayBox).not.toBeNull();
+    expect(formBox).not.toBeNull();
+    expect(shellBox.height).toBeLessThanOrEqual(46);
+    expect(shellBox.x + shellBox.width).toBeLessThanOrEqual(formBox.x + formBox.width + 1);
+    expect(Math.abs(displayBox.y + displayBox.height / 2 - (shellBox.y + shellBox.height / 2))).toBeLessThanOrEqual(2);
+    expect(await display.evaluate(node => getComputedStyle(node).pointerEvents)).toBe("none");
+    expect(await due.evaluate(node => getComputedStyle(node).opacity)).toBe("0");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await due.fill("");
+    await expect(display).toHaveText("Choose a date");
+  }
+});
