@@ -854,15 +854,27 @@ test("large workspace loads every bounded page before exposing complete filters 
   const api = await installMockApi(page, { initialTasks: fixtures });
   await signIn(page);
   await expect(page.getByText("205 tasks in your workspace")).toBeVisible();
-  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(205);
+  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(50);
+  await expect(page.locator(".task-page-controls")).toContainText("Showing 50 of 205 tasks");
   await expect(page.locator(".overview")).toContainText("180");
   const reads = api.calls.filter(call => call.method === "GET" && call.pathname === "/api/tasks");
   expect(reads.map(call => new URLSearchParams(call.search).get("offset"))).toEqual(["0", "100", "200"]);
   expect(reads.every(call => new URLSearchParams(call.search).get("limit") === "100")).toBe(true);
 
+  await page.getByRole("button", { name: "Show more tasks" }).click();
+  await expect(page.locator(".task-page-controls")).toContainText("Showing 100 of 205 tasks");
+  await page.getByRole("button", { name: "Show more tasks" }).click();
+  await page.getByRole("button", { name: "Show more tasks" }).click();
+  await page.getByRole("button", { name: "Show more tasks" }).click();
+  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(205);
+
   await page.getByRole("searchbox", { name: "Search tasks" }).fill("Task number 205");
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Task number 205");
   await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText("Task number 204");
+  await page.getByRole("searchbox", { name: "Search tasks" }).fill("");
+  await page.getByRole("combobox", { name: "Filter category" }).selectOption("Study");
+  await expect(page.getByRole("list", { name: "Tasks" }).getByRole("listitem")).toHaveCount(1);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Task number 205");
   expect(api.tasks).toHaveLength(205);
 });
 
