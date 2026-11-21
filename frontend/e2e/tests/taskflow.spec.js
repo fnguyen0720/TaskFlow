@@ -720,7 +720,8 @@ test("server-confirmed empty account is explicit and can recover without modifyi
   await expect(page.getByText("This result does not mean your tasks were deleted.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your space is ready." })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Loading workspace" })).toHaveCount(0);
-  await expect(page.locator(".overview")).toHaveCount(0);
+  await expect(page.locator(".overview")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Productivity insights" })).toBeVisible();
   expect(api.tasks).toHaveLength(1);
   await page.getByRole("button", { name: "Check server again" }).click();
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Existing protected record");
