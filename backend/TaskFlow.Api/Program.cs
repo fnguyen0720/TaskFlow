@@ -450,6 +450,26 @@ app.MapPut("/api/notifications/state/{taskId:int}/{kind}", async (
 })
 .RequireAuthorization();
 
+// This endpoint never accepts a user ID, and never returns events of another account.
+// A missing or cross-account task looks identical: 404.
+app.MapGet("/api/tasks/{id:int}/activity", async (
+    int id, ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    if (!await db.Tasks.AsNoTracking().AnyAsync(t => t.Id == id && t.UserId == userId))
+        return Results.NotFound();
+
+    var events = await db.TaskActivities.AsNoTracking()
+        .Where(activity => activity.UserId == userId && activity.TaskId == id)
+        .OrderByDescending(activity => activity.OccurredAt)
+        .ThenByDescending(activity => activity.Id)
+        .Take(50)
+        .Select(activity => new { activity.Id, activity.Kind, activity.OccurredAt })
+        .ToListAsync();
+    return Results.Ok(events);
+})
+.RequireAuthorization();
+
 // POST: Create a task owned by the logged-in user.
 app.MapPost("/api/tasks", async (
     TaskItem task,
@@ -482,8 +502,12 @@ app.MapPost("/api/tasks", async (
         );
     }
 
+    await using var activityTransaction = await db.Database.BeginTransactionAsync();
     db.Tasks.Add(task);
     await db.SaveChangesAsync();
+    TaskActivityKinds.Record(db, userId, task.Id, TaskActivityKinds.Created);
+    await db.SaveChangesAsync();
+    await activityTransaction.CommitAsync();
 
     return Results.Created($"/api/tasks/{task.Id}", task);
 })
@@ -506,6 +530,8 @@ app.MapPut("/api/tasks/{id}", async (
     {
         await db.Tasks.Where(t => t.Id == id && t.UserId == userId && t.Completed)
             .ExecuteUpdateAsync(update => update.SetProperty(t => t.Completed, false));
+        TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Reopened);
+        await db.SaveChangesAsync();
         await transaction.CommitAsync();
         return Results.Ok(await db.Tasks.AsNoTracking().FirstAsync(t => t.Id == id));
     }
@@ -521,9 +547,13 @@ app.MapPut("/api/tasks/{id}", async (
 
     if (task.RecurrenceRule != "None" && task.DueDate.HasValue)
     {
-        db.Tasks.Add(TaskSchedule.NextOccurrence(task));
+        var nextTask = TaskSchedule.NextOccurrence(task);
+        db.Tasks.Add(nextTask);
         await db.SaveChangesAsync();
+        TaskActivityKinds.Record(db, userId, nextTask.Id, TaskActivityKinds.Created);
     }
+    TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Completed);
+    await db.SaveChangesAsync();
     await transaction.CommitAsync();
     return Results.Ok(await db.Tasks.AsNoTracking().FirstAsync(t => t.Id == id));
 })
@@ -546,6 +576,7 @@ app.MapPut("/api/tasks/{id}/title", async (
     var desiredDate = updatedTask.DueDate.HasValue
         ? DateTime.SpecifyKind(updatedTask.DueDate.Value, DateTimeKind.Utc) : (DateTime?)null;
     var title = updatedTask.Title.Trim();
+    await using var activityTransaction = await db.Database.BeginTransactionAsync();
     var header = context.Request.Headers.IfMatch.ToString();
     if (!string.IsNullOrEmpty(header))
     {
@@ -566,6 +597,10 @@ app.MapPut("/api/tasks/{id}/title", async (
             return await db.Tasks.AnyAsync(t => t.Id == id && t.UserId == userId)
                 ? Results.Conflict("This task changed elsewhere. Review the latest version before saving.")
                 : Results.NotFound();
+        TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
+        if (original.DueDate != desiredDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
+        await db.SaveChangesAsync();
+        await activityTransaction.CommitAsync();
         return Results.Ok(await db.Tasks.AsNoTracking().SingleAsync(t => t.Id == id && t.UserId == userId));
     }
 
@@ -577,7 +612,10 @@ app.MapPut("/api/tasks/{id}/title", async (
     task.RecurrenceRule = updatedTask.RecurrenceRule;
     task.ReminderDaysBefore = updatedTask.ReminderDaysBefore;
     task.DueDate = desiredDate;
+    TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
+    if (original.DueDate != desiredDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
     await db.SaveChangesAsync();
+    await activityTransaction.CommitAsync();
     return Results.Ok(task);
 })
 .RequireAuthorization();
@@ -602,6 +640,7 @@ app.MapPut("/api/tasks/{id}/details", async (
     var dueDate = details.UpdateDueDate
         ? details.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
         : original.DueDate;
+    await using var activityTransaction = await db.Database.BeginTransactionAsync();
     var header = context.Request.Headers.IfMatch.ToString();
     if (!string.IsNullOrEmpty(header))
     {
@@ -619,6 +658,10 @@ app.MapPut("/api/tasks/{id}/details", async (
             return await db.Tasks.AnyAsync(t => t.Id == id && t.UserId == userId)
                 ? Results.Conflict("This task changed elsewhere. Review the latest version before saving.")
                 : Results.NotFound();
+        TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
+        if (original.DueDate != dueDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
+        await db.SaveChangesAsync();
+        await activityTransaction.CommitAsync();
         return Results.Ok(await db.Tasks.AsNoTracking().SingleAsync(t => t.Id == id && t.UserId == userId));
     }
 
@@ -626,7 +669,10 @@ app.MapPut("/api/tasks/{id}/details", async (
     if (details.UpdateDueDate) task.DueDate = dueDate;
     task.Notes = notes;
     task.ChecklistJson = checklistJson;
+    TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
+    if (original.DueDate != dueDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
     await db.SaveChangesAsync();
+    await activityTransaction.CommitAsync();
     return Results.Ok(task);
 })
 .RequireAuthorization();
@@ -645,8 +691,12 @@ app.MapPut("/api/tasks/{id}/due-date", async (
         return Results.NotFound();
     }
 
+    await using var activityTransaction = await db.Database.BeginTransactionAsync();
+    var oldDate = task.DueDate;
     task.DueDate = update.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    if (oldDate != task.DueDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
     await db.SaveChangesAsync();
+    await activityTransaction.CommitAsync();
     return Results.Ok(new { task.DueDate });
 })
 .RequireAuthorization();
@@ -671,12 +721,16 @@ app.MapPatch("/api/tasks/{id}/due-date", async (
         : ownedTask.Where(t => t.DueDate >= expectedUtc && t.DueDate < expectedUtc.AddDays(1));
 
     var dueDate = update.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    await using var activityTransaction = await db.Database.BeginTransactionAsync();
     var updated = await target.ExecuteUpdateAsync(setters => setters.SetProperty(t => t.DueDate, dueDate));
     if (updated == 0)
     {
         return await ownedTask.AnyAsync() ? Results.Conflict() : Results.NotFound();
     }
 
+    if (dueDate != expectedUtc) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
+    await db.SaveChangesAsync();
+    await activityTransaction.CommitAsync();
     return Results.Ok(new { DueDate = dueDate });
 })
 .RequireAuthorization();

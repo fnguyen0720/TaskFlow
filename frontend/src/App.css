@@ -1068,3 +1068,13 @@ html, body, #root {
 .task-page-controls { display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 0;color:#a9a7c0;font-size:12px; }
 .task-page-controls button { min-height:44px;padding:9px 15px;border:1px solid #655796;border-radius:9px;background:#29243d;color:#efeaff;font-weight:600;cursor:pointer; }
 .task-page-controls button:hover { background:#37304f; }
+
+/* Readable, compact task activity timeline within the details dialog. */
+.task-activity { margin:18px 0; padding:14px; border:1px solid #363044; border-radius:12px; background:#171621; }
+.task-activity h3 { margin:0 0 10px; font-size:13px; color:#e8e4f9; }
+.task-activity p, .task-activity [role="alert"] { margin:0; color:#b7b1cb; font-size:12px; }
+.task-activity [role="alert"] button { margin-left:8px; color:#c7b8ff; background:transparent; border:0; text-decoration:underline; cursor:pointer; }
+.task-activity-events { margin:0; padding:0; list-style:none; display:grid; gap:9px; max-height:180px; overflow-y:auto; }
+.task-activity-events li { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; font-size:12px; border-bottom:1px solid #302b3e; padding-bottom:7px; }
+.task-activity-events li:last-child { border-bottom:0; padding-bottom:0; }
+.task-activity-events time { color:#a5a0b9; font-size:11px; }
