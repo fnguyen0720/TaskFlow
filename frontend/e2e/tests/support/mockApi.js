@@ -19,7 +19,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
     const pathname = new URL(request.url()).pathname.replace("/mock-api", "");
     const method = request.method();
     const body = ["POST", "PUT", "PATCH"].includes(method) ? request.postDataJSON() : null;
-    calls.push({ method, pathname, body });
+    calls.push({ method, pathname, search: new URL(request.url()).search, body });
 
     const respond = async (status, data) => route.fulfill({
       status,
@@ -51,7 +51,11 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       }
       if (remainingInvalidReads > 0) { remainingInvalidReads--; return respond(200, { tasks: [] }); }
       if (remainingEmptyReads > 0) { remainingEmptyReads--; return respond(200, []); }
-      return respond(200, tasks);
+      const query = new URL(request.url()).searchParams;
+      const offset = Number(query.get("offset") ?? 0);
+      const limit = Number(query.get("limit") ?? tasks.length);
+      if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) return respond(400, {});
+      return respond(200, tasks.slice(offset, offset + limit));
     }
     if (pathname === "/api/tasks" && method === "POST") {
       if (remainingFailedCreates > 0) {
