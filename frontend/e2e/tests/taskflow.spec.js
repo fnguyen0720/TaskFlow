@@ -276,7 +276,7 @@ test("task details retain changes after a failed save and close after retry", as
   await detail.getByRole("button", { name: "Save details" }).click();
   await expect(detail.getByRole("alert")).toContainText("Couldn't save task details");
   await expect(detail.getByRole("textbox", { name: "Notes" })).toHaveValue("Notes survive network errors");
-  await detail.getByRole("button", { name: "Save details" }).click();
+  await detail.getByRole("button", { name: "Retry save" }).click();
   await expect(detail).toHaveCount(0);
   expect(api.tasks[0].notes).toBe("Notes survive network errors");
 });
@@ -598,4 +598,83 @@ test("mobile task form keeps due date and repeat controls in separate rows", asy
     await expect(due).toHaveValue("2026-11-26");
     await expect(repeat).toHaveValue("Weekly");
   }
+});
+
+test("mobile details editor contains date control, supports clearing, and protects unsaved work", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  const api = await installMockApi(page, { initialTasks: [fixtureTask(611, "Mobile details workflow", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("button", { name: "Mobile details workflow", exact: true }).click();
+  const detail = page.getByRole("dialog", { name: "Mobile details workflow" });
+  const due = detail.getByLabel("Due date");
+  const shell = detail.locator(".task-detail-date-shell");
+  await expect(detail.getByText("Tap the date to change it.")).toBeVisible();
+  const box = await detail.boundingBox();
+  const shellBox = await shell.boundingBox();
+  expect(box).not.toBeNull();
+  expect(shellBox).not.toBeNull();
+  expect(shellBox.x).toBeGreaterThanOrEqual(box.x - 1);
+  expect(shellBox.x + shellBox.width).toBeLessThanOrEqual(box.x + box.width + 1);
+  expect(await shell.evaluate(node => getComputedStyle(node).overflowX)).toBe("hidden");
+  await detail.getByRole("button", { name: "Clear date" }).click();
+  await expect(due).toHaveValue("");
+  await expect(detail.getByText("Optional — tap the field to choose a date.")).toBeVisible();
+  await expect(detail.getByRole("status")).toContainText("Unsaved changes");
+  page.once("dialog", dialog => dialog.dismiss());
+  await detail.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(detail).toBeVisible();
+  await due.fill("2026-11-27");
+  await detail.getByRole("button", { name: "Save details" }).click();
+  await expect(detail).toHaveCount(0);
+  expect(api.tasks[0].dueDate?.slice(0, 10)).toBe("2026-11-27");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
+test("mobile details failed save retains notes and checklist, announces retry, then saves", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 750 });
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(612, "Mobile safe retry", "2026-11-19")],
+    failTaskDetails: 1,
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Mobile safe retry", exact: true }).click();
+  const detail = page.getByRole("dialog", { name: "Mobile safe retry" });
+  await detail.getByRole("textbox", { name: "Notes" }).fill("Draft survives outage");
+  await detail.getByRole("button", { name: "Add step" }).click();
+  await detail.getByRole("textbox", { name: "Step 1" }).fill("Keep checklist too");
+  await detail.getByRole("button", { name: "Save details" }).click();
+  await expect(detail.getByRole("alert")).toContainText("Your changes are still here");
+  await expect(detail.getByRole("button", { name: "Retry save" })).toBeEnabled();
+  await expect(detail.getByRole("textbox", { name: "Notes" })).toHaveValue("Draft survives outage");
+  await expect(detail.getByRole("textbox", { name: "Step 1" })).toHaveValue("Keep checklist too");
+  await detail.getByRole("button", { name: "Retry save" }).click();
+  await expect(detail).toHaveCount(0);
+  expect(api.tasks[0].notes).toBe("Draft survives outage");
+  expect(api.tasks[0].checklist[0].text).toBe("Keep checklist too");
+});
+
+test("mobile inline task editor controls remain inside viewport and recover from failed save", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(613, "Mobile inline edit", "2026-11-19")],
+    failTaskEdits: 1,
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Edit Mobile inline edit" }).click();
+  const field = page.getByRole("textbox", { name: "Edit title for Mobile inline edit" });
+  await field.fill("Mobile change kept");
+  const date = page.getByLabel("Due date for Mobile inline edit");
+  const shell = page.locator(".edit-due-shell");
+  const shellBox = await shell.boundingBox();
+  expect(shellBox).not.toBeNull();
+  expect(shellBox.x + shellBox.width).toBeLessThanOrEqual(320);
+  await date.fill("2026-11-25");
+  await page.getByRole("button", { name: "Save changes to Mobile inline edit" }).click();
+  await expect(page.getByRole("alert")).toContainText("Your edits are still here");
+  await expect(page.getByRole("alert")).toContainText("retry without retyping");
+  await expect(field).toHaveValue("Mobile change kept");
+  await expect(date).toHaveValue("2026-11-25");
+  await page.getByRole("button", { name: "Save changes to Mobile inline edit" }).click();
+  await expect(page.getByRole("button", { name: "Edit Mobile change kept" })).toBeVisible();
+  expect(api.tasks[0].dueDate?.slice(0, 10)).toBe("2026-11-25");
 });

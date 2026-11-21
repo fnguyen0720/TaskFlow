@@ -42,18 +42,20 @@ export default function TaskEditor({ task, editing, onSave, onCancel, busy }) {
         >
           {TASK_CATEGORIES.map(value => <option key={value} value={value}>{value}</option>)}
         </select>
-        <input
-          className="edit-due-date"
-          disabled={busy}
-          type="date"
-          value={dueDate}
-          aria-label={"Due date for " + task.title}
-          onChange={event => setDueDate(event.target.value)}
-        />
-        <select disabled={busy} value={recurrence} onChange={event => setRecurrence(event.target.value)} aria-label={"Repeat " + task.title}>
+        <div className="edit-due-shell">
+          <input
+            className="edit-due-date"
+            disabled={busy}
+            type="date"
+            value={dueDate}
+            aria-label={"Due date for " + task.title}
+            onChange={event => setDueDate(event.target.value)}
+          />
+        </div>
+        <select className="edit-recurrence" disabled={busy} value={recurrence} onChange={event => setRecurrence(event.target.value)} aria-label={"Repeat " + task.title}>
           {["None", "Daily", "Weekly", "Monthly"].map(rule => <option key={rule} value={rule}>{rule}</option>)}
         </select>
-        <select disabled={busy} value={reminder} onChange={event => setReminder(event.target.value)} aria-label={"Reminder for " + task.title}>
+        <select className="edit-reminder" disabled={busy} value={reminder} onChange={event => setReminder(event.target.value)} aria-label={"Reminder for " + task.title}>
           <option value="">Reminder off</option>
           <option value="0">On due date</option>
           <option value="1">1 day before</option>
@@ -66,7 +68,8 @@ export default function TaskEditor({ task, editing, onSave, onCancel, busy }) {
           Cancel
         </button>
       </div>
-      {editing.error && <p role="alert" className="edit-error">{editing.error}</p>}
+      {busy && <p role="status" className="edit-save-status">Saving changes…</p>}
+      {editing.error && <p role="alert" className="edit-error">{editing.error} You can retry without retyping.</p>}
     </div>
   );
 }
