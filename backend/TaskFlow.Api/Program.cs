@@ -529,75 +529,103 @@ app.MapPut("/api/tasks/{id}", async (
 })
 .RequireAuthorization();
 
-// PUT: Edit a task only if it belongs to the current user.
+// Optional If-Match protects clients against overwriting another tab's edits.
+// Legacy callers without the header retain their existing behavior.
 app.MapPut("/api/tasks/{id}/title", async (
-    int id,
-    TaskItem updatedTask,
-    ClaimsPrincipal user,
-    TaskDbContext db) =>
+    int id, TaskItem updatedTask, ClaimsPrincipal user, TaskDbContext db,
+    HttpContext context) =>
 {
     var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-    var task = await db.Tasks.FirstOrDefaultAsync(
-        t => t.Id == id && t.UserId == userId
-    );
-
-    if (task == null)
-    {
-        return Results.NotFound();
-    }
+    var original = await db.Tasks.AsNoTracking()
+        .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+    if (original is null) return Results.NotFound();
 
     var validationError = TaskInputValidator.Validate(updatedTask);
-    if (validationError is not null)
+    if (validationError is not null) return Results.BadRequest(validationError);
+
+    var desiredDate = updatedTask.DueDate.HasValue
+        ? DateTime.SpecifyKind(updatedTask.DueDate.Value, DateTimeKind.Utc) : (DateTime?)null;
+    var title = updatedTask.Title.Trim();
+    var header = context.Request.Headers.IfMatch.ToString();
+    if (!string.IsNullOrEmpty(header))
     {
-        return Results.BadRequest(validationError);
+        if (!TaskEditVersion.IsValid(header))
+            return Results.BadRequest("Invalid If-Match task version.");
+        if (!string.Equals(header, "\"" + original.Version + "\"", StringComparison.Ordinal))
+            return Results.Conflict("This task changed elsewhere. Review the latest version before saving.");
+
+        var changed = await TaskEditVersion.Unchanged(db.Tasks, original)
+            .ExecuteUpdateAsync(update => update
+                .SetProperty(t => t.Title, title)
+                .SetProperty(t => t.Priority, updatedTask.Priority)
+                .SetProperty(t => t.Category, updatedTask.Category)
+                .SetProperty(t => t.RecurrenceRule, updatedTask.RecurrenceRule)
+                .SetProperty(t => t.ReminderDaysBefore, updatedTask.ReminderDaysBefore)
+                .SetProperty(t => t.DueDate, desiredDate));
+        if (changed == 0)
+            return await db.Tasks.AnyAsync(t => t.Id == id && t.UserId == userId)
+                ? Results.Conflict("This task changed elsewhere. Review the latest version before saving.")
+                : Results.NotFound();
+        return Results.Ok(await db.Tasks.AsNoTracking().SingleAsync(t => t.Id == id && t.UserId == userId));
     }
 
-    task.Title = updatedTask.Title.Trim();
+    // Maintain compatibility with previous app clients during rollout.
+    var task = await db.Tasks.SingleAsync(t => t.Id == id && t.UserId == userId);
+    task.Title = title;
     task.Priority = updatedTask.Priority;
     task.Category = updatedTask.Category;
     task.RecurrenceRule = updatedTask.RecurrenceRule;
     task.ReminderDaysBefore = updatedTask.ReminderDaysBefore;
-    task.DueDate = updatedTask.DueDate.HasValue
-    ? DateTime.SpecifyKind(
-        updatedTask.DueDate.Value,
-        DateTimeKind.Utc
-    )
-    : null;
+    task.DueDate = desiredDate;
     await db.SaveChangesAsync();
-
     return Results.Ok(task);
 })
 .RequireAuthorization();
 
-// PUT: Save the owner's notes and checklist without changing task status.
+// Guard task details (notes/checklist/date) with the same atomic precondition.
 app.MapPut("/api/tasks/{id}/details", async (
-    int id,
-    TaskDetailsUpdate details,
-    ClaimsPrincipal user,
-    TaskDbContext db) =>
+    int id, TaskDetailsUpdate details, ClaimsPrincipal user, TaskDbContext db,
+    HttpContext context) =>
 {
     var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
-    var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
-    if (task is null)
-    {
-        return Results.NotFound();
-    }
+    var original = await db.Tasks.AsNoTracking()
+        .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+    if (original is null) return Results.NotFound();
 
     var notes = details.Notes ?? "";
     var checklist = details.Checklist ?? [];
     if (notes.Length > 4000 || checklist.Count > 30 ||
         checklist.Any(item => item is null || string.IsNullOrWhiteSpace(item.Text) || item.Text.Length > 160))
-    {
         return Results.BadRequest("Notes are limited to 4,000 characters and checklists to 30 items of 160 characters each.");
+
+    var checklistJson = JsonSerializer.Serialize(checklist.Select(item => item! with { Text = item!.Text.Trim() }));
+    var dueDate = details.UpdateDueDate
+        ? details.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+        : original.DueDate;
+    var header = context.Request.Headers.IfMatch.ToString();
+    if (!string.IsNullOrEmpty(header))
+    {
+        if (!TaskEditVersion.IsValid(header))
+            return Results.BadRequest("Invalid If-Match task version.");
+        if (!string.Equals(header, "\"" + original.Version + "\"", StringComparison.Ordinal))
+            return Results.Conflict("This task changed elsewhere. Review the latest version before saving.");
+
+        var changed = await TaskEditVersion.Unchanged(db.Tasks, original)
+            .ExecuteUpdateAsync(update => update
+                .SetProperty(t => t.Notes, notes)
+                .SetProperty(t => t.ChecklistJson, checklistJson)
+                .SetProperty(t => t.DueDate, dueDate));
+        if (changed == 0)
+            return await db.Tasks.AnyAsync(t => t.Id == id && t.UserId == userId)
+                ? Results.Conflict("This task changed elsewhere. Review the latest version before saving.")
+                : Results.NotFound();
+        return Results.Ok(await db.Tasks.AsNoTracking().SingleAsync(t => t.Id == id && t.UserId == userId));
     }
 
-    if (details.UpdateDueDate)
-    {
-        task.DueDate = details.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
-    }
+    var task = await db.Tasks.SingleAsync(t => t.Id == id && t.UserId == userId);
+    if (details.UpdateDueDate) task.DueDate = dueDate;
     task.Notes = notes;
-    task.ChecklistJson = JsonSerializer.Serialize(checklist.Select(item => item! with { Text = item!.Text.Trim() }));
+    task.ChecklistJson = checklistJson;
     await db.SaveChangesAsync();
     return Results.Ok(task);
 })
