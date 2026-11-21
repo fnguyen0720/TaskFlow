@@ -11,6 +11,9 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
   let remainingFailedCreates = failTaskCreates;
   let remainingFailedDetails = failTaskDetails;
   const tasks = structuredClone(initialTasks);
+  let revision = 1;
+  for (const task of tasks) task.version ??= `rev-${revision++}`;
+  const changeVersion = task => { task.version = `rev-${revision++}`; };
   let nextId = Math.max(0, ...tasks.map(task => Number(task.id) || 0)) + 1;
   const calls = [];
 
@@ -66,6 +69,8 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         id: nextId++, title: body.title, priority: body.priority,
         category: body.category, dueDate: body.dueDate, completed: false,
         notes: "", checklist: [], checklistJson: "[]",
+    version: `rev-${id}`,
+        version: `rev-${revision++}`,
       };
       tasks.push(task);
       return respond(201, task);
@@ -79,11 +84,13 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         remainingFailedEdits--;
         return respond(503, { title: "Temporarily unavailable" });
       }
+      if (request.headers()["if-match"] && request.headers()["if-match"] !== `"${task.version}"`) return respond(409, { title: "Conflict" });
       Object.assign(task, {
         title: body.title, priority: body.priority, category: body.category,
         dueDate: body.dueDate ? body.dueDate + "T00:00:00Z" : null,
         recurrenceRule: body.recurrenceRule, reminderDaysBefore: body.reminderDaysBefore,
       });
+      changeVersion(task);
       return respond(200, task);
     }
 
@@ -95,10 +102,12 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         remainingFailedDetails--;
         return respond(503, { title: "Temporarily unavailable" });
       }
+      if (request.headers()["if-match"] && request.headers()["if-match"] !== `"${task.version}"`) return respond(409, { title: "Conflict" });
       task.notes = body.notes;
       task.checklist = body.checklist;
       if (body.updateDueDate) task.dueDate = body.dueDate ? body.dueDate + "T00:00:00Z" : null;
-      return respond(200, { notes: task.notes, checklist: task.checklist, dueDate: task.dueDate });
+      changeVersion(task);
+      return respond(200, task);
     }
 
     const dueDate = /^\/api\/tasks\/(\d+)\/due-date$/.exec(pathname);
@@ -107,13 +116,14 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       if (!task) return respond(404, {});
       if (task.dueDate?.slice(0, 10) !== body.expectedDueDate) return respond(409, {});
       task.dueDate = body.dueDate ? body.dueDate + "T00:00:00Z" : null;
+      changeVersion(task);
       return respond(200, { dueDate: task.dueDate });
     }
 
     return respond(404, { title: "Unexpected mock API request", method, pathname });
   });
 
-  return { tasks, calls };
+  return { tasks, calls, changeVersion };
 }
 
 export async function signIn(page) {
