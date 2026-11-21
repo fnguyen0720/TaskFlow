@@ -750,3 +750,39 @@ html, body, #root {
   .dashboard-header-actions :is(button, a) { min-height:44px; }
   .month-grid-scroll { scrollbar-width:thin; }
 }
+
+
+/* Mobile navigation is a supplemental shortcut; all five task views remain in TaskPanel. */
+.mobile-bottom-nav { display:none; }
+@media (max-width: 600px) {
+  .app:not(.auth-page) { padding-bottom:calc(112px + env(safe-area-inset-bottom, 0px)); }
+  .mobile-bottom-nav {
+    position:fixed; z-index:40; bottom:0; left:0; right:0;
+    display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); align-items:stretch;
+    gap:3px; padding:7px max(8px,env(safe-area-inset-left,0px)) calc(7px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-right,0px));
+    background:rgba(19,20,31,.97); border-top:1px solid #49445d;
+    box-shadow:0 -12px 32px rgba(0,0,0,.4);
+  }
+  .mobile-bottom-nav button {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4px; padding:7px 2px; min-height:54px; min-width:0;
+    border:1px solid transparent; border-radius:10px;
+    color:#c0bdcf; background:transparent;
+    font-size:10px; font-weight:600; cursor:pointer;
+  }
+  .mobile-bottom-nav button[aria-current="page"] {
+    color:#e7e0ff; background:#332c4d; border-color:#554772;
+  }
+  .mobile-bottom-nav .mobile-nav-icon { font-size:23px; line-height:1; font-weight:500; }
+  .mobile-bottom-nav .mobile-nav-create { background:#6554c9; color:white; }
+  .mobile-bottom-nav .mobile-nav-create .mobile-nav-icon { font-size:25px; }
+  .task-panel { scroll-margin-top:12px; }
+  .task-form input,.task-form select { font-size:16px; }
+}
+@media (max-width:360px) {
+  .mobile-bottom-nav { gap:0; padding-inline:4px; }
+  .mobile-bottom-nav button { font-size:9px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .mobile-bottom-nav button { transition:none; }
+}
