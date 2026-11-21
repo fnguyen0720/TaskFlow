@@ -569,6 +569,9 @@ test("mobile task form keeps due date and repeat controls in separate rows", asy
     const due = form.getByLabel("Due date");
     const repeat = form.getByRole("combobox", { name: "Repeat task" });
     const reminder = form.getByRole("combobox", { name: "Task reminder" });
+    const shell = form.locator(".create-date-shell");
+    const shellBox = await shell.boundingBox();
+    expect(shellBox).not.toBeNull();
     const dueBox = await due.boundingBox();
     const repeatBox = await repeat.boundingBox();
     const reminderBox = await reminder.boundingBox();
@@ -576,6 +579,11 @@ test("mobile task form keeps due date and repeat controls in separate rows", asy
     const formBox = await form.boundingBox();
     expect(formBox).not.toBeNull();
     // Verify the native date control stays inside the form, not merely above Repeat.
+    expect(shellBox.x).toBeGreaterThanOrEqual(formBox.x);
+    expect(shellBox.x + shellBox.width).toBeLessThanOrEqual(formBox.x + formBox.width - 1);
+    expect(dueBox.x).toBeGreaterThanOrEqual(shellBox.x - 1);
+    expect(dueBox.x + dueBox.width).toBeLessThanOrEqual(shellBox.x + shellBox.width + 1);
+    expect(await shell.evaluate(el => getComputedStyle(el).overflowX)).toBe("hidden");
     expect(dueBox.x).toBeGreaterThanOrEqual(formBox.x - 1);
     expect(dueBox.x + dueBox.width).toBeLessThanOrEqual(formBox.x + formBox.width - 1);
     expect(dueBox.width).toBeGreaterThan(100);
