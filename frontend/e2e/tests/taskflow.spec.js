@@ -510,3 +510,52 @@ test("month view scrolls inside its own region on narrow mobile screens", async 
   await scroll.press("ArrowRight");
   await expect(scroll).toBeFocused();
 });
+
+test("mobile bottom navigation changes views and quick-add focuses task creation", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 780 });
+  await installMockApi(page, { initialTasks: [fixtureTask(501, "Mobile navigation task", "2026-11-19")] });
+  await signIn(page);
+  const nav = page.getByRole("navigation", { name: "Mobile quick navigation" });
+  await expect(nav).toBeVisible();
+  await expect(nav.getByRole("button", { name: "All" })).toHaveAttribute("aria-current", "page");
+  await nav.getByRole("button", { name: "Today" }).click();
+  await expect(nav.getByRole("button", { name: "Today" })).toHaveAttribute("aria-current", "page");
+  await nav.getByRole("button", { name: "Calendar" }).click();
+  await expect(page.getByRole("region", { name: "Weekly task calendar" })).toBeVisible();
+  const title = page.getByRole("textbox", { name: "New task title" });
+  await title.fill("Preserve mobile draft");
+  await nav.getByRole("button", { name: "Quick add task" }).click();
+  await expect(title).toBeFocused();
+  await expect(title).toHaveValue("Preserve mobile draft");
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(width).toBeLessThanOrEqual(375);
+});
+
+test("mobile view switch honors canceled discard confirmation", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 780 });
+  await installMockApi(page, { initialTasks: [fixtureTask(502, "Unsaved mobile edit", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("button", { name: "Edit Unsaved mobile edit" }).click();
+  const field = page.getByRole("textbox", { name: "Edit title for Unsaved mobile edit" });
+  await field.fill("Still editing");
+  const nav = page.getByRole("navigation", { name: "Mobile quick navigation" });
+  page.once("dialog", dialog => dialog.dismiss());
+  await nav.getByRole("button", { name: "Calendar" }).click();
+  await expect(field).toHaveValue("Still editing");
+  await expect(nav.getByRole("button", { name: "All" })).toHaveAttribute("aria-current", "page");
+  page.once("dialog", dialog => dialog.accept());
+  await nav.getByRole("button", { name: "Calendar" }).click();
+  await expect(nav.getByRole("button", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
+});
+
+test("mobile bottom bar hides on desktop and behind task details", async ({ page }) => {
+  await installMockApi(page, { initialTasks: [fixtureTask(503, "Mobile details", "2026-11-19")] });
+  await signIn(page);
+  const nav = page.getByRole("navigation", { name: "Mobile quick navigation" });
+  await expect(nav).toBeHidden();
+  await page.setViewportSize({ width: 320, height: 700 });
+  await expect(nav).toBeVisible();
+  await page.getByRole("button", { name: "Mobile details", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Mobile details" })).toBeVisible();
+  await expect(nav).toHaveCount(0);
+});
