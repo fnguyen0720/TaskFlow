@@ -358,6 +358,7 @@ function App() {
         onChangeView={changeView} onQuickCreate={quickCreateFromPalette} />}
       {detailTask && (
         <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
+          token={token} onUnauthorized={handleUnauthorized}
           onReloadLatest={reloadLatestTask} onDirtyChange={setDetailDirty}
           onClose={() => { setDetailId(null); setDetailDirty(false); }} />
       )}
