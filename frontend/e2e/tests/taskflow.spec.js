@@ -903,3 +903,56 @@ test("failed second page never displays a truncated workspace and retry reloads 
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Protected task 112");
   expect(api.tasks).toHaveLength(112);
 });
+
+test("inline concurrent edit refuses stale overwrite and preserves draft until deliberate reload", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(4301, "Shared task", "2026-11-19")],
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Edit Shared task" }).click();
+  const draft = page.getByRole("textbox", { name: "Edit title for Shared task" });
+  await draft.fill("My unsaved draft");
+  api.tasks[0].title = "Updated in second tab";
+  api.changeVersion(api.tasks[0]);
+  await page.getByRole("button", { name: "Save changes to Shared task" }).click();
+  await expect(page.getByRole("alert")).toContainText("changed elsewhere");
+  await expect(draft).toHaveValue("My unsaved draft");
+  expect(api.tasks[0].title).toBe("Updated in second tab");
+  const guarded = api.calls.find(call => call.pathname === "/api/tasks/4301/title" && call.method === "PUT");
+  expect(guarded).toBeTruthy();
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByRole("button", { name: "Discard draft and reload latest" }).click();
+  await expect(draft).toHaveValue("My unsaved draft");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Discard draft and reload latest" }).click();
+  await expect(draft).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Updated in second tab");
+  expect(api.tasks[0].title).toBe("Updated in second tab");
+});
+
+test("details conflict retains notes/checklist and reload requires explicit consent", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(4302, "Shared details", "2026-11-19")],
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Shared details", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Shared details" });
+  await dialog.getByRole("textbox", { name: "Notes" }).fill("Draft note from this device");
+  await dialog.getByRole("button", { name: "Add step" }).click();
+  await dialog.getByRole("textbox", { name: "Step 1" }).fill("Draft checklist item");
+  api.tasks[0].notes = "Newer note from second tab";
+  api.changeVersion(api.tasks[0]);
+  await dialog.getByRole("button", { name: "Save details" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("changed elsewhere");
+  await expect(dialog.getByRole("textbox", { name: "Notes" })).toHaveValue("Draft note from this device");
+  await expect(dialog.getByRole("textbox", { name: "Step 1" })).toHaveValue("Draft checklist item");
+  expect(api.tasks[0].notes).toBe("Newer note from second tab");
+  page.once("dialog", prompt => prompt.dismiss());
+  await dialog.getByRole("button", { name: "Discard draft and reload latest" }).click();
+  await expect(dialog).toBeVisible();
+  page.once("dialog", prompt => prompt.accept());
+  await dialog.getByRole("button", { name: "Discard draft and reload latest" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Shared details", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Shared details" }).getByRole("textbox", { name: "Notes" })).toHaveValue("Newer note from second tab");
+});
