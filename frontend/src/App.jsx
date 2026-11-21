@@ -326,7 +326,7 @@ function App() {
             {Array.from({ length: 4 }, (_, index) => <div key={index} className="workspace-loading-card" />)}
           </div>
         </section>
-      ) : !error && readStatus === "loaded" ? (
+      ) : !error && (readStatus === "loaded" || readStatus === "confirmed-empty") ? (
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
