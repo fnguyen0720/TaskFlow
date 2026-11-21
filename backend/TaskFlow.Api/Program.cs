@@ -638,6 +638,7 @@ app.MapPut("/api/tasks/{id}/details", async (
     var dueDate = details.UpdateDueDate
         ? details.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
         : original.DueDate;
+    await using var activityTransaction = await db.Database.BeginTransactionAsync();
     var header = context.Request.Headers.IfMatch.ToString();
     if (!string.IsNullOrEmpty(header))
     {
