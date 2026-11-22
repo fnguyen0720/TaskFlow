@@ -1129,3 +1129,67 @@ test("workspace preferences modal supports Escape and fits a 320px mobile viewpo
   await expect(dialog).toHaveCount(0);
   await expect(button).toBeFocused();
 });
+
+test("version comparison shows changed fields and restores a confirmed earlier task", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(4901, "Original version", "2026-11-19")],
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Edit Original version" }).click();
+  await page.getByRole("textbox", { name: "Edit title for Original version" }).fill("Edited version");
+  await page.getByRole("button", { name: "Save changes to Original version" }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Edited version");
+  await page.getByRole("button", { name: "Edited version", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Edited version" });
+  const history = dialog.getByRole("region", { name: "Task version history" });
+  await expect(history.getByRole("combobox")).toBeVisible();
+  await history.getByRole("combobox").selectOption(String(api.versions.find(item => item.kind === "baseline").id));
+  await expect(history).toContainText("Original version");
+  await expect(history).toContainText("Edited version");
+  page.once("dialog", confirmation => confirmation.dismiss());
+  await history.getByRole("button", { name: "Restore selected version" }).click();
+  await expect(dialog).toBeVisible();
+  expect(api.tasks[0].title).toBe("Edited version");
+  page.once("dialog", confirmation => confirmation.accept());
+  await history.getByRole("button", { name: "Restore selected version" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Original version");
+  await expect(page.locator(".notification")).toContainText("Earlier task version restored.");
+  expect(api.versions.filter(item => item.taskId === 4901).map(item => item.kind)).toEqual(["baseline", "edited", "restored"]);
+});
+
+test("version restore is disabled when task details have unsaved edits", async ({ page }) => {
+  const api = await installMockApi(page, { initialTasks: [fixtureTask(4902, "Locked draft", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("button", { name: "Edit Locked draft" }).click();
+  await page.getByRole("textbox", { name: "Edit title for Locked draft" }).fill("Changed title");
+  await page.getByRole("button", { name: "Save changes to Locked draft" }).click();
+  await page.getByRole("button", { name: "Changed title", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Changed title" });
+  const history = dialog.getByRole("region", { name: "Task version history" });
+  await history.getByRole("combobox").selectOption(String(api.versions.find(item => item.kind === "baseline").id));
+  await dialog.getByRole("textbox", { name: "Notes" }).fill("Important unsaved draft");
+  await expect(history.getByRole("button", { name: "Restore selected version" })).toBeDisabled();
+  await expect(history).toContainText("Save or discard your unsaved edits");
+  await expect(dialog.getByRole("textbox", { name: "Notes" })).toHaveValue("Important unsaved draft");
+});
+
+test("stale task version cannot overwrite a newer task via restore", async ({ page }) => {
+  const api = await installMockApi(page, { initialTasks: [fixtureTask(4903, "Restore conflict", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("button", { name: "Edit Restore conflict" }).click();
+  await page.getByRole("textbox", { name: "Edit title for Restore conflict" }).fill("First change");
+  await page.getByRole("button", { name: "Save changes to Restore conflict" }).click();
+  await page.getByRole("button", { name: "First change", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "First change" });
+  const history = dialog.getByRole("region", { name: "Task version history" });
+  await history.getByRole("combobox").selectOption(String(api.versions.find(item => item.kind === "baseline").id));
+  api.tasks[0].title = "External newer edit";
+  api.changeVersion(api.tasks[0]);
+  page.once("dialog", confirmation => confirmation.accept());
+  await history.getByRole("button", { name: "Restore selected version" }).click();
+  await expect(history.getByRole("alert")).toContainText("changed elsewhere");
+  await expect(dialog).toBeVisible();
+  expect(api.tasks[0].title).toBe("External newer edit");
+  expect(api.versions.filter(item => item.kind === "restored")).toHaveLength(0);
+});

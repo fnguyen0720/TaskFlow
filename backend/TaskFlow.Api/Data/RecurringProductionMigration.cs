@@ -11,6 +11,7 @@ public static class RecurringProductionMigration
     private const string NotificationsTarget = "20261119230001_AddNotificationStatesPostgres";
     private const string PreferencesTarget = "20261120150001_AddNotificationPreferencesPostgres";
     private const string ActivityTarget = "20261121194501_AddTaskActivityPostgres";
+    private const string VersionTarget = "20261122180001_AddTaskVersionsPostgres";
 
     public static async Task EnsureAppliedAsync(IServiceProvider services)
     {
@@ -26,7 +27,7 @@ public static class RecurringProductionMigration
         }
 
         var pending = (await db.Database.GetPendingMigrationsAsync()).ToArray();
-        if (pending.Any(id => id != Target && id != NotificationsTarget && id != PreferencesTarget && id != ActivityTarget))
+        if (pending.Any(id => id != Target && id != NotificationsTarget && id != PreferencesTarget && id != ActivityTarget && id != VersionTarget))
         {
             throw new InvalidOperationException(
                 "Unexpected PostgreSQL migrations are pending; refusing automatic schema changes.");
