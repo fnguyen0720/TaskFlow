@@ -10,6 +10,7 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<TaskItem> Tasks { get; set; }
     public DbSet<TaskProject> TaskProjects { get; set; }
+    public DbSet<TaskDependency> TaskDependencies { get; set; }
     public DbSet<TaskActivity> TaskActivities { get; set; }
     public DbSet<TaskVersion> TaskVersions { get; set; }
     public DbSet<TaskNotificationState> TaskNotificationStates { get; set; }
@@ -34,6 +35,17 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
         });
         builder.Entity<TaskItem>().HasOne<TaskProject>().WithMany()
             .HasForeignKey(task => task.ProjectId).OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<TaskDependency>(entity =>
+        {
+            entity.HasKey(d => new { d.TaskId, d.DependsOnTaskId });
+            entity.HasIndex(d => d.DependsOnTaskId);
+            entity.HasOne<TaskItem>().WithMany().HasForeignKey(d => d.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<TaskItem>().WithMany().HasForeignKey(d => d.DependsOnTaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.ToTable(table => table.HasCheckConstraint("CK_TaskDependencies_NoSelf", "\"TaskId\" <> \"DependsOnTaskId\""));
+        });
 
         builder.Entity<TaskVersion>(entity =>
         {
