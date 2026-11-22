@@ -4,7 +4,7 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
 // Dependency writes are separate from editable task notes. They always send
 // the last observed edge set, so another tab cannot silently overwrite it.
-export default function TaskDependencies({ task, tasks, token, onUnauthorized, disabled }) {
+export default function TaskDependencies({ task, tasks, token, onUnauthorized, onDirtyChange, disabled }) {
   const [initial, setInitial] = useState(null);
   const [selected, setSelected] = useState([]);
   const [candidate, setCandidate] = useState("");
@@ -39,6 +39,11 @@ export default function TaskDependencies({ task, tasks, token, onUnauthorized, d
   const changed = initial !== null &&
     [...initial].sort((a, b) => a - b).join(",") !==
     [...selected].sort((a, b) => a - b).join(",");
+  useEffect(() => {
+    onDirtyChange?.(changed);
+    return () => onDirtyChange?.(false);
+  }, [changed, onDirtyChange]);
+
   async function save() {
     if (!changed || busy) return;
     setBusy(true); setError("");
