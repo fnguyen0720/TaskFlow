@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import TaskActivityTimeline from "./TaskActivityTimeline.jsx";
+import TaskVersionHistory from "./TaskVersionHistory.jsx";
 
-export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest, token, onUnauthorized }) {
+export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest, onRestored, token, onUnauthorized }) {
   const dialogRef = useRef(null);
   const headingRef = useRef(null);
   const previousFocusRef = useRef(null);
@@ -140,6 +141,8 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
           {saving ? "Saving your changes…" : "Unsaved changes — review and save when ready."}
         </p>}
         <TaskActivityTimeline taskId={task.id} token={token} onUnauthorized={onUnauthorized} />
+        <TaskVersionHistory task={task} token={token} onUnauthorized={onUnauthorized}
+          onRestored={onRestored} disabled={dirty || saving} />
         <footer className="task-detail-actions">
           <button type="button" disabled={saving} onClick={requestClose}>Cancel</button>
           <button type="submit" disabled={saving || items.some(item => !item.text.trim())}>
