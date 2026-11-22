@@ -381,6 +381,12 @@ function App() {
         <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
           token={token} onUnauthorized={handleUnauthorized}
           onReloadLatest={reloadLatestTask} onDirtyChange={setDetailDirty}
+          onRestored={restored => {
+            setTasks(current => current.map(task => task.id === restored.id ? restored : task));
+            setDetailId(null);
+            setDetailDirty(false);
+            showNotification("Earlier task version restored.");
+          }}
           onClose={() => { setDetailId(null); setDetailDirty(false); }} />
       )}
       {!detailTask && !commandOpen && <MobileBottomNav view={view} onChangeView={changeView}
