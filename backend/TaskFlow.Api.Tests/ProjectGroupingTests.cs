@@ -174,4 +174,54 @@ public class ProjectGroupingTests
         var ungroupedJson = await ungrouped.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(JsonValueKind.Null, ungroupedJson.GetProperty("projectId").ValueKind);
     }
+
+    [Fact]
+    public async Task RenamingProjectPreservesTasksAndRejectsOtherAccounts()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        await factory.InitializeDatabaseAsync();
+        using var owner = factory.CreateClient();
+        using var other = factory.CreateClient();
+        await Login(owner, $"rename-owner-{Guid.NewGuid():N}@example.test");
+        await Login(other, $"rename-other-{Guid.NewGuid():N}@example.test");
+        using var created = await owner.PostAsJsonAsync("/api/projects", new { name = "Career" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+        using var task = await owner.PostAsJsonAsync("/api/tasks",
+            new { title = "Prepare resume", priority = "Medium", projectId = id });
+        Assert.Equal(HttpStatusCode.Created, task.StatusCode);
+        var taskId = (await task.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+
+        using var forbidden = await other.PutAsJsonAsync($"/api/projects/{id}", new { name = "Stolen" });
+        Assert.Equal(HttpStatusCode.NotFound, forbidden.StatusCode);
+        using var anonymous = factory.CreateClient();
+        using var noAuth = await anonymous.PutAsJsonAsync($"/api/projects/{id}", new { name = "Stolen" });
+        Assert.Equal(HttpStatusCode.Unauthorized, noAuth.StatusCode);
+        using var invalid = await owner.PutAsJsonAsync($"/api/projects/{id}", new { name = " " });
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        using var missing = await owner.PutAsJsonAsync("/api/projects/999999", new { name = "Missing" });
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        using var second = await owner.PostAsJsonAsync("/api/projects", new { name = "Personal" });
+        Assert.Equal(HttpStatusCode.Created, second.StatusCode);
+        using var duplicate = await owner.PutAsJsonAsync($"/api/projects/{id}", new { name = "Personal" });
+        Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+
+        using var renamed = await owner.PutAsJsonAsync($"/api/projects/{id}", new { name = "Career Development" });
+        Assert.Equal(HttpStatusCode.OK, renamed.StatusCode);
+        var updated = await renamed.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(id, updated.GetProperty("id").GetInt32());
+        Assert.Equal("Career Development", updated.GetProperty("name").GetString());
+
+        using var projects = await owner.GetAsync("/api/projects");
+        projects.EnsureSuccessStatusCode();
+        var list = (await projects.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToArray();
+        Assert.Contains(list, p => p.GetProperty("id").GetInt32() == id &&
+            p.GetProperty("name").GetString() == "Career Development");
+        using var tasks = await owner.GetAsync("/api/tasks");
+        tasks.EnsureSuccessStatusCode();
+        var saved = (await tasks.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToArray();
+        Assert.Single(saved);
+        Assert.Equal(taskId, saved[0].GetProperty("id").GetInt32());
+        Assert.Equal(id, saved[0].GetProperty("projectId").GetInt32());
+    }
 }
