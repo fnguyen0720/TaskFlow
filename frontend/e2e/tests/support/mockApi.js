@@ -13,6 +13,8 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
   const tasks = structuredClone(initialTasks);
   const activities = [];
   const versions = [];
+  const projects = [];
+  let nextProjectId = 1;
   let nextVersionId = 1;
   function snapshot(task) {
     return {
@@ -22,7 +24,8 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       recurrenceRule: task.recurrenceRule ?? "None",
       reminderDaysBefore: task.reminderDaysBefore ?? null,
       notes: task.notes ?? "",
-      checklistJson: JSON.stringify((task.checklist ?? []).map(({ text, completed }) => ({ text, completed })))
+      checklistJson: JSON.stringify((task.checklist ?? []).map(({ text, completed }) => ({ text, completed }))),
+      projectId: task.projectId ?? null
     };
   }
   function recordVersion(task, kind) {
@@ -69,6 +72,35 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       return respond(200, { email: accountEmail });
     }
 
+    if (pathname === "/api/projects" && method === "GET") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      return respond(200, [...projects]);
+    }
+    if (pathname === "/api/projects" && method === "POST") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      const name = body.name?.trim();
+      if (!name || name.length > 70) return respond(400, {});
+      if (projects.some(project => project.name === name)) return respond(409, {});
+      const project = { id: nextProjectId++, name };
+      projects.push(project);
+      return respond(201, project);
+    }
+    const assign = /^\/api\/tasks\/(\d+)\/project$/.exec(pathname);
+    if (assign && method === "PUT") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      const task = tasks.find(item => item.id === Number(assign[1]));
+      if (!task) return respond(404, {});
+      if (request.headers()["if-match"] !== `"${task.version}"`) return respond(409, {});
+      if (body.projectId != null && !projects.some(project => project.id === body.projectId)) return respond(404, {});
+      if ((task.projectId ?? null) !== body.projectId) {
+        startHistory(task);
+        task.projectId = body.projectId;
+        changeVersion(task);
+        recordVersion(task, "edited");
+        record(task.id, "edited");
+      }
+      return respond(200, task);
+    }
     if (pathname === "/api/tasks" && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       if (remainingUnauthorizedReads > 0) { remainingUnauthorizedReads--; return respond(401, {}); }
@@ -125,7 +157,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         id: nextId++, title: body.title, priority: body.priority,
         category: body.category, dueDate: body.dueDate, completed: false,
         notes: "", checklist: [], checklistJson: "[]",
-        version: `rev-${revision++}`,
+        version: `rev-${revision++}`, projectId: null,
       };
       tasks.push(task);
       record(task.id, "created");
@@ -191,7 +223,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
     return respond(404, { title: "Unexpected mock API request", method, pathname });
   });
 
-  return { tasks, calls, activities, versions, changeVersion };
+  return { tasks, calls, activities, versions, projects, changeVersion };
 }
 
 export async function signIn(page) {
