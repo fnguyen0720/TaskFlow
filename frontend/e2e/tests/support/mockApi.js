@@ -150,6 +150,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       });
       changeVersion(task);
       record(task.id, "edited");
+      recordVersion(task, "edited");
       return respond(200, task);
     }
 
@@ -179,9 +180,11 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       const task = tasks.find(item => item.id === Number(dueDate[1]));
       if (!task) return respond(404, {});
       if (task.dueDate?.slice(0, 10) !== body.expectedDueDate) return respond(409, {});
+      startHistory(task);
       task.dueDate = body.dueDate ? body.dueDate + "T00:00:00Z" : null;
       changeVersion(task);
       record(task.id, "rescheduled");
+      recordVersion(task, "rescheduled");
       return respond(200, { dueDate: task.dueDate });
     }
 
