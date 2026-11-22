@@ -624,8 +624,11 @@ app.MapPost("/api/tasks", async (
     task.UserId = userId;
     task.Notes = "";
     task.ChecklistJson = "[]";
-    // Tasks start ungrouped; project assignment is a separate guarded operation.
-    task.ProjectId = null;
+    // An optional project is assigned at creation only when it belongs to
+    // the signed-in account. Unknown or cross-account IDs fail closed.
+    if (task.ProjectId.HasValue && !await db.TaskProjects.AnyAsync(project =>
+        project.Id == task.ProjectId.Value && project.UserId == userId))
+        return Results.NotFound();
 
     if (task.DueDate.HasValue)
     {
