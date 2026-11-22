@@ -1280,3 +1280,42 @@ test("all projects and no project create ungrouped tasks", async ({ page }) => {
   expect(api.calls.filter(call => call.pathname === "/api/tasks" && call.method === "POST")
     .every(call => call.body.projectId == null)).toBe(true);
 });
+
+test("renaming selected project keeps its tasks and new-task destination", async ({ page }) => {
+  const api = await installMockApi(page);
+  await signIn(page);
+  const shelf = page.getByRole("region", { name: "Projects" });
+  await shelf.getByRole("textbox", { name: "New project" }).fill("Old Name");
+  await shelf.getByRole("button", { name: "Create project" }).click();
+  await shelf.getByRole("button", { name: /Old Name/ }).click();
+  await shelf.getByRole("button", { name: "Rename project" }).click();
+  await shelf.getByRole("textbox", { name: "Project name" }).fill("Career Development");
+  await shelf.getByRole("button", { name: "Save name" }).click();
+  await expect(shelf.getByRole("button", { name: /Career Development/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(shelf.getByRole("button", { name: /Old Name/ })).toHaveCount(0);
+
+  await page.getByRole("textbox", { name: "New task title" }).fill("Apply for role");
+  await page.getByRole("button", { name: /Add task/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Apply for role");
+  expect(api.projects).toEqual([{ id: 1, name: "Career Development" }]);
+  expect(api.tasks).toHaveLength(1);
+  expect(api.tasks[0].projectId).toBe(1);
+});
+
+test("project rename rejects duplicate names without losing the editor or tasks", async ({ page }) => {
+  const api = await installMockApi(page);
+  await signIn(page);
+  const shelf = page.getByRole("region", { name: "Projects" });
+  for (const name of ["Work", "Personal"]) {
+    await shelf.getByRole("textbox", { name: "New project" }).fill(name);
+    await shelf.getByRole("button", { name: "Create project" }).click();
+  }
+  await shelf.getByRole("button", { name: /Work/ }).click();
+  await shelf.getByRole("button", { name: "Rename project" }).click();
+  await shelf.getByRole("textbox", { name: "Project name" }).fill("Personal");
+  await shelf.getByRole("button", { name: "Save name" }).click();
+  await expect(shelf.getByRole("textbox", { name: "Project name" })).toHaveValue("Personal");
+  expect(api.projects.map(p => p.name).sort()).toEqual(["Personal", "Work"]);
+  await shelf.getByRole("button", { name: "Cancel" }).click();
+  await expect(shelf.getByRole("button", { name: "Rename project" })).toBeVisible();
+});

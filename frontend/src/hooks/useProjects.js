@@ -6,6 +6,7 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 export function useProjects({ token, onUnauthorized, showNotification, setTasks }) {
   const [loaded, setLoaded] = useState({ token: null, status: "loading", projects: [] });
   const [creating, setCreating] = useState(false);
+  const [renamingId, setRenamingId] = useState(null);
   const [assigningId, setAssigningId] = useState(null);
   const session = useRef(token);
   session.current = token;
@@ -58,6 +59,37 @@ export function useProjects({ token, onUnauthorized, showNotification, setTasks 
     } finally { setCreating(false); }
   }
 
+  async function renameProject(projectId, name) {
+    const trimmed = name.trim();
+    if (renamingId != null || current.status !== "ready" || !trimmed || trimmed.length > 70 ||
+      !current.projects.some(project => project.id === projectId)) return false;
+    setRenamingId(projectId);
+    try {
+      const res = await fetchWithDiagnostics(`${API}/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed })
+      });
+      if (session.current !== token) return false;
+      if (res.status === 401) { onUnauthorized(token); return false; }
+      if (res.status === 409) throw new Error("A project with that name already exists.");
+      if (!res.ok) throw new Error("Could not rename project.");
+      const updated = await res.json();
+      if (updated.id !== projectId || typeof updated.name !== "string")
+        throw new Error("Invalid project response.");
+      setLoaded(old => old.token === token ? {
+        ...old,
+        projects: old.projects.map(project => project.id === projectId ? updated : project)
+          .sort((a, b) => a.name.localeCompare(b.name))
+      } : old);
+      showNotification("Project renamed.");
+      return true;
+    } catch (error) {
+      if (session.current === token) showNotification(error.message, "error");
+      return false;
+    } finally { setRenamingId(null); }
+  }
+
   async function assignProject(task, projectId) {
     if (!task?.version || assigningId != null || current.status !== "ready") return false;
     setAssigningId(task.id);
@@ -82,5 +114,5 @@ export function useProjects({ token, onUnauthorized, showNotification, setTasks 
     } finally { setAssigningId(null); }
   }
 
-  return { ...current, createProject, assignProject, creating, assigningId };
+  return { ...current, createProject, renameProject, assignProject, creating, renamingId, assigningId };
 }

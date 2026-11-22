@@ -382,7 +382,8 @@ function App() {
       ) : null}
       {projects.status === "ready" && <ProjectShelf projects={projects.projects} tasks={visibleTasks}
         selection={selectedProject} onSelect={setSelectedProject}
-        onCreate={projects.createProject} creating={projects.creating} />}
+        onCreate={projects.createProject} creating={projects.creating}
+        onRename={projects.renameProject} renamingId={projects.renamingId} />}
       {projects.status === "failed" && <p className="project-load-error" role="alert">Projects could not load. Your tasks are still available.</p>}
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
         planner={{ view, setView: changeView, views, quickCreateSignal }} />

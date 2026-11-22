@@ -359,6 +359,26 @@ app.MapPost("/api/projects", async (
     return Results.Created($"/api/projects/{project.Id}", new { project.Id, project.Name });
 }).RequireAuthorization();
 
+// Renaming a project preserves its identity and every linked task.
+app.MapPut("/api/projects/{id:int}", async (
+    int id, ProjectCreateRequest input, ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var name = input.Name?.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length > 70)
+        return Results.BadRequest("Project name must be 1–70 characters.");
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var project = await db.TaskProjects.FirstOrDefaultAsync(p =>
+        p.Id == id && p.UserId == userId);
+    if (project is null) return Results.NotFound();
+    if (project.Name == name) return Results.Ok(new { project.Id, project.Name });
+    if (await db.TaskProjects.AnyAsync(p =>
+        p.UserId == userId && p.Id != id && p.Name == name))
+        return Results.Conflict("A project with that name already exists.");
+    project.Name = name;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { project.Id, project.Name });
+}).RequireAuthorization();
+
 // Project assignment is a versioned mutation, not a client-side-only label.
 // The transaction atomically records both historical snapshots and activity.
 app.MapPut("/api/tasks/{id:int}/project", async (
