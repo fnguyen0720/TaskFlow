@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "backend/**"
+      - "scripts/verify-postgres-recovery.sh"
       - ".github/workflows/postgres-integration.yml"
   push:
     branches: [main]
@@ -44,3 +45,7 @@ jobs:
         run: dotnet restore backend/TaskFlow.Postgres.Tests/TaskFlow.Postgres.Tests.csproj
       - name: Run PostgreSQL migrations and real API integration tests
         run: dotnet test backend/TaskFlow.Postgres.Tests/TaskFlow.Postgres.Tests.csproj --no-restore --configuration Release --logger "console;verbosity=normal"
+      - name: Rehearse backup and restore on disposable PostgreSQL only
+        env:
+          TASKFLOW_RECOVERY_TEST: "1"
+        run: bash scripts/verify-postgres-recovery.sh
