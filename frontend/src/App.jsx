@@ -200,7 +200,11 @@ function App() {
     sort: view === "upcoming" && sort === "default" ? "dueDate" : sort,
   });
 
+  const createProject = projects.status === "ready" && projects.projects.some(project =>
+    String(project.id) === selectedProject)
+    ? projects.projects.find(project => String(project.id) === selectedProject) : null;
   const form = {
+    projectName: createProject?.name ?? null,
     title: newTask, setTitle: setNewTask,
     priority: newPriority, setPriority: setNewPriority,
     category: newCategory, setCategory: setNewCategory,
@@ -263,7 +267,7 @@ function App() {
     setEditVersion(null);
   };
   const actions = {
-    add: addTask, toggle: toggleTask, delete: deleteTask, undoDelete,
+    add: event => addTask(event, createProject?.id ?? null), toggle: toggleTask, delete: deleteTask, undoDelete,
     openDetails: setDetailId, reschedule: rescheduleTask, undoMove, dismissMove, startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
   };
   const data = {
