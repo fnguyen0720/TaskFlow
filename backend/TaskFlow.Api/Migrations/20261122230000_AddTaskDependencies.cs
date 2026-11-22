@@ -19,7 +19,7 @@ public partial class AddTaskDependencies : Migration
                 "Tasks", "Id", onDelete: ReferentialAction.Cascade);
             table.ForeignKey("FK_TaskDependencies_Tasks_DependsOnTaskId", x => x.DependsOnTaskId,
                 "Tasks", "Id", onDelete: ReferentialAction.Cascade);
-            table.CheckConstraint("CK_TaskDependencies_NoSelf", "TaskId <> DependsOnTaskId");
+            table.CheckConstraint("CK_TaskDependencies_NoSelf", "\"TaskId\" <> \"DependsOnTaskId\"");
         });
         migrationBuilder.CreateIndex("IX_TaskDependencies_DependsOnTaskId",
             "TaskDependencies", "DependsOnTaskId");
