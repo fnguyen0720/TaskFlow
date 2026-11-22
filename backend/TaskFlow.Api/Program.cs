@@ -470,6 +470,74 @@ app.MapGet("/api/tasks/{id:int}/activity", async (
 })
 .RequireAuthorization();
 
+// Snapshots contain private task content; enforce ownership before returning
+// anything, including metadata. Existing tasks may have no versions yet.
+app.MapGet("/api/tasks/{id:int}/versions", async (
+    int id, ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    if (!await db.Tasks.AsNoTracking().AnyAsync(t => t.Id == id && t.UserId == userId))
+        return Results.NotFound();
+    var versions = await db.TaskVersions.AsNoTracking()
+        .Where(v => v.UserId == userId && v.TaskId == id)
+        .OrderByDescending(v => v.Id).Take(50)
+        .ToListAsync();
+    return Results.Ok(versions.Select(v => new {
+        v.Id, v.Kind, v.RecordedAt, v.Fingerprint,
+        Snapshot = TaskVersionHistory.Parse(v)
+    }));
+}).RequireAuthorization();
+
+// Restores are explicit, version-guarded writes. A current-version precondition
+// is required; the same transaction saves both the prior state and restored state.
+app.MapPost("/api/tasks/{id:int}/restore", async (
+    int id, TaskRestoreRequest request, ClaimsPrincipal user,
+    TaskDbContext db, HttpContext context) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var original = await db.Tasks.AsNoTracking()
+        .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+    if (original is null) return Results.NotFound();
+    var header = context.Request.Headers.IfMatch.ToString();
+    if (!TaskEditVersion.IsValid(header))
+        return Results.BadRequest("Restoring requires the current task version.");
+    if (!string.Equals(header, "\"" + original.Version + "\"", StringComparison.Ordinal))
+        return Results.Conflict("Task changed elsewhere. Reload before restoring.");
+    var version = await db.TaskVersions.AsNoTracking()
+        .FirstOrDefaultAsync(v => v.Id == request.VersionId &&
+            v.TaskId == id && v.UserId == userId);
+    if (version is null) return Results.NotFound();
+    var saved = TaskVersionHistory.Parse(version);
+    var candidate = saved.AsTask();
+    var validationError = TaskInputValidator.Validate(candidate);
+    if (validationError is not null || candidate.Notes.Length > 4000 ||
+        candidate.Checklist.Count > 30 ||
+        candidate.Checklist.Any(step => string.IsNullOrWhiteSpace(step.Text) || step.Text.Length > 160))
+        return Results.BadRequest("Saved version is not valid for restoration.");
+
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    var affected = await TaskEditVersion.Unchanged(db.Tasks, original)
+        .ExecuteUpdateAsync(update => update
+            .SetProperty(t => t.Title, saved.Title)
+            .SetProperty(t => t.Completed, saved.Completed)
+            .SetProperty(t => t.Priority, saved.Priority)
+            .SetProperty(t => t.DueDate, saved.DueDate)
+            .SetProperty(t => t.Category, saved.Category)
+            .SetProperty(t => t.RecurrenceRule, saved.RecurrenceRule)
+            .SetProperty(t => t.ReminderDaysBefore, saved.ReminderDaysBefore)
+            .SetProperty(t => t.Notes, saved.Notes)
+            .SetProperty(t => t.ChecklistJson, saved.ChecklistJson));
+    if (affected == 0)
+        return await db.Tasks.AnyAsync(t => t.Id == id && t.UserId == userId)
+            ? Results.Conflict("Task changed elsewhere. Reload before restoring.")
+            : Results.NotFound();
+    var restored = await TaskVersionHistory.RecordChangeAsync(db, original, "restored");
+    TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
+    await db.SaveChangesAsync();
+    await transaction.CommitAsync();
+    return Results.Ok(restored);
+}).RequireAuthorization();
+
 // POST: Create a task owned by the logged-in user.
 app.MapPost("/api/tasks", async (
     TaskItem task,
@@ -506,6 +574,7 @@ app.MapPost("/api/tasks", async (
     db.Tasks.Add(task);
     await db.SaveChangesAsync();
     TaskActivityKinds.Record(db, userId, task.Id, TaskActivityKinds.Created);
+    TaskVersionHistory.Add(db, task, "created");
     await db.SaveChangesAsync();
     await activityTransaction.CommitAsync();
 
