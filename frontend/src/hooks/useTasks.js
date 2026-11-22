@@ -158,6 +158,12 @@ const toggleTask = async (id) => {
       }
     );
 
+    if (response.status === 409) {
+      const detail = await response.text();
+      throw new Error(detail.includes("prerequisite")
+        ? "Complete prerequisite tasks before finishing this task."
+        : "Task completion changed elsewhere. Refresh your tasks.");
+    }
     if (!response.ok) {
       throw new Error("Failed to update task");
     }
@@ -166,7 +172,7 @@ const toggleTask = async (id) => {
 
     await fetchTasks();
     showNotification("Task updated.");
-  } catch {
+  } catch (error) {
     console.warn("Task update request failed");
 
     // Roll back UI
@@ -175,6 +181,7 @@ const toggleTask = async (id) => {
     ));
 
     showNotification(
+      error?.message?.includes("prerequisite") ? error.message :
       "Couldn't update task. Please try again.",
       "error"
     );
