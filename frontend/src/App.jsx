@@ -204,7 +204,6 @@ function App() {
     String(project.id) === selectedProject)
     ? projects.projects.find(project => String(project.id) === selectedProject) : null;
   const form = {
-    projectName: createProject?.name ?? null,
     title: newTask, setTitle: setNewTask,
     priority: newPriority, setPriority: setNewPriority,
     category: newCategory, setCategory: setNewCategory,
