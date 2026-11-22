@@ -671,10 +671,10 @@ app.MapPut("/api/tasks/{id}/title", async (
                 : Results.NotFound();
         TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
         if (original.DueDate != desiredDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
-        var changedTask = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
+        var guardedTask = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
         await db.SaveChangesAsync();
         await activityTransaction.CommitAsync();
-        return Results.Ok(changedTask);
+        return Results.Ok(guardedTask);
     }
 
     // Maintain compatibility with previous app clients during rollout.
@@ -735,10 +735,10 @@ app.MapPut("/api/tasks/{id}/details", async (
                 : Results.NotFound();
         TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
         if (original.DueDate != dueDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
-        var changedTask = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
+        var guardedTask = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
         await db.SaveChangesAsync();
         await activityTransaction.CommitAsync();
-        return Results.Ok(changedTask);
+        return Results.Ok(guardedTask);
     }
 
     var task = await db.Tasks.SingleAsync(t => t.Id == id && t.UserId == userId);
