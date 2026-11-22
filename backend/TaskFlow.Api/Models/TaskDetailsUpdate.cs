@@ -23,7 +23,7 @@ public static class TaskChecklistValidation
         {
             if (step!.ParentId is null) continue;
             if (step.Id is null || !byId.TryGetValue(step.ParentId, out var parent) ||
-                parent.Id == step.Id || parent.ParentId is not null)
+                string.Equals(parent.Id, step.Id, StringComparison.OrdinalIgnoreCase) || parent.ParentId is not null)
                 return false; // At most one nested level; never cycles.
         }
         return true;
