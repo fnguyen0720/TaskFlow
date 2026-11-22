@@ -1251,7 +1251,8 @@ test("new tasks go directly into the currently selected project", async ({ page 
   await shelf.getByRole("textbox", { name: "New project" }).fill("Career Development");
   await shelf.getByRole("button", { name: "Create project" }).click();
   await shelf.getByRole("button", { name: /Career Development/ }).click();
-  await expect(page.getByText("New tasks will be added to")).toContainText("Career Development");
+  await expect(shelf.getByRole("button", { name: /Career Development/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("New tasks will be added to")).toHaveCount(0);
   await page.getByRole("textbox", { name: "New task title" }).fill("Submit job applications");
   await page.getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Submit job applications");
