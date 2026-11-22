@@ -84,14 +84,14 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) return respond(400, {});
       return respond(200, tasks.slice(offset, offset + limit));
     }
-    const versionRoute = /^\\/api\\/tasks\\/(\\d+)\\/versions$/.exec(pathname);
+    const versionRoute = /^\/api\/tasks\/(\d+)\/versions$/.exec(pathname);
     if (versionRoute && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       if (!tasks.some(t => t.id === Number(versionRoute[1]))) return respond(404, {});
       return respond(200, versions.filter(v => v.taskId === Number(versionRoute[1]))
         .sort((a,b) => b.id - a.id).slice(0,50));
     }
-    const restoreRoute = /^\\/api\\/tasks\\/(\\d+)\\/restore$/.exec(pathname);
+    const restoreRoute = /^\/api\/tasks\/(\d+)\/restore$/.exec(pathname);
     if (restoreRoute && method === "POST") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       const task = tasks.find(t => t.id === Number(restoreRoute[1]));
@@ -107,7 +107,6 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       changeVersion(task);
       recordVersion(task, "restored");
       record(task.id, "edited");
-      recordVersion(task, "edited");
       return respond(200, task);
     }
     const activity = /^\/api\/tasks\/(\d+)\/activity$/.exec(pathname);
