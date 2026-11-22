@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { getProductivityInsights } from "../../utils/productivityInsights.js";
 
 const DUE_STATES = [
@@ -10,8 +10,10 @@ const DUE_STATES = [
 
 export default function ProductivityInsights({ tasks }) {
   const [expanded, setExpanded] = useState(false);
-  const snapshot = getProductivityInsights(tasks);
-  const maxCategory = Math.max(1, ...snapshot.categories.map(category => category.total));
+  // Avoid grouping and sorting the entire workspace while insights are collapsed.
+  // useMemo retains the snapshot until tasks change and expanded views need it.
+  const snapshot = useMemo(() => expanded ? getProductivityInsights(tasks) : null, [expanded, tasks]);
+  const maxCategory = snapshot ? Math.max(1, ...snapshot.categories.map(category => category.total)) : 1;
 
   return (
     <section className="productivity-insights" aria-label="Productivity insights">
