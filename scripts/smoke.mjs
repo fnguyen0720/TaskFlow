@@ -2,6 +2,7 @@
 // registration, task creation or mutation and no credentials are required.
 // Node 22+, no dependencies.
 import { pathToFileURL } from "node:url";
+import { measureReadOnlyLatency, performanceSummaryMarkdown } from "./performance.mjs";
 
 const DEFAULT_FRONTEND = "https://task-flow-pi-lake.vercel.app";
 const DEFAULT_API = "https://taskflow-k63f.onrender.com";
@@ -104,12 +105,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     for (const check of result) {
       console.log(`PASS ${check.name}: HTTP ${check.status}, ${check.durationMs}ms, attempt ${check.attempts}`);
     }
+    // Public, read-only sampling never uses credentials or any task endpoints.
+    const latency = await measureReadOnlyLatency({
+      frontendUrl: process.env.TASKFLOW_FRONTEND_URL || DEFAULT_FRONTEND,
+      apiUrl: process.env.TASKFLOW_API_URL || DEFAULT_API,
+    });
+    for (const item of latency) console.log(`LATENCY ${item.name}: median ${item.medianMs}ms; p95 ${item.p95Ms}ms (${item.count} samples)`);
     // GitHub provides failure notifications for Actions workflows. Never log secrets.
     if (process.env.GITHUB_STEP_SUMMARY) {
       const { appendFile } = await import("node:fs/promises");
       const rows = result.map(x => `| ${x.name} | ${x.status} | ${x.durationMs} ms | ${x.attempts} |`).join("\n");
       await appendFile(process.env.GITHUB_STEP_SUMMARY,
-        `## TaskFlow production smoke checks\n\n| Check | HTTP | Latency | Attempts |\n|---|---:|---:|---:|\n${rows}\n`);
+        `## TaskFlow production smoke checks\n\n| Check | HTTP | Latency | Attempts |\n|---|---:|---:|---:|\n${rows}\n\n${performanceSummaryMarkdown(latency)}`);
     }
   } catch (error) {
     console.error(`SMOKE FAILED: ${error.message}`);
