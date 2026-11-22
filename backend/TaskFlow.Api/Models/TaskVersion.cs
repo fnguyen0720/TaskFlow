@@ -17,18 +17,18 @@ public sealed class TaskVersion
 public sealed record TaskSnapshot(
     string Title, bool Completed, string Priority, DateTime? DueDate,
     string Category, string RecurrenceRule, int? ReminderDaysBefore,
-    string Notes, string ChecklistJson)
+    string Notes, string ChecklistJson, int? ProjectId = null)
 {
     public static TaskSnapshot From(TaskItem task) => new(
         task.Title, task.Completed, task.Priority, task.DueDate,
         task.Category, task.RecurrenceRule, task.ReminderDaysBefore,
-        task.Notes, task.ChecklistJson);
+        task.Notes, task.ChecklistJson, task.ProjectId);
 
     public TaskItem AsTask() => new() {
         Title = Title, Completed = Completed, Priority = Priority,
         DueDate = DueDate, Category = Category,
         RecurrenceRule = RecurrenceRule, ReminderDaysBefore = ReminderDaysBefore,
-        Notes = Notes, ChecklistJson = ChecklistJson
+        Notes = Notes, ChecklistJson = ChecklistJson, ProjectId = ProjectId
     };
 }
 

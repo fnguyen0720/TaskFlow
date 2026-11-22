@@ -230,6 +230,17 @@ namespace TaskFlow.Api.Migrations
                     b.ToTable("TaskActivities");
                 });
 
+            modelBuilder.Entity("TaskProject", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER");
+                    b.Property<string>("UserId").IsRequired().HasColumnType("TEXT");
+                    b.Property<string>("Name").IsRequired().HasColumnType("TEXT");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("TEXT");
+                    b.HasKey("Id");
+                    b.HasIndex("UserId", "Name");
+                    b.ToTable("TaskProjects");
+                });
+
             modelBuilder.Entity("TaskVersion", b =>
                 {
                     b.Property<long>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER");
@@ -301,6 +312,7 @@ namespace TaskFlow.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("ProjectId").HasColumnType("INTEGER");
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -315,6 +327,7 @@ namespace TaskFlow.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
+                    b.HasIndex("ProjectId");
 
                     b.ToTable("Tasks");
                 });
@@ -372,10 +385,23 @@ namespace TaskFlow.Api.Migrations
 
             modelBuilder.Entity("TaskItem", b =>
                 {
+                    b.HasOne("TaskProject", null).WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+            modelBuilder.Entity("TaskItem", b =>
+                {
                     b.HasOne("ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+            modelBuilder.Entity("TaskProject", b =>
+                {
+                    b.HasOne("ApplicationUser", null).WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
             modelBuilder.Entity("TaskNotificationState", b =>
                 {

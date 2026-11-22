@@ -11,6 +11,8 @@ import ProductivityInsights from "./components/dashboard/ProductivityInsights.js
 import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
 import TaskPanel from "./components/tasks/TaskPanel.jsx";
+import ProjectShelf from "./components/dashboard/ProjectShelf.jsx";
+import { useProjects } from "./hooks/useProjects.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useAccountIdentity } from "./hooks/useAccountIdentity.js";
 import { useViewPreferences } from "./hooks/useViewPreferences.js";
@@ -30,6 +32,7 @@ function App() {
   const [quickCreateSignal, setQuickCreateSignal] = useState(0);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [view, setView] = useState("all");
+  const [selectedProject, setSelectedProject] = useState("all");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -56,6 +59,8 @@ function App() {
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
     toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails, rescheduleTask, undoMove, undoableMove, dismissMove,
   } = useTasks({ token, onUnauthorized: handleUnauthorized, showNotification });
+
+  const projects = useProjects({ token, onUnauthorized: handleUnauthorized, showNotification, setTasks });
 
   useEffect(() => {
     if (!token || viewPreferences.status !== "ready") return;
@@ -136,6 +141,7 @@ function App() {
     setSearch("");
     setSort("default");
     setCategoryFilter("all");
+    setSelectedProject("all");
   }, [token]);
 
   // Password reset links can arrive via same-tab hash navigation.
@@ -184,7 +190,10 @@ function App() {
   const { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate } = getTaskStats(visibleTasks);
   const detailTask = visibleTasks.find(task => task.id === detailId);
   const views = getTaskViews(visibleTasks);
-  const filteredTasks = selectTasks(views[view] ?? visibleTasks, {
+  const projectTasks = selectedProject === "all" ? (views[view] ?? visibleTasks) :
+    (views[view] ?? visibleTasks).filter(task => selectedProject === "none" ?
+      task.projectId == null : String(task.projectId) === selectedProject);
+  const filteredTasks = selectTasks(projectTasks, {
     search,
     filter: view === "all" || view === "calendar" ? filter : "all",
     categoryFilter,
@@ -368,6 +377,10 @@ function App() {
           <ProductivityInsights tasks={visibleTasks} />
         </>
       ) : null}
+      {projects.status === "ready" && <ProjectShelf projects={projects.projects} tasks={visibleTasks}
+        selection={selectedProject} onSelect={setSelectedProject}
+        onCreate={projects.createProject} creating={projects.creating} />}
+      {projects.status === "failed" && <p className="project-load-error" role="alert">Projects could not load. Your tasks are still available.</p>}
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
         planner={{ view, setView: changeView, views, quickCreateSignal }} />
       {commandOpen && !detailTask && <CommandPalette tasks={visibleTasks}
@@ -380,6 +393,8 @@ function App() {
       {detailTask && (
         <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
           token={token} onUnauthorized={handleUnauthorized}
+          projects={projects.status === "ready" ? projects.projects : []}
+          onAssignProject={projects.assignProject} assigningProject={projects.assigningId === detailTask.id}
           onReloadLatest={reloadLatestTask} onDirtyChange={setDetailDirty}
           onRestored={restored => {
             setTasks(current => current.map(task => task.id === restored.id ? restored : task));

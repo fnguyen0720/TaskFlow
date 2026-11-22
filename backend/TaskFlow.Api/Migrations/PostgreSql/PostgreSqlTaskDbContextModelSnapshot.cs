@@ -240,6 +240,18 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                     b.ToTable("TaskActivities");
                 });
 
+            modelBuilder.Entity("TaskProject", b =>
+                {
+                    b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("UserId").IsRequired().HasColumnType("text");
+                    b.Property<string>("Name").IsRequired().HasColumnType("text");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.HasKey("Id");
+                    b.HasIndex("UserId", "Name");
+                    b.ToTable("TaskProjects");
+                });
+
             modelBuilder.Entity("TaskVersion", b =>
                 {
                     b.Property<long>("Id").ValueGeneratedOnAdd().HasColumnType("bigint");
@@ -314,6 +326,7 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("ProjectId").HasColumnType("integer");
                     b.Property<string>("Priority")
                         .IsRequired()
                         .HasColumnType("text");
@@ -328,6 +341,7 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                     b.HasKey("Id");
 
                     b.HasIndex("UserId");
+                    b.HasIndex("ProjectId");
 
                     b.ToTable("Tasks");
                 });
@@ -385,10 +399,23 @@ namespace TaskFlow.Api.Migrations.PostgreSql
 
             modelBuilder.Entity("TaskItem", b =>
                 {
+                    b.HasOne("TaskProject", null).WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+            modelBuilder.Entity("TaskItem", b =>
+                {
                     b.HasOne("ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+            modelBuilder.Entity("TaskProject", b =>
+                {
+                    b.HasOne("ApplicationUser", null).WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
             modelBuilder.Entity("TaskNotificationState", b =>
                 {

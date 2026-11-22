@@ -1193,3 +1193,53 @@ test("stale task version cannot overwrite a newer task via restore", async ({ pa
   expect(api.tasks[0].title).toBe("External newer edit");
   expect(api.versions.filter(item => item.kind === "restored")).toHaveLength(0);
 });
+
+test("projects organize tasks without removing any existing workspace tasks", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(5101, "Apply for engineering roles", "2026-11-23"), fixtureTask(5102, "Buy groceries", "2026-11-23")]
+  });
+  await signIn(page);
+  const shelf = page.getByRole("region", { name: "Projects" });
+  await expect(shelf).toBeVisible();
+  await shelf.getByRole("textbox", { name: "New project" }).fill("Career Development");
+  await shelf.getByRole("button", { name: "Create project" }).click();
+  await expect(shelf).toContainText("Career Development");
+
+  await page.getByRole("button", { name: "Apply for engineering roles", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Apply for engineering roles" });
+  await dialog.getByRole("combobox", { name: "Project" }).selectOption({ label: "Career Development" });
+  await dialog.getByRole("button", { name: "Move task" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await shelf.getByRole("button", { name: /Career Development/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Apply for engineering roles");
+  await expect(page.getByRole("list", { name: "Tasks" })).not.toContainText("Buy groceries");
+  await expect(shelf.getByRole("button", { name: /Career Development/ })).toContainText("0/1 complete");
+
+  await shelf.getByRole("button", { name: /All projects/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Buy groceries");
+  expect(api.tasks).toHaveLength(2);
+  expect(api.projects).toHaveLength(1);
+});
+
+test("stale project moves cannot overwrite another task edit or discard an unsaved draft", async ({ page }) => {
+  const api = await installMockApi(page, { initialTasks: [fixtureTask(5103, "Safe assignment", "2026-11-23")] });
+  await signIn(page);
+  const shelf = page.getByRole("region", { name: "Projects" });
+  await shelf.getByRole("textbox", { name: "New project" }).fill("Private Project");
+  await shelf.getByRole("button", { name: "Create project" }).click();
+
+  await page.getByRole("button", { name: "Safe assignment", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Safe assignment" });
+  await dialog.getByRole("combobox", { name: "Project" }).selectOption({ label: "Private Project" });
+  await dialog.getByRole("textbox", { name: "Notes" }).fill("Unsaved private draft");
+  await expect(dialog.getByRole("button", { name: "Move task" })).toBeDisabled();
+  await expect(dialog.getByRole("textbox", { name: "Notes" })).toHaveValue("Unsaved private draft");
+  await dialog.getByRole("textbox", { name: "Notes" }).fill("");
+  api.tasks[0].title = "Newer edit elsewhere";
+  api.changeVersion(api.tasks[0]);
+  await dialog.getByRole("button", { name: "Move task" }).click();
+  await expect(page.getByRole("alert")).toContainText("changed elsewhere");
+  await expect(dialog).toBeVisible();
+  expect(api.tasks[0].projectId ?? null).toBeNull();
+});

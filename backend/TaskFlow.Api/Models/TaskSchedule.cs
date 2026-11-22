@@ -28,6 +28,7 @@ public static class TaskSchedule
         Title = completed.Title,
         Priority = completed.Priority,
         Category = completed.Category,
+        ProjectId = completed.ProjectId,
         DueDate = NextDueDate(completed.DueDate!.Value, completed.RecurrenceRule),
         RecurrenceRule = completed.RecurrenceRule,
         ReminderDaysBefore = completed.ReminderDaysBefore,

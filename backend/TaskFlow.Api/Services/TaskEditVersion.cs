@@ -14,7 +14,7 @@ public static class TaskEditVersion
         {
             task.Id, task.Title, task.Completed, task.Priority, task.DueDate,
             task.Category, task.RecurrenceRule, task.ReminderDaysBefore,
-            task.Notes, task.ChecklistJson, task.UserId
+            task.Notes, task.ChecklistJson, task.ProjectId, task.UserId
         });
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
     }
@@ -33,5 +33,6 @@ public static class TaskEditVersion
             t.Category == original.Category &&
             t.RecurrenceRule == original.RecurrenceRule &&
             t.ReminderDaysBefore == original.ReminderDaysBefore &&
-            t.Notes == original.Notes && t.ChecklistJson == original.ChecklistJson);
+            t.Notes == original.Notes && t.ChecklistJson == original.ChecklistJson &&
+            t.ProjectId == original.ProjectId);
 }

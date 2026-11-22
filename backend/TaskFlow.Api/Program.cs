@@ -331,6 +331,65 @@ app.MapPost("/api/diagnostics/frontend", (
 .RequireRateLimiting("frontend-diagnostics")
 .AllowAnonymous();
 
+// All project endpoints derive ownership from the authenticated account.
+// The project list never exposes another account's project identifiers.
+app.MapGet("/api/projects", async (ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    return Results.Ok(await db.TaskProjects.AsNoTracking()
+        .Where(project => project.UserId == userId)
+        .OrderBy(project => project.Name)
+        .ThenBy(project => project.Id)
+        .Select(project => new { project.Id, project.Name })
+        .ToListAsync());
+}).RequireAuthorization();
+
+app.MapPost("/api/projects", async (
+    ProjectCreateRequest input, ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var name = input.Name?.Trim();
+    if (string.IsNullOrWhiteSpace(name) || name.Length > 70)
+        return Results.BadRequest("Project name must be 1–70 characters.");
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    if (await db.TaskProjects.AnyAsync(p => p.UserId == userId && p.Name == name))
+        return Results.Conflict("A project with that name already exists.");
+    var project = new TaskProject { UserId = userId, Name = name };
+    db.TaskProjects.Add(project);
+    await db.SaveChangesAsync();
+    return Results.Created($"/api/projects/{project.Id}", new { project.Id, project.Name });
+}).RequireAuthorization();
+
+// Project assignment is a versioned mutation, not a client-side-only label.
+// The transaction atomically records both historical snapshots and activity.
+app.MapPut("/api/tasks/{id:int}/project", async (
+    int id, ProjectAssignRequest input, ClaimsPrincipal user,
+    TaskDbContext db, HttpContext context) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var original = await db.Tasks.AsNoTracking()
+        .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+    if (original is null) return Results.NotFound();
+    var header = context.Request.Headers.IfMatch.ToString();
+    if (!TaskEditVersion.IsValid(header))
+        return Results.BadRequest("The latest task version is required.");
+    if (header != "\"" + original.Version + "\"")
+        return Results.Conflict("Task changed elsewhere. Reload before moving it.");
+    if (input.ProjectId.HasValue && !await db.TaskProjects.AnyAsync(p =>
+        p.Id == input.ProjectId.Value && p.UserId == userId))
+        return Results.NotFound();
+    if (original.ProjectId == input.ProjectId) return Results.Ok(original);
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    var changed = await TaskEditVersion.Unchanged(db.Tasks, original)
+        .ExecuteUpdateAsync(update => update.SetProperty(t => t.ProjectId, input.ProjectId));
+    if (changed == 0)
+        return Results.Conflict("Task changed elsewhere. Reload before moving it.");
+    var updated = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
+    TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
+    await db.SaveChangesAsync();
+    await transaction.CommitAsync();
+    return Results.Ok(updated);
+}).RequireAuthorization();
+
 // GET: All legacy clients still receive their complete account-specific task list.
 // New clients can request bounded pages, maintaining the same global sort order.
 // Stable Id tie-breaking prevents nondeterministic boundaries for equal-priority dates.
@@ -510,6 +569,9 @@ app.MapPost("/api/tasks/{id:int}/restore", async (
     var saved = TaskVersionHistory.Parse(version);
     var candidate = saved.AsTask();
     var validationError = TaskInputValidator.Validate(candidate);
+    if (saved.ProjectId.HasValue && !await db.TaskProjects.AnyAsync(p =>
+        p.Id == saved.ProjectId.Value && p.UserId == userId))
+        return Results.BadRequest("The saved project is no longer available.");
     if (validationError is not null || candidate.Notes.Length > 4000 ||
         candidate.Checklist.Count > 30 ||
         candidate.Checklist.Any(step => string.IsNullOrWhiteSpace(step.Text) || step.Text.Length > 160))
@@ -526,7 +588,8 @@ app.MapPost("/api/tasks/{id:int}/restore", async (
             .SetProperty(t => t.RecurrenceRule, saved.RecurrenceRule)
             .SetProperty(t => t.ReminderDaysBefore, saved.ReminderDaysBefore)
             .SetProperty(t => t.Notes, saved.Notes)
-            .SetProperty(t => t.ChecklistJson, saved.ChecklistJson));
+            .SetProperty(t => t.ChecklistJson, saved.ChecklistJson)
+            .SetProperty(t => t.ProjectId, saved.ProjectId));
     if (affected == 0)
         return await db.Tasks.AnyAsync(t => t.Id == id && t.UserId == userId)
             ? Results.Conflict("Task changed elsewhere. Reload before restoring.")
@@ -561,6 +624,8 @@ app.MapPost("/api/tasks", async (
     task.UserId = userId;
     task.Notes = "";
     task.ChecklistJson = "[]";
+    // Tasks start ungrouped; project assignment is a separate guarded operation.
+    task.ProjectId = null;
 
     if (task.DueDate.HasValue)
     {
