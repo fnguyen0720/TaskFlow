@@ -1188,3 +1188,16 @@ html, body, #root {
 .task-project-assignment p, .project-load-error { color:#d2c3d9; font-size:12px; }
 .project-shelf :is(button,input):focus-visible, .task-project-assignment :is(button,select):focus-visible { outline:3px solid #cabaff; outline-offset:3px; }
 @media(max-width:480px) { .project-shelf { padding:13px; } .project-filter { max-width:none; min-width:120px; } }
+
+/* Project management: contextual and compact; do not disrupt task entry. */
+.project-manage { margin-top:12px; }
+.project-rename-toggle, .project-rename-form button {
+  min-height:40px; padding:8px 12px; border:1px solid #55496d;
+  border-radius:8px; background:#242034; color:#e2d9ff; cursor:pointer;
+}
+.project-rename-form { display:flex; flex-wrap:wrap; gap:9px; align-items:end; }
+.project-rename-form label { flex-basis:100%; color:#cbc4e5; font-size:12px; }
+.project-rename-form input { min-width:0; flex:1 1 200px; min-height:42px; padding:9px;
+  border:1px solid #55496d; border-radius:8px; background:#14131f; color:#f5f1ff; }
+.project-rename-form button:disabled { opacity:.55; cursor:not-allowed; }
+.project-manage :is(button,input):focus-visible { outline:3px solid #cabaff; outline-offset:3px; }
