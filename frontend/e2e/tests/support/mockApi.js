@@ -149,6 +149,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         .sort((a, b) => b.id - a.id).slice(0, 50).map(({ id, kind, occurredAt }) => ({ id, kind, occurredAt })));
     }
     if (pathname === "/api/tasks" && method === "POST") {
+      if (body.projectId != null && !projects.some(project => project.id === body.projectId)) return respond(404, {});
       if (remainingFailedCreates > 0) {
         remainingFailedCreates--;
         return respond(503, { title: "Temporarily unavailable" });
@@ -157,7 +158,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         id: nextId++, title: body.title, priority: body.priority,
         category: body.category, dueDate: body.dueDate, completed: false,
         notes: "", checklist: [], checklistJson: "[]",
-        version: `rev-${revision++}`, projectId: null,
+        version: `rev-${revision++}`, projectId: body.projectId ?? null,
       };
       tasks.push(task);
       record(task.id, "created");
