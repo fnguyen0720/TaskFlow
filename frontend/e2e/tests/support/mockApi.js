@@ -85,6 +85,17 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       projects.push(project);
       return respond(201, project);
     }
+    const renameProject = /^\/api\/projects\/(\d+)$/.exec(pathname);
+    if (renameProject && method === "PUT") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      const project = projects.find(item => item.id === Number(renameProject[1]));
+      if (!project) return respond(404, {});
+      const name = body.name?.trim();
+      if (!name || name.length > 70) return respond(400, {});
+      if (projects.some(item => item.id !== project.id && item.name === name)) return respond(409, {});
+      project.name = name;
+      return respond(200, { ...project });
+    }
     const assign = /^\/api\/tasks\/(\d+)\/project$/.exec(pathname);
     if (assign && method === "PUT") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
