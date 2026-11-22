@@ -1078,3 +1078,32 @@ html, body, #root {
 .task-activity-events li { display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px 12px; font-size:12px; border-bottom:1px solid #302b3e; padding-bottom:7px; }
 .task-activity-events li:last-child { border-bottom:0; padding-bottom:0; }
 .task-activity-events time { color:#a5a0b9; font-size:11px; }
+
+/* Keyboard users can track focus even in scrollable dialogs and notification menus. */
+:where(.task-detail-dialog, .notification-center) :where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline:3px solid #c9bbff;
+  outline-offset:3px;
+}
+.task-detail-header h2:focus { outline:none; }
+.task-detail-dialog { max-width:min(100vw, 680px); }
+.task-detail-dialog form { min-width:0; }
+.task-detail-dialog .task-activity,
+.task-detail-dialog .task-activity-events { min-width:0; }
+.task-detail-dialog .task-activity-events li { overflow-wrap:anywhere; }
+@media (max-width:600px) {
+  .task-detail-dialog { max-width:100vw; max-height:100dvh; }
+  .task-detail-dialog .task-detail-actions { flex-wrap:wrap; }
+  .task-detail-dialog .task-detail-actions button,
+  .task-detail-step button,
+  .notification-dropdown-actions button,
+  .notification-dismiss { min-height:44px; min-width:44px; }
+  .task-activity-events li { flex-direction:column; align-items:flex-start; }
+  .notification-dropdown { max-width:calc(100vw - 24px); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .task-detail-dialog *, .notification-center * {
+    scroll-behavior:auto !important;
+    transition-duration:0.01ms !important;
+    animation-duration:0.01ms !important;
+  }
+}
