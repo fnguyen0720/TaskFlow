@@ -5,6 +5,8 @@ on:
     paths:
       - "scripts/smoke.mjs"
       - "scripts/smoke.test.mjs"
+      - "scripts/performance.mjs"
+      - "scripts/performance.test.mjs"
       - ".github/workflows/production-smoke.yml"
   push:
     branches: [main]
@@ -13,6 +15,8 @@ on:
       - "frontend/**"
       - "scripts/smoke.mjs"
       - "scripts/smoke.test.mjs"
+      - "scripts/performance.mjs"
+      - "scripts/performance.test.mjs"
       - ".github/workflows/production-smoke.yml"
   schedule:
     - cron: "17 * * * *"
@@ -36,7 +40,7 @@ jobs:
         with:
           node-version: "22"
       - name: Verify smoke probes without contacting production
-        run: node --test scripts/smoke.test.mjs
+        run: node --test scripts/smoke.test.mjs scripts/performance.test.mjs
 
   production:
     # A production deployment_status triggers a check only on successful deployment.
