@@ -1026,7 +1026,7 @@ test("notification center closes with Escape and restores keyboard focus", async
   const bell = page.getByRole("button", { name: /Notifications, \d+ unread/ });
   await bell.focus();
   await page.keyboard.press("Enter");
-  const panel = page.getByLabel("Notification center");
+  const panel = page.getByRole("region", { name: "Notification center" });
   await expect(panel).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
