@@ -33,5 +33,7 @@ public class TaskItem
     [NotMapped]
     public string Version => TaskEditVersion.For(this);
 
+    public int? ProjectId { get; set; }
+
     public string? UserId { get; set; }
 }
