@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import NotificationSettings from "./NotificationSettings.jsx";
 
 const label = {
@@ -11,12 +11,44 @@ export default function NotificationCenter({
   notifications, loading, error, pending, onUpdate, onMarkAllRead, onOpenTask, settings,
 }) {
   const [open, setOpen] = useState(false);
+  const bellRef = useRef(null);
+  const panelRef = useRef(null);
+  const previousOpen = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
   const unread = notifications.filter(item => !item.isRead).length;
 
+  useEffect(() => {
+    if (!open) {
+      if (previousOpen.current && panelRef.current?.contains(document.activeElement)) {
+        bellRef.current?.focus();
+      }
+      previousOpen.current = false;
+      return;
+    }
+    previousOpen.current = true;
+    const onKeyDown = event => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        bellRef.current?.focus();
+      }
+    };
+    const onPointerDown = event => {
+      if (!panelRef.current?.contains(event.target) && !bellRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open]);
+
   return (
     <div className="notification-center">
-      <button type="button" className="notification-bell" aria-label={`Notifications, ${unread} unread`}
+      <button ref={bellRef} type="button" className="notification-bell" aria-label={`Notifications, ${unread} unread`}
         aria-expanded={open} aria-controls="notification-center-panel"
         onClick={() => setOpen(value => !value)}>
         <span aria-hidden="true">🔔</span>
@@ -24,11 +56,11 @@ export default function NotificationCenter({
         {unread > 0 && <span className="notification-count">{unread > 99 ? "99+" : unread}</span>}
       </button>
       {open && (
-        <section className="notification-dropdown" id="notification-center-panel"
+        <section ref={panelRef} className="notification-dropdown" id="notification-center-panel"
           aria-label="Notification center">
           <header className="notification-dropdown-head">
             <div><strong>Notification center</strong><p>{unread} unread · {notifications.length} active</p></div>
-            <button type="button" className="notification-dismiss" onClick={() => setOpen(false)}
+            <button type="button" className="notification-dismiss" onClick={() => { setOpen(false); bellRef.current?.focus(); }}
               aria-label="Close notification center">×</button>
           </header>
           <div className="notification-dropdown-actions">

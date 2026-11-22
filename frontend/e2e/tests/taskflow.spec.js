@@ -1001,3 +1001,60 @@ test("task details show empty activity for existing tasks without historical bac
   const activity = page.getByRole("region", { name: "Task activity" });
   await expect(activity).toContainText("No activity recorded yet.");
 });
+
+test("keyboard task details focus heading, trap Tab, and restore focus on Escape", async ({ page }) => {
+  await installMockApi(page, {
+    initialTasks: [fixtureTask(4601, "Accessible task", "2026-11-19")],
+  });
+  await signIn(page);
+  const trigger = page.getByRole("button", { name: "Accessible task", exact: true });
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Accessible task" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Accessible task" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button", { name: "Close task details" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test("notification center closes with Escape and restores keyboard focus", async ({ page }) => {
+  await installMockApi(page, { initialTasks: [fixtureTask(4602, "Due alert", "2026-11-18")] });
+  await signIn(page);
+  const bell = page.getByRole("button", { name: /Notifications, \d+ unread/ });
+  await bell.focus();
+  await page.keyboard.press("Enter");
+  const panel = page.getByRole("region", { name: "Notification center" });
+  await expect(panel).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(bell).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(panel).toBeVisible();
+  await page.getByRole("heading", { name: "TaskFlow" }).click();
+  await expect(panel).toHaveCount(0);
+});
+
+test("task details remain within 320px viewport and support keyboard dismissal", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 690 });
+  await installMockApi(page, {
+    initialTasks: [fixtureTask(4603, "Very long mobile accessibility task title for small screens", "2026-11-19")],
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Very long mobile accessibility task title for small screens", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("region", { name: "Task activity" })).toBeVisible();
+  const metrics = await dialog.evaluate(element => ({
+    width: element.getBoundingClientRect().width,
+    right: element.getBoundingClientRect().right,
+    viewport: window.innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(metrics.width).toBeLessThanOrEqual(metrics.viewport);
+  expect(metrics.right).toBeLessThanOrEqual(metrics.viewport + 1);
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.viewport);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});
