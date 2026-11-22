@@ -23,6 +23,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
     }))
   );
   const [saving, setSaving] = useState(false);
+  const [dependenciesDirty, setDependenciesDirty] = useState(false);
   const [projectChoice, setProjectChoice] = useState(task.projectId == null ? "none" : String(task.projectId));
   const [error, setError] = useState("");
 
@@ -33,11 +34,12 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
     notes: task.notes ?? "",
     checklist: normalizedSteps(items),
   }));
-  const dirty = JSON.stringify({
+  const detailsDirty = JSON.stringify({
     dueDate,
     notes,
     checklist: normalizedSteps(items),
   }) !== initialSnapshot.current;
+  const dirty = detailsDirty || dependenciesDirty;
 
   useEffect(() => {
     onDirtyChange(dirty);
@@ -74,6 +76,10 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
   async function submit(event) {
     event.preventDefault();
     if (saving || items.some(item => !item.text.trim())) return;
+    if (dependenciesDirty) {
+      setError("Save or discard your dependency changes before saving task details.");
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -185,7 +191,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
           {saving ? "Saving your changes…" : "Unsaved changes — review and save when ready."}
         </p>}
         <TaskDependencies task={task} tasks={tasks} token={token}
-          onUnauthorized={onUnauthorized} disabled={dirty || saving} />
+          onUnauthorized={onUnauthorized} disabled={detailsDirty || saving} onDirtyChange={setDependenciesDirty} />
         <TaskActivityTimeline taskId={task.id} token={token} onUnauthorized={onUnauthorized} />
         <TaskVersionHistory task={task} token={token} onUnauthorized={onUnauthorized}
           onRestored={onRestored} disabled={dirty || saving} />
