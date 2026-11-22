@@ -1243,3 +1243,39 @@ test("stale project moves cannot overwrite another task edit or discard an unsav
   await expect(dialog).toBeVisible();
   expect(api.tasks[0].projectId ?? null).toBeNull();
 });
+
+test("new tasks go directly into the currently selected project", async ({ page }) => {
+  const api = await installMockApi(page);
+  await signIn(page);
+  const shelf = page.getByRole("region", { name: "Projects" });
+  await shelf.getByRole("textbox", { name: "New project" }).fill("Career Development");
+  await shelf.getByRole("button", { name: "Create project" }).click();
+  await shelf.getByRole("button", { name: /Career Development/ }).click();
+  await expect(page.getByText("New tasks will be added to")).toContainText("Career Development");
+  await page.getByRole("textbox", { name: "New task title" }).fill("Submit job applications");
+  await page.getByRole("button", { name: /Add task/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Submit job applications");
+  expect(api.tasks).toHaveLength(1);
+  expect(api.tasks[0].projectId).toBe(api.projects[0].id);
+  expect(api.calls.find(call => call.pathname === "/api/tasks" && call.method === "POST").body.projectId)
+    .toBe(api.projects[0].id);
+});
+
+test("all projects and no project create ungrouped tasks", async ({ page }) => {
+  const api = await installMockApi(page);
+  await signIn(page);
+  const shelf = page.getByRole("region", { name: "Projects" });
+  await shelf.getByRole("textbox", { name: "New project" }).fill("Work");
+  await shelf.getByRole("button", { name: "Create project" }).click();
+  await shelf.getByRole("button", { name: /All projects/ }).click();
+  await page.getByRole("textbox", { name: "New task title" }).fill("General task");
+  await page.getByRole("button", { name: /Add task/ }).click();
+  await shelf.getByRole("button", { name: /No project/ }).click();
+  await page.getByRole("textbox", { name: "New task title" }).fill("Unassigned task");
+  await page.getByRole("button", { name: /Add task/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Unassigned task");
+  expect(api.tasks).toHaveLength(2);
+  expect(api.tasks.every(task => task.projectId == null)).toBe(true);
+  expect(api.calls.filter(call => call.pathname === "/api/tasks" && call.method === "POST")
+    .every(call => call.body.projectId == null)).toBe(true);
+});

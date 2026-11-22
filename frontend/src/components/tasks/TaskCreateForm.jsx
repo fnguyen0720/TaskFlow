@@ -8,6 +8,7 @@ export default function TaskCreateForm({ form, onAdd, titleRef }) {
 
   return (
     <form onSubmit={onAdd} className="task-form" aria-label="Add a new task">
+      {form.projectName && <p className="task-create-project-context" role="status">New tasks will be added to <strong>{form.projectName}</strong>.</p>}
       <div className="task-create-fields">
       <input
         className="create-title"

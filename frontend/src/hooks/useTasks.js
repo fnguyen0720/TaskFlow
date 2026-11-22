@@ -272,7 +272,7 @@ const editTask = async (id) => {
 
 
 // Add task
-const addTask = async (e) => {
+const addTask = async (e, projectId = null) => {
   e.preventDefault();
 
   if (addingTask) return;
@@ -292,6 +292,7 @@ const addTask = async (e) => {
     dueDate: newDueDate || null,
     recurrenceRule: newRecurrence,
     reminderDaysBefore: newReminder === "" ? null : Number(newReminder),
+    projectId,
   };
 
   // Show task immediately
@@ -320,6 +321,7 @@ const addTask = async (e) => {
           dueDate: optimisticTask.dueDate,
           recurrenceRule: optimisticTask.recurrenceRule,
           reminderDaysBefore: optimisticTask.reminderDaysBefore,
+          projectId: optimisticTask.projectId,
         }),
       }
     );

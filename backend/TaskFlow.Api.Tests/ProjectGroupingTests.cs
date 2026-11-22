@@ -126,4 +126,52 @@ public class ProjectGroupingTests
         request.Content = JsonContent.Create(new { projectId });
         return await client.SendAsync(request);
     }
+
+    [Fact]
+    public async Task NewTaskCanJoinOwnedProjectAtCreationWithoutASecondMutation()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        await factory.InitializeDatabaseAsync();
+        using var owner = factory.CreateClient();
+        using var outsider = factory.CreateClient();
+        await Login(owner, $"project-create-owner-{Guid.NewGuid():N}@example.test");
+        await Login(outsider, $"project-create-outsider-{Guid.NewGuid():N}@example.test");
+
+        using var projectResponse = await owner.PostAsJsonAsync("/api/projects", new { name = "Career" });
+        Assert.Equal(HttpStatusCode.Created, projectResponse.StatusCode);
+        var project = await projectResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var projectId = project.GetProperty("id").GetInt32();
+
+        using var created = await owner.PostAsJsonAsync("/api/tasks",
+            new { title = "Apply for jobs", priority = "High", projectId });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var saved = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(projectId, saved.GetProperty("projectId").GetInt32());
+        var taskId = saved.GetProperty("id").GetInt32();
+
+        using var list = await owner.GetAsync("/api/tasks");
+        list.EnsureSuccessStatusCode();
+        var tasks = (await list.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToArray();
+        Assert.Single(tasks);
+        Assert.Equal(projectId, tasks[0].GetProperty("projectId").GetInt32());
+
+        using var history = await owner.GetAsync($"/api/tasks/{taskId}/versions");
+        history.EnsureSuccessStatusCode();
+        var snapshots = (await history.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToArray();
+        Assert.Single(snapshots);
+        Assert.Equal(projectId, snapshots[0].GetProperty("snapshot").GetProperty("projectId").GetInt32());
+
+        using var forbidden = await outsider.PostAsJsonAsync("/api/tasks",
+            new { title = "Should not be created", priority = "Medium", projectId });
+        Assert.Equal(HttpStatusCode.NotFound, forbidden.StatusCode);
+        using var outsiderTasks = await outsider.GetAsync("/api/tasks");
+        outsiderTasks.EnsureSuccessStatusCode();
+        Assert.Empty((await outsiderTasks.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToArray());
+
+        using var ungrouped = await owner.PostAsJsonAsync("/api/tasks",
+            new { title = "Ungrouped task", priority = "Medium" });
+        Assert.Equal(HttpStatusCode.Created, ungrouped.StatusCode);
+        var ungroupedJson = await ungrouped.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(JsonValueKind.Null, ungroupedJson.GetProperty("projectId").ValueKind);
+    }
 }
