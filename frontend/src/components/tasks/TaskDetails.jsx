@@ -3,6 +3,8 @@ import TaskActivityTimeline from "./TaskActivityTimeline.jsx";
 
 export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest, token, onUnauthorized }) {
   const dialogRef = useRef(null);
+  const headingRef = useRef(null);
+  const previousFocusRef = useRef(null);
   const dueDateId = useId();
   const dueHelpId = useId();
   const nextKey = useRef((task.checklist ?? []).length);
@@ -40,8 +42,14 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
 
   useEffect(() => {
     const dialog = dialogRef.current;
+    previousFocusRef.current = document.activeElement;
     dialog.showModal();
-    return () => dialog.close();
+    headingRef.current?.focus();
+    return () => {
+      if (dialog.open) dialog.close();
+      const previous = previousFocusRef.current;
+      if (previous?.isConnected && typeof previous.focus === "function") previous.focus();
+    };
   }, []);
 
   function updateItem(key, changes) {
@@ -83,7 +91,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
       }}>
       <form onSubmit={submit}>
         <header className="task-detail-header">
-          <h2 id="task-detail-title">{task.title}</h2>
+          <h2 id="task-detail-title" ref={headingRef} tabIndex={-1}>{task.title}</h2>
           <button type="button" disabled={saving} onClick={requestClose} aria-label="Close task details">×</button>
         </header>
         <section className="task-detail-date">
@@ -121,7 +129,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
           ))}
           <button type="button" onClick={addItem} disabled={items.length >= 30}>Add step</button>
         </fieldset>
-        {error && <p className="task-detail-save-error" role="alert">{error}</p>}
+        {error && <p className="task-detail-save-error" role="alert" id="task-details-save-error">{error}</p>}
         {error && /changed elsewhere|no longer available/.test(error) && (
           <button className="task-conflict-reload" type="button" disabled={saving} onClick={async () => {
             if (!window.confirm("Discard this draft and reload the latest task from the server?")) return;
