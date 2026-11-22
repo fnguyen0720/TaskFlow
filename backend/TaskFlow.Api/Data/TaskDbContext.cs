@@ -10,6 +10,7 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<TaskItem> Tasks { get; set; }
     public DbSet<TaskActivity> TaskActivities { get; set; }
+    public DbSet<TaskVersion> TaskVersions { get; set; }
     public DbSet<TaskNotificationState> TaskNotificationStates { get; set; }
     public DbSet<NotificationPreferences> NotificationPreferences { get; set; }
 
@@ -22,6 +23,15 @@ public class TaskDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(task => task.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<TaskVersion>(entity =>
+        {
+            entity.HasKey(version => version.Id);
+            entity.HasIndex(version => new { version.UserId, version.TaskId, version.Id });
+            entity.HasOne<ApplicationUser>().WithMany()
+                .HasForeignKey(version => version.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.Entity<TaskActivity>(entity =>
         {
