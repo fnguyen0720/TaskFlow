@@ -1201,3 +1201,41 @@ html, body, #root {
   border:1px solid #55496d; border-radius:8px; background:#14131f; color:#f5f1ff; }
 .project-rename-form button:disabled { opacity:.55; cursor:not-allowed; }
 .project-manage :is(button,input):focus-visible { outline:3px solid #cabaff; outline-offset:3px; }
+
+
+/* PR #55: richer checklist controls remain within the task details drawer. */
+.task-detail-dialog .task-detail-step {
+  grid-template-columns: 28px minmax(0, 1fr) minmax(82px, .6fr) 44px;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #343447;
+}
+.task-detail-dialog .task-detail-step > input[type="text"],
+.task-detail-dialog .task-detail-step > input:not([type]) { grid-column: 2 / 4; }
+.task-detail-dialog .task-detail-step > select,
+.task-detail-dialog .task-detail-step > input[type="date"] {
+  min-width: 0; max-width: 100%; box-sizing: border-box;
+  padding: 8px; border: 1px solid #454052; border-radius: 8px;
+  background: #10121c; color: inherit; font: inherit;
+}
+.task-detail-dialog .task-detail-step > select:first-of-type { grid-column: 2 / 3; }
+.task-detail-dialog .task-detail-step > input[type="date"] { grid-column: 3 / 5; }
+.task-detail-dialog .task-detail-step > select:last-of-type { grid-column: 2 / 5; }
+.task-detail-dialog .task-detail-step > button { grid-column: 4; grid-row: 1; }
+.task-dependency-panel { margin: 24px 0; border-top: 1px solid #454052; padding-top: 18px; }
+.task-dependency-panel h3 { margin: 0 0 8px; }
+.task-dependency-panel p { line-height: 1.5; }
+.task-dependency-row { display: flex; align-items: center; gap: 10px; margin: 10px 0; min-width: 0; }
+.task-dependency-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.task-dependency-row select {
+  flex: 1; min-width: 0; max-width: 100%; padding: 10px;
+  background: #10121c; color: inherit; border: 1px solid #454052; border-radius: 8px;
+}
+@media(max-width: 600px) {
+  .task-detail-dialog .task-detail-step { grid-template-columns: 28px minmax(0, 1fr) 44px; }
+  .task-detail-dialog .task-detail-step > input:not([type]) { grid-column: 2 / 3; }
+  .task-detail-dialog .task-detail-step > select:first-of-type { grid-column: 2 / 4; }
+  .task-detail-dialog .task-detail-step > input[type="date"] { grid-column: 2 / 4; }
+  .task-detail-dialog .task-detail-step > select:last-of-type { grid-column: 2 / 4; }
+  .task-detail-dialog .task-detail-step > button { grid-column: 3; }
+}
