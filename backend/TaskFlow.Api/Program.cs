@@ -664,8 +664,7 @@ app.MapPost("/api/tasks/{id:int}/restore", async (
         p.Id == saved.ProjectId.Value && p.UserId == userId))
         return Results.BadRequest("The saved project is no longer available.");
     if (validationError is not null || candidate.Notes.Length > 4000 ||
-        candidate.Checklist.Count > 30 ||
-        candidate.Checklist.Any(step => string.IsNullOrWhiteSpace(step.Text) || step.Text.Length > 160))
+        !TaskChecklistValidation.IsValid(candidate.Checklist))
         return Results.BadRequest("Saved version is not valid for restoration.");
 
     await using var transaction = await db.Database.BeginTransactionAsync();
@@ -873,8 +872,7 @@ app.MapPut("/api/tasks/{id}/details", async (
 
     var notes = details.Notes ?? "";
     var checklist = details.Checklist ?? [];
-    if (notes.Length > 4000 || checklist.Count > 30 ||
-        checklist.Any(item => item is null || string.IsNullOrWhiteSpace(item.Text) || item.Text.Length > 160))
+    if (notes.Length > 4000 || !TaskChecklistValidation.IsValid(checklist))
         return Results.BadRequest("Notes are limited to 4,000 characters and checklists to 30 items of 160 characters each.");
 
     var checklistJson = JsonSerializer.Serialize(checklist.Select(item => item! with { Text = item!.Text.Trim() }));
