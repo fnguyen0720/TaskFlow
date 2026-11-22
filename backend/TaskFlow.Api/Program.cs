@@ -600,6 +600,7 @@ app.MapPut("/api/tasks/{id}", async (
         await db.Tasks.Where(t => t.Id == id && t.UserId == userId && t.Completed)
             .ExecuteUpdateAsync(update => update.SetProperty(t => t.Completed, false));
         TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Reopened);
+        await TaskVersionHistory.RecordChangeAsync(db, task, "reopened");
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
         return Results.Ok(await db.Tasks.AsNoTracking().FirstAsync(t => t.Id == id));
@@ -620,8 +621,10 @@ app.MapPut("/api/tasks/{id}", async (
         db.Tasks.Add(nextTask);
         await db.SaveChangesAsync();
         TaskActivityKinds.Record(db, userId, nextTask.Id, TaskActivityKinds.Created);
+        TaskVersionHistory.Add(db, nextTask, "created");
     }
     TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Completed);
+    await TaskVersionHistory.RecordChangeAsync(db, task, "completed");
     await db.SaveChangesAsync();
     await transaction.CommitAsync();
     return Results.Ok(await db.Tasks.AsNoTracking().FirstAsync(t => t.Id == id));
@@ -668,9 +671,10 @@ app.MapPut("/api/tasks/{id}/title", async (
                 : Results.NotFound();
         TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
         if (original.DueDate != desiredDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
+        var changedTask = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
         await db.SaveChangesAsync();
         await activityTransaction.CommitAsync();
-        return Results.Ok(await db.Tasks.AsNoTracking().SingleAsync(t => t.Id == id && t.UserId == userId));
+        return Results.Ok(changedTask);
     }
 
     // Maintain compatibility with previous app clients during rollout.
@@ -684,8 +688,10 @@ app.MapPut("/api/tasks/{id}/title", async (
     TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
     if (original.DueDate != desiredDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
     await db.SaveChangesAsync();
+    var changedTask = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
+    await db.SaveChangesAsync();
     await activityTransaction.CommitAsync();
-    return Results.Ok(task);
+    return Results.Ok(changedTask);
 })
 .RequireAuthorization();
 
@@ -729,9 +735,10 @@ app.MapPut("/api/tasks/{id}/details", async (
                 : Results.NotFound();
         TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
         if (original.DueDate != dueDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
+        var changedTask = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
         await db.SaveChangesAsync();
         await activityTransaction.CommitAsync();
-        return Results.Ok(await db.Tasks.AsNoTracking().SingleAsync(t => t.Id == id && t.UserId == userId));
+        return Results.Ok(changedTask);
     }
 
     var task = await db.Tasks.SingleAsync(t => t.Id == id && t.UserId == userId);
@@ -741,8 +748,10 @@ app.MapPut("/api/tasks/{id}/details", async (
     TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Edited);
     if (original.DueDate != dueDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
     await db.SaveChangesAsync();
+    var changedTask = await TaskVersionHistory.RecordChangeAsync(db, original, "edited");
+    await db.SaveChangesAsync();
     await activityTransaction.CommitAsync();
-    return Results.Ok(task);
+    return Results.Ok(changedTask);
 })
 .RequireAuthorization();
 
@@ -762,9 +771,16 @@ app.MapPut("/api/tasks/{id}/due-date", async (
 
     await using var activityTransaction = await db.Database.BeginTransactionAsync();
     var oldDate = task.DueDate;
+    var original = TaskSnapshot.From(task).AsTask();
+    original.Id = task.Id;
+    original.UserId = userId;
     task.DueDate = update.DueDate?.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
     if (oldDate != task.DueDate) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
     await db.SaveChangesAsync();
+    if (oldDate != task.DueDate) {
+        await TaskVersionHistory.RecordChangeAsync(db, original, "rescheduled");
+        await db.SaveChangesAsync();
+    }
     await activityTransaction.CommitAsync();
     return Results.Ok(new { task.DueDate });
 })
@@ -784,6 +800,8 @@ app.MapPatch("/api/tasks/{id}/due-date", async (
         return Results.BadRequest("An expected due date is required.");
     }
 
+    var original = await ownedTask.AsNoTracking().FirstOrDefaultAsync();
+    if (original is null) return Results.NotFound();
     var expectedUtc = expected.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
     var target = expected == DateOnly.MaxValue
         ? ownedTask.Where(t => t.DueDate >= expectedUtc)
@@ -798,6 +816,8 @@ app.MapPatch("/api/tasks/{id}/due-date", async (
     }
 
     if (dueDate != expectedUtc) TaskActivityKinds.Record(db, userId, id, TaskActivityKinds.Rescheduled);
+    if (dueDate != original.DueDate)
+        await TaskVersionHistory.RecordChangeAsync(db, original, "rescheduled");
     await db.SaveChangesAsync();
     await activityTransaction.CommitAsync();
     return Results.Ok(new { DueDate = dueDate });
