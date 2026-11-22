@@ -1064,7 +1064,7 @@ test("workspace preferences persist for the same account and restore its preferr
     initialTasks: [fixtureTask(4801, "Preference survivor", "2026-11-23")],
   });
   await signIn(page);
-  const settings = page.getByRole("button", { name: "Workspace preferences" });
+  const settings = page.getByRole("button", { name: "Workspace settings" });
   await expect(settings).toBeEnabled();
   await settings.click();
   const dialog = page.getByRole("dialog", { name: "Workspace preferences" });
@@ -1089,7 +1089,7 @@ test("workspace preferences persist for the same account and restore its preferr
 test("preferences never carry into another verified account in the same browser", async ({ page, context }) => {
   await installMockApi(page, { accountEmail: "first@example.com" });
   await signIn(page);
-  await page.getByRole("button", { name: "Workspace preferences" }).click();
+  await page.getByRole("button", { name: "Workspace settings" }).click();
   const firstDialog = page.getByRole("dialog", { name: "Workspace preferences" });
   await firstDialog.getByLabel("Task list density").selectOption("compact");
   await firstDialog.getByLabel("Default view after sign-in").selectOption("calendar");
@@ -1099,9 +1099,9 @@ test("preferences never carry into another verified account in the same browser"
   const other = await context.newPage();
   await installMockApi(other, { accountEmail: "second@example.com" });
   await other.goto("/");
-  await expect(other.getByRole("button", { name: "Workspace preferences" })).toBeEnabled();
+  await expect(other.getByRole("button", { name: "Workspace settings" })).toBeEnabled();
   await expect(other.locator(".app.density-compact")).toHaveCount(0);
-  await other.getByRole("button", { name: "Workspace preferences" }).click();
+  await other.getByRole("button", { name: "Workspace settings" }).click();
   const otherDialog = other.getByRole("dialog", { name: "Workspace preferences" });
   await expect(otherDialog.getByLabel("Task list density")).toHaveValue("comfortable");
   await expect(otherDialog.getByLabel("Default view after sign-in")).toHaveValue("all");
@@ -1113,7 +1113,7 @@ test("workspace preferences modal supports Escape and fits a 320px mobile viewpo
   await page.setViewportSize({ width: 320, height: 690 });
   await installMockApi(page);
   await signIn(page);
-  const button = page.getByRole("button", { name: "Workspace preferences" });
+  const button = page.getByRole("button", { name: "Workspace settings" });
   await button.focus();
   await page.keyboard.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Workspace preferences" });
