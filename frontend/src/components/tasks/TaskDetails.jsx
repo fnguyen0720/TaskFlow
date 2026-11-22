@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import TaskActivityTimeline from "./TaskActivityTimeline.jsx";
 import TaskVersionHistory from "./TaskVersionHistory.jsx";
 
-export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest, onRestored, token, onUnauthorized }) {
+export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest, onRestored, token, onUnauthorized, projects = [], onAssignProject, assigningProject = false }) {
   const dialogRef = useRef(null);
   const headingRef = useRef(null);
   const previousFocusRef = useRef(null);
@@ -17,6 +17,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
     (task.checklist ?? []).map((item, key) => ({ ...item, key }))
   );
   const [saving, setSaving] = useState(false);
+  const [projectChoice, setProjectChoice] = useState(task.projectId == null ? "none" : String(task.projectId));
   const [error, setError] = useState("");
 
   const initialSnapshot = useRef(JSON.stringify({
@@ -95,6 +96,23 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
           <h2 id="task-detail-title" ref={headingRef} tabIndex={-1}>{task.title}</h2>
           <button type="button" disabled={saving} onClick={requestClose} aria-label="Close task details">×</button>
         </header>
+        <div className="task-project-assignment">
+          <label htmlFor="task-project-choice">Project</label>
+          <div className="task-project-assignment-row">
+            <select id="task-project-choice" value={projectChoice} disabled={saving || assigningProject || !onAssignProject}
+              onChange={event => setProjectChoice(event.target.value)}>
+              <option value="none">No project</option>
+              {projects.map(project => <option key={project.id} value={String(project.id)}>{project.name}</option>)}
+            </select>
+            <button type="button" disabled={saving || assigningProject || dirty ||
+                !onAssignProject || projectChoice === (task.projectId == null ? "none" : String(task.projectId))}
+              onClick={async () => {
+                const choice = projectChoice === "none" ? null : Number(projectChoice);
+                if (await onAssignProject(task, choice)) onClose();
+              }}>{assigningProject ? "Moving…" : "Move task"}</button>
+          </div>
+          {dirty && <p>Save or discard unsaved details before moving this task.</p>}
+        </div>
         <section className="task-detail-date">
           <div className="task-detail-date-heading">
             <label htmlFor={dueDateId}>Due date</label>
