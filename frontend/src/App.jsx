@@ -3,6 +3,7 @@ import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.
 import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
+import ViewPreferencesDialog from "./components/dashboard/ViewPreferencesDialog.jsx";
 import MobileBottomNav from "./components/dashboard/MobileBottomNav.jsx";
 import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
@@ -12,6 +13,7 @@ import TaskDetails from "./components/tasks/TaskDetails.jsx";
 import TaskPanel from "./components/tasks/TaskPanel.jsx";
 import { useAuth } from "./hooks/useAuth.js";
 import { useAccountIdentity } from "./hooks/useAccountIdentity.js";
+import { useViewPreferences } from "./hooks/useViewPreferences.js";
 import { useNotification } from "./hooks/useNotification.js";
 import { useTasks } from "./hooks/useTasks.js";
 import { useNotificationCenter } from "./hooks/useNotificationCenter.js";
@@ -26,6 +28,7 @@ function App() {
   const [detailDirty, setDetailDirty] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [quickCreateSignal, setQuickCreateSignal] = useState(0);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [view, setView] = useState("all");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -39,6 +42,7 @@ function App() {
   const handleUnauthorized = (requestToken) => clearAuth("expired", requestToken);
   const { notification, setNotification, showNotification } = useNotification();
   const accountIdentity = useAccountIdentity({ token, onUnauthorized: handleUnauthorized });
+  const viewPreferences = useViewPreferences({ token, accountIdentity });
   const notificationCenter = useNotificationCenter({ token, onUnauthorized: handleUnauthorized });
   const notificationSettings = useNotificationPreferences({ token, onUnauthorized: handleUnauthorized });
   const {
@@ -52,6 +56,11 @@ function App() {
     addingTask, pendingDeletes, pendingDeleteIds, retryFetchTasks,
     toggleTask, deleteTask, undoDelete, startEditing, editTask, addTask, saveDetails, rescheduleTask, undoMove, undoableMove, dismissMove,
   } = useTasks({ token, onUnauthorized: handleUnauthorized, showNotification });
+
+  useEffect(() => {
+    if (!token || viewPreferences.status !== "ready") return;
+    setView(viewPreferences.preferences.landingView);
+  }, [token, viewPreferences.status]);
 
   useEffect(() => {
     if (!token || recoveryScreen || detailId != null) return;
@@ -117,10 +126,16 @@ function App() {
     setNewReminder, setEditingId, setEditingError, setEditTitle, setEditPriority,
     setEditCategory, setEditDueDate, setEditRecurrence, setEditReminder]);
 
-  // Clear account-specific drafts and transient UI on any session change.
+  // Clear account-specific drafts, filters, and transient UI on a session change.
   useEffect(() => {
     clearDrafts();
     setNotification(null);
+    setPreferencesOpen(false);
+    setView("all");
+    setFilter("all");
+    setSearch("");
+    setSort("default");
+    setCategoryFilter("all");
   }, [token]);
 
   // Password reset links can arrive via same-tab hash navigation.
@@ -139,6 +154,7 @@ function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, [hasUnsavedWork, clearDrafts]);
 
+  const closePreferences = useCallback(() => setPreferencesOpen(false), []);
   const logout = () => {
     if (hasUnsavedWork && !window.confirm("Discard unsaved changes and log out?")) return;
     clearDrafts();
@@ -325,7 +341,7 @@ function App() {
 
 
   return (
-    <div className="app">
+    <div className={`app ${viewPreferences.preferences.density === "compact" ? "density-compact" : ""}`}>
       {notification && (
         <div className={"notification " + (notification.type === "error" ? "notification-error" : "notification-success")} role={notification.type === "error" ? "alert" : "status"}>
           <span>{notification.type === "error" ? "!" : "✓"}</span>
@@ -336,7 +352,8 @@ function App() {
       <EmailVerificationNotice token={token} />
       <DashboardHeader logout={logout} notifications={notifications}
         notificationCenter={notificationCenter} notificationSettings={notificationSettings}
-        accountIdentity={accountIdentity} onOpenTask={setDetailId} onOpenCommand={() => setCommandOpen(true)} />
+        accountIdentity={accountIdentity} onOpenTask={setDetailId} onOpenCommand={() => setCommandOpen(true)}
+        onOpenPreferences={() => setPreferencesOpen(true)} preferencesReady={viewPreferences.status === "ready"} />
       {(loading || readStatus === "pending") && !error ? (
         <section className="workspace-loading" role="status" aria-live="polite" aria-label="Loading workspace">
           <div className="workspace-loading-heading" />
@@ -356,6 +373,10 @@ function App() {
       {commandOpen && !detailTask && <CommandPalette tasks={visibleTasks}
         onClose={() => setCommandOpen(false)} onOpenTask={openTaskFromPalette}
         onChangeView={changeView} onQuickCreate={quickCreateFromPalette} />}
+      {preferencesOpen && viewPreferences.status === "ready" && (
+        <ViewPreferencesDialog preferences={viewPreferences.preferences} onSave={viewPreferences.update}
+          onClose={closePreferences} />
+      )}
       {detailTask && (
         <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
           token={token} onUnauthorized={handleUnauthorized}

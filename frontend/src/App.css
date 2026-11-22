@@ -1107,3 +1107,41 @@ html, body, #root {
     animation-duration:0.01ms !important;
   }
 }
+
+/* PR #48: per-browser workspace preferences. Existing task controls retain
+   their minimum touch sizes in both density modes. */
+.workspace-settings-button {
+  min-height:40px; padding:8px 12px; border:1px solid #393749;
+  border-radius:9px; color:#d7ceff; background:#1c1b2a;
+  cursor:pointer; font-size:12px;
+}
+.workspace-settings-button:hover { border-color:#a899ff; }
+.workspace-settings-button:disabled { opacity:.5; cursor:not-allowed; }
+.density-compact .task-list { gap:4px; }
+.density-compact .task-panel .task { min-height:50px; padding:7px 11px; gap:8px; }
+.view-settings-dialog {
+  width:min(460px,calc(100vw - 24px)); max-height:calc(100dvh - 24px);
+  margin:auto; padding:0; overflow:auto; border:1px solid #4a435f;
+  border-radius:15px; background:#1b1b29; color:#edeafa;
+  box-shadow:0 24px 70px #0009;
+}
+.view-settings-dialog::backdrop { background:rgba(0,0,0,.72); }
+.view-settings-form { display:grid; gap:18px; padding:24px; }
+.view-settings-header { display:flex; justify-content:space-between; align-items:start; gap:14px; }
+.view-settings-header h2 { margin:0; font-size:20px; }
+.view-settings-header p, .view-settings-note { margin:7px 0 0; color:#aaa6c1; font-size:12px; line-height:1.5; }
+.view-settings-header button { min-width:44px; min-height:44px; border:1px solid #514764; border-radius:9px; background:#272537; color:#edeafa; cursor:pointer; font-size:19px; }
+.view-settings-form label { display:grid; gap:8px; color:#e1dbee; font-size:13px; font-weight:600; }
+.view-settings-form select { min-height:44px; width:100%; padding:9px; border:1px solid #514764; border-radius:8px; background:#141522; color:#efebff; font:inherit; }
+.view-settings-actions { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+.view-settings-actions button { min-height:44px; padding:9px 15px; border:1px solid #544b76; border-radius:8px; background:#272537; color:#eee9ff; cursor:pointer; }
+.view-settings-actions button[type="submit"] { background:#6757cd; border-color:#6757cd; }
+.view-settings-error { margin:0; color:#f09aa9; font-size:12px; }
+.view-settings-dialog :is(button, select):focus-visible, .workspace-settings-button:focus-visible { outline:3px solid #cabaff; outline-offset:3px; }
+.view-settings-header h2:focus { outline:none; }
+@media(max-width:700px) { .dashboard-header-actions .workspace-settings-button { order:3; } }
+@media(max-width:600px) {
+  .view-settings-form { padding:16px; }
+  .density-compact .task-panel .task { min-height:56px; }
+}
+@media(prefers-reduced-motion:reduce) { .view-settings-dialog::backdrop { backdrop-filter:none; } }
