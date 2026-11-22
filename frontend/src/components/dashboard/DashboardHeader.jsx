@@ -19,7 +19,7 @@ export default function DashboardHeader({ logout, notifications, notificationCen
           ) : <span className="account-identity-pending">Checking account…</span>}
         </div>
         <button type="button" className="workspace-settings-button" onClick={onOpenPreferences}
-          disabled={!preferencesReady} aria-label="Workspace preferences">Preferences</button>
+          disabled={!preferencesReady} aria-label="Workspace settings">Settings</button>
         <button type="button" className="command-launcher" onClick={onOpenCommand} aria-label="Open search and commands">Search <kbd>⌘K</kbd></button>
         <NotificationCenter notifications={notifications} loading={notificationCenter.loading}
           error={notificationCenter.error} pending={notificationCenter.pending}
