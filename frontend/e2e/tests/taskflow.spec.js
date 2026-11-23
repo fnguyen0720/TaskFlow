@@ -302,10 +302,10 @@ test("nested subtask board reorders sibling groups by buttons and drag without l
   }
   await detail.getByRole("combobox", { name: "Parent step for step 2" }).selectOption({ label: "Parent A" });
   await detail.getByRole("button", { name: "Move step 3 up" }).click();
-  await expect(detail.locator(".task-detail-step > input:not([type])")).toHaveValues(["Parent B", "Parent A", "Child A"]);
+  expect(await detail.locator(".task-detail-step > input:not([type])").allInputValues()).toEqual(["Parent B", "Parent A", "Child A"]);
   await detail.getByRole("button", { name: "Drag step 2 to reorder" })
     .dragTo(detail.locator(".task-detail-step").first());
-  await expect(detail.locator(".task-detail-step > input:not([type])")).toHaveValues(["Parent A", "Child A", "Parent B"]);
+  expect(await detail.locator(".task-detail-step > input:not([type])").allInputValues()).toEqual(["Parent A", "Child A", "Parent B"]);
   await expect(detail.locator(".task-detail-step-nested")).toHaveCount(1);
   await detail.getByRole("button", { name: "Save details" }).click();
   await expect(detail).toHaveCount(0);
