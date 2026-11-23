@@ -162,7 +162,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                 <option value="Medium">Medium</option>
                 <option value="High">High</option>
               </select>
-              <input type="date" aria-label={`Due date for step ${index + 1}`}
+              <input type="date" aria-label={`Subtask deadline ${index + 1}`}
                 value={items[index].dueDate || ""}
                 onChange={event => updateItem(key, { dueDate: event.target.value || null })} />
               <select aria-label={`Parent step for step ${index + 1}`}
