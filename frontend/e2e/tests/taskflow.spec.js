@@ -275,6 +275,13 @@ test("advanced nested subtasks keep their priority, date and parent relationship
   await details.getByLabel("Subtask deadline 2").fill("2026-12-01");
   const parent = details.getByRole("combobox", { name: "Parent step for step 2" });
   await parent.selectOption({ label: "Test backend" });
+  await expect(details.getByLabel("Checklist progress")).toContainText("0 of 2 steps complete (0%)");
+  await expect(details.locator(".task-detail-step-nested")).toHaveCount(1);
+  await details.getByRole("checkbox", { name: "Complete step 1" }).check();
+  await expect(details.getByLabel("Checklist progress")).toContainText("1 of 2 steps complete (50%)");
+  await expect(details.getByRole("progressbar", { name: "Completed checklist steps" })).toHaveAttribute("value", "1");
+  // A step that already has children cannot itself become a nested step.
+  await expect(details.getByRole("combobox", { name: "Parent step for step 1" }).locator("option")).toHaveCount(1);
   await details.getByRole("button", { name: "Save details" }).click();
   await expect(details).toHaveCount(0);
   const steps = api.tasks[0].checklist;

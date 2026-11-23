@@ -1239,3 +1239,25 @@ html, body, #root {
   .task-detail-dialog .task-detail-step > select:last-of-type { grid-column: 2 / 4; }
   .task-detail-dialog .task-detail-step > button { grid-column: 3; }
 }
+
+
+/* Checklist completion overview and visual hierarchy for nested steps. */
+.task-step-progress {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 8px 0 14px;
+  font-size: 0.88rem;
+}
+.task-step-progress progress {
+  flex: 1 1 120px;
+  max-width: 210px;
+  height: 9px;
+  accent-color: var(--accent, #4178c8);
+}
+.task-detail-dialog .task-detail-step-nested {
+  margin-left: clamp(12px, 3vw, 28px);
+  border-left: 2px solid var(--border-color, #cbd5e1);
+  padding-left: 10px;
+}
