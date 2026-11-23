@@ -272,7 +272,7 @@ test("advanced nested subtasks keep their priority, date and parent relationship
   await details.getByRole("button", { name: "Add step" }).click();
   await details.getByRole("textbox", { name: "Step 2" }).fill("Verify database");
   await details.getByRole("combobox", { name: "Priority for step 2" }).selectOption("High");
-  await details.getByLabel("Due date for step 2").fill("2026-12-01");
+  await details.getByLabel("Subtask deadline 2").fill("2026-12-01");
   const parent = details.getByRole("combobox", { name: "Parent step for step 2" });
   await parent.selectOption({ label: "Test backend" });
   await details.getByRole("button", { name: "Save details" }).click();
