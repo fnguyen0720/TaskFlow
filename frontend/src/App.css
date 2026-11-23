@@ -1261,3 +1261,14 @@ html, body, #root {
   border-left: 2px solid var(--border-color, #cbd5e1);
   padding-left: 10px;
 }
+
+
+/* Month view drag affordance mirrors the weekly calendar, retaining the
+   keyboard-accessible date-picker fallback for touch and assistive input. */
+.month-task[draggable="true"] { cursor: grab; }
+.month-task[draggable="true"]:active { cursor: grabbing; }
+.month-day.month-day-drop-target {
+  border-color: #b3a3ff;
+  background: #302941;
+  box-shadow: inset 0 0 0 1px #b3a3ff;
+}
