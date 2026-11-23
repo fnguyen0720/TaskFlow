@@ -210,13 +210,15 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                 if (moving && moving.key !== key && moving.parentId === items[index].parentId) {
                   event.preventDefault();
                   event.dataTransfer.dropEffect = "move";
-                  setDragOverKey(key);
+                  setDragOverKey(current => current === key ? current : key);
                 }
               }}
               onDragLeave={() => setDragOverKey(current => current === key ? null : current)}
               onDrop={event => {
                 event.preventDefault();
-                if (dragStepRef.current != null) reorderStep(dragStepRef.current, key);
+                const from = dragStepRef.current ?? Number(event.dataTransfer.getData("text/plain"));
+                const moving = items.find(step => step.key === from);
+                if (moving && moving.parentId === items[index].parentId) reorderStep(from, key);
                 dragStepRef.current = null;
                 setDragOverKey(null);
               }}>
