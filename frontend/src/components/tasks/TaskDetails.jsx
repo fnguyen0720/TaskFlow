@@ -250,8 +250,14 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                 onClick={() => setItems(current => current.filter(item =>
                   item.key !== key && item.parentId !== items[index].id))}>×</button>
               <div className="task-step-order-controls">
-                <button type="button" className="task-step-drag-handle" draggable
+                <span className="task-step-drag-handle" role="button" tabIndex={0} draggable="true"
                   aria-label={`Drag step ${index + 1} to reorder`} title="Drag to reorder"
+                  onKeyDown={event => {
+                    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                      event.preventDefault();
+                      moveStepBy(key, event.key === "ArrowUp" ? -1 : 1);
+                    }
+                  }}
                   onDragStart={event => {
                     dragStepRef.current = key;
                     dragTargetRef.current = null;
@@ -267,7 +273,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                     dragStepRef.current = null;
                     dragTargetRef.current = null;
                     setDragOverKey(null);
-                  }}>⠿</button>
+                  }}>⠿</span>
                 <button type="button" aria-label={`Move step ${index + 1} up`}
                   disabled={!items.some((item, i) => i < index && item.parentId === items[index].parentId)}
                   onClick={() => moveStepBy(key, -1)}>↑</button>
