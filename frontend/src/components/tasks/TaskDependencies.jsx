@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
 // Dependency writes are separate from editable task notes. They always send
 // the last observed edge set, so another tab cannot silently overwrite it.
 export default function TaskDependencies({ task, tasks, token, onUnauthorized, onDirtyChange, disabled }) {
+  const onUnauthorizedRef = useRef(onUnauthorized);
+  onUnauthorizedRef.current = onUnauthorized;
   const [initial, setInitial] = useState(null);
   const [selected, setSelected] = useState([]);
   const [candidate, setCandidate] = useState("");
@@ -19,7 +21,7 @@ export default function TaskDependencies({ task, tasks, token, onUnauthorized, o
     fetch(`${API}/api/tasks/${task.id}/dependencies`, {
       headers: { Authorization: `Bearer ${token}` }, signal: controller.signal
     }).then(async response => {
-      if (response.status === 401) { onUnauthorized(token); return null; }
+      if (response.status === 401) { onUnauthorizedRef.current(token); return null; }
       if (!response.ok) throw new Error("Unable to load task dependencies.");
       return response.json();
     }).then(list => {
@@ -32,7 +34,7 @@ export default function TaskDependencies({ task, tasks, token, onUnauthorized, o
       if (!controller.signal.aborted) setError(err.message || "Unable to load dependencies.");
     });
     return () => controller.abort();
-  }, [task.id, token, onUnauthorized, refresh]);
+  }, [task.id, token, refresh]);
 
   const otherTasks = tasks.filter(t => Number.isInteger(t.id) && t.id !== task.id);
   const eligible = otherTasks.filter(t => !selected.includes(t.id));
@@ -53,7 +55,7 @@ export default function TaskDependencies({ task, tasks, token, onUnauthorized, o
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ dependsOnIds: selected, expectedDependsOnIds: initial })
       });
-      if (response.status === 401) { onUnauthorized(token); return; }
+      if (response.status === 401) { onUnauthorizedRef.current(token); return; }
       if (!response.ok) throw new Error(response.status === 409
         ? "Dependencies changed in another tab. Reload them before saving."
         : (await response.text()) || "Unable to save dependencies.");
