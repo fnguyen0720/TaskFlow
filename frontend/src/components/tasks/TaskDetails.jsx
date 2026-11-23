@@ -11,6 +11,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
   const dueHelpId = useId();
   const nextKey = useRef((task.checklist ?? []).length);
   const dragStepRef = useRef(null);
+  const dragTargetRef = useRef(null);
   const [dragOverKey, setDragOverKey] = useState(null);
   const [initialDueDate] = useState(task.dueDate?.slice(0, 10) ?? "");
   const [initialVersion] = useState(task.version ?? null);
@@ -210,6 +211,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                 if (moving && moving.key !== key && moving.parentId === items[index].parentId) {
                   event.preventDefault();
                   event.dataTransfer.dropEffect = "move";
+                  dragTargetRef.current = key;
                   setDragOverKey(current => current === key ? current : key);
                 }
               }}
@@ -220,6 +222,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                 const moving = items.find(step => step.key === from);
                 if (moving && moving.parentId === items[index].parentId) reorderStep(from, key);
                 dragStepRef.current = null;
+                dragTargetRef.current = null;
                 setDragOverKey(null);
               }}>
               <input type="checkbox" checked={completed} aria-label={`Complete step ${index + 1}`}
@@ -251,10 +254,20 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                   aria-label={`Drag step ${index + 1} to reorder`} title="Drag to reorder"
                   onDragStart={event => {
                     dragStepRef.current = key;
+                    dragTargetRef.current = null;
                     event.dataTransfer.effectAllowed = "move";
                     event.dataTransfer.setData("text/plain", String(key));
                   }}
-                  onDragEnd={() => { dragStepRef.current = null; setDragOverKey(null); }}>⠿</button>
+                  onDragEnd={() => {
+                    // Some browser input controls consume the drop event. Use the
+                    // last valid sibling target when the drag finishes instead.
+                    if (dragTargetRef.current != null && dragStepRef.current != null) {
+                      reorderStep(dragStepRef.current, dragTargetRef.current);
+                    }
+                    dragStepRef.current = null;
+                    dragTargetRef.current = null;
+                    setDragOverKey(null);
+                  }}>⠿</button>
                 <button type="button" aria-label={`Move step ${index + 1} up`}
                   disabled={!items.some((item, i) => i < index && item.parentId === items[index].parentId)}
                   onClick={() => moveStepBy(key, -1)}>↑</button>
