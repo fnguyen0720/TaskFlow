@@ -1,145 +1,128 @@
 # TaskFlow
 
-A full-stack task management application built with **React, JavaScript, ASP.NET Core, C#, and Entity Framework Core**.
+**A production-deployed, full-stack task and project management application** built with React, ASP.NET Core (.NET 10), Entity Framework Core, and PostgreSQL.
 
-TaskFlow helps users organize their tasks, manage priorities, track deadlines, and stay productive through a clean, interactive interface.
+TaskFlow supports daily task planning, project organization, recurring work, deadline visibility, and reliable task editing across devices. It is also an engineering portfolio project focused on secure multi-user APIs, database migrations, automated testing, and production operations.
 
-**[Live Demo](https://task-flow-pi-lake.vercel.app)** · **[GitHub Repository](https://github.com/fnguyen0720/TaskFlow)**
+**[Launch TaskFlow](https://task-flow-pi-lake.vercel.app)** · **[Source code](https://github.com/fnguyen0720/TaskFlow)**
 
-## Application Preview
+## Preview
 
-### Task Dashboard
+| Dashboard | Authentication |
+| --- | --- |
+| ![Task dashboard](docs/images/taskflow-dashboard.png) | ![Sign-in screen](docs/images/taskflow-login.png) |
 
-![TaskFlow dashboard](docs/images/taskflow-dashboard.png)
+> Screenshots may not show the latest UI. The live app contains the current feature set. Create your own account to explore your private workspace.
 
-### User Authentication
+## What you can do
 
-![TaskFlow login page](docs/images/taskflow-login.png)
+### Organize tasks and projects
+- Create, edit, complete, and delete tasks; undo accidental deletion during the short recovery window.
+- Assign priorities, categories, due dates, notes, and checklist items.
+- Create and rename private projects, see project progress, filter by project, and move tasks between projects.
+- Create a task directly inside the currently selected project; ungrouped tasks remain supported.
+- Search, sort, and filter work by status, schedule, category, and project.
+- Use All, Today, Upcoming, Unscheduled, and calendar views; view dashboard statistics and current-snapshot productivity insights.
 
-## Features
+### Plan and navigate
+- Schedule recurring tasks and manage reminder and notification preferences.
+- Use weekly and monthly calendars, including drag-and-drop scheduling in the week view and accessible date-based moves.
+- Open the command palette with **Ctrl/⌘ + K** to search and navigate quickly.
+- Use a responsive mobile layout, keyboard-friendly dialogs, accessible focus states, and an installable **online-only PWA**. Offline task editing and synchronization are **not** supported.
 
-- **User authentication** — Register an account, sign in, and log out.
-- **Task management** — Create, edit, complete, and delete tasks, with an 8-second Undo window for accidental deletion.
-- **Task priorities** — Organize tasks by High, Medium, and Low priority.
-- **Due dates** — Set deadlines and track upcoming or overdue tasks.
-- **Search and filtering** — Find tasks and filter them by status or category.
-- **Sorting** — Organize tasks by completion, priority, and due date.
-- **Dashboard statistics** — View task progress at a glance.
-- **User-specific data access** — Protect task endpoints and restrict users to their own tasks.
-- **Input validation** — Validate titles, priorities, and categories on the backend; ignore forged task ownership/identity fields.
-- **API security controls** — Rate-limit ASP.NET Core Identity endpoints and allow browser access only from explicitly trusted CORS origins.
-- **Automated API tests** — Test API behavior, validation, authentication, and task ownership.
-- **Automated frontend tests** — Validate due-date calculations, authentication errors, and Undo deletion behavior.
+### Edit with confidence
+- Preserve unsaved task drafts across many navigation and save-failure scenarios; show clear retry and discard options.
+- Detect stale edits and reject conflicting writes rather than silently overwriting newer task data.
+- View a private activity timeline for task changes.
+- Compare historical task snapshots and restore a previous version with confirmation and conflict checks.
+- Load larger workspaces using bounded API pagination and incremental list rendering.
+- Verify signed-in account identity and distinguish loading failures from genuinely empty workspaces.
 
-## Tech Stack
+### Account and security features
+- Account registration, sign-in, sign-out, and authenticated Bearer-token API requests.
+- ASP.NET Core Identity, owner-scoped queries, and backend ownership validation for tasks, projects, history, and preferences.
+- Input validation, rate limiting on identity endpoints, and explicit trusted-origin CORS configuration.
+- Provider-gated password recovery and email verification interfaces. **Email delivery and public recovery availability depend on verified operator configuration; do not assume they are enabled.**
+- In-app notification center with configurable overdue, due-today, and upcoming alerts.
 
-| Technology | Purpose |
-|---|---|
-| React | Frontend user interface |
-| JavaScript | Frontend logic |
-| ASP.NET Core Minimal APIs (.NET 10) | Backend REST API |
-| C# | Backend application logic |
-| Entity Framework Core | Database access and ORM |
-| SQLite | Local development database |
-| PostgreSQL | Production relational database |
-| ASP.NET Core Identity | User authentication |
-| xUnit | Automated backend testing |
-| Vercel | Frontend hosting |
-| Render | Backend API and database hosting |
-| Git and GitHub | Version control and source hosting |
+> **In development:** Task dependencies and more advanced nested subtasks are currently proposed in [PR #55](https://github.com/fnguyen0720/TaskFlow/pull/55). They are not represented here as released features.
+
+## Technology stack
+
+| Layer | Technologies |
+| --- | --- |
+| Frontend | React, JavaScript, Vite, CSS |
+| Backend | C#, ASP.NET Core Minimal APIs (.NET 10), ASP.NET Core Identity |
+| Data | Entity Framework Core, SQLite (local), PostgreSQL (production) |
+| Testing | xUnit API/integration tests, frontend unit tests, Playwright browser tests |
+| Delivery | GitHub Actions CI, Vercel (frontend), Render (API and PostgreSQL) |
+| Operations | Production smoke checks, synthetic latency sampling, security/dependency audits, documented recovery procedures |
 
 ## Architecture
 
-TaskFlow separates the frontend, backend, and database into distinct layers.
-
-### Production Architecture
-
 ```text
-React Frontend
-     |
-     | HTTPS requests + Bearer tokens
-     v
-ASP.NET Core REST API
-     |
-     | Entity Framework Core
-     v
-PostgreSQL Database
+Browser / installable online-only PWA
+              |
+              | HTTPS + Bearer token
+              v
+React + Vite frontend (Vercel)
+              |
+              | authenticated REST requests
+              v
+ASP.NET Core Minimal API (.NET 10) (Render)
+   | ASP.NET Core Identity + owner checks
+   | task/project/history/notification endpoints
+   v
+Entity Framework Core
+   |                     |
+   v                     v
+SQLite (local)      PostgreSQL (production)
 ```
 
-### Local Development Architecture
+The server—not the browser—establishes account ownership and validates cross-resource operations. PostgreSQL production changes use reviewed additive EF Core migrations and an explicit migration allowlist. The application is not a shared/team collaboration product; projects and task data are scoped to individual accounts.
 
-```text
-React Frontend (Vite)
-     |
-     | HTTP requests + Bearer tokens
-     v
-ASP.NET Core REST API
-     |
-     | Entity Framework Core
-     v
-SQLite Database
-```
+## Engineering highlights
 
-The frontend communicates with the backend through HTTP requests. ASP.NET Core Identity handles authentication, while authorization ensures users can only access and modify their own tasks.
+- **Concurrency safety:** conditional task updates and version-aware restoration detect stale writes.
+- **Account isolation:** authorization and ownership checks protect records across tasks, projects, version history, activities, and settings.
+- **Data preservation:** additive schema changes and tests prioritize retaining existing task records and compatible clients.
+- **Resilience:** request cancellation/session guards, error recovery, preserved drafts, and explicit empty/loading/error states.
+- **Testing:** API integration, PostgreSQL isolation, frontend unit, and Playwright browser regression suites run through dedicated GitHub Actions workflows.
+- **Operations:** automated smoke checks and read-only synthetic latency measurements. A **disposable CI-only PostgreSQL dump/restore rehearsal** tests recovery logic; this is **not evidence that production backups are configured or verified**.
 
-Entity Framework Core manages database operations, allowing the application to use SQLite locally and PostgreSQL in production.
+Further implementation notes are in [docs/](docs/), including [projects](docs/projects-and-grouping.md), [version history](docs/task-version-history.md), [edit conflicts](docs/task-edit-conflicts.md), [recurring tasks](docs/recurring-tasks.md), [account recovery](docs/account-recovery.md), and [backup readiness](docs/backup-and-recovery.md).
 
-## Production Deployment
-
-TaskFlow is deployed using the following services:
-
-| Service | Platform | Responsibility |
-|---|---|---|
-| Frontend | Vercel | Hosts the React application |
-| Backend | Render | Hosts the ASP.NET Core API |
-| Database | Render PostgreSQL | Stores user accounts and tasks |
-
-The frontend communicates with the production API over HTTPS. Authenticated requests include Bearer tokens, and the backend enforces user-specific authorization.
-
-Production configuration is managed through environment variables rather than hardcoded credentials.
-
-**Live Application:** [https://task-flow-pi-lake.vercel.app](https://task-flow-pi-lake.vercel.app)
-
-## Getting Started
+## Run locally
 
 ### Prerequisites
-
-Install the following:
-
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Node.js](https://nodejs.org/)
-- [Git](https://git-scm.com/)
+- [Node.js and npm](https://nodejs.org/)
+- Git
+- EF Core CLI (`dotnet-ef`) for database migrations
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/fnguyen0720/TaskFlow.git
 cd TaskFlow
 ```
 
-### 2. Start the backend
+### 2. Configure and start the API
 
-Open a terminal:
+Use the development connection-string and trusted frontend-origin settings described in `backend/TaskFlow.Api/appsettings.Development.json` and [backend security notes](docs/backend-security-hardening.md). Never commit real secrets.
 
 ```bash
 cd backend/TaskFlow.Api
 dotnet restore
+dotnet ef database update --context TaskDbContext
 dotnet run
 ```
 
-The local backend uses SQLite through its configured connection string in `appsettings.json`.
-
-Apply the SQLite migrations from `backend/TaskFlow.Api` before starting the updated API.
-
-```bash
-dotnet ef database update --context TaskDbContext
-```
-
-For a PostgreSQL deployment, apply the matching migration with `PostgreSqlTaskDbContext` and the deployment's `TASKFLOW_POSTGRES_CONNECTION` configured before releasing the updated API. Existing tasks start with empty notes and checklists.
+Local development uses SQLite. Production uses the separate `PostgreSqlTaskDbContext` and a `TASKFLOW_POSTGRES_CONNECTION` value configured on the server. **Do not apply local-development commands or migrations to a production database.**
 
 ### 3. Start the frontend
 
-Open a second terminal from the repository root:
+In another terminal, from the repository root:
 
 ```bash
 cd frontend
@@ -147,58 +130,41 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite in the terminal.
+Open the URL printed by Vite. Match the frontend API base URL and backend CORS allowed origins to your local setup. Vercel preview origins must be explicitly permitted by the API when testing end to end.
 
-The frontend API URL and backend CORS configuration must match your local development settings. Production CORS allows only exact trusted origins; if you test a Vercel preview, you must explicitly allowlist its origin in the Render backend configuration. See [Backend security and deployment notes](docs/backend-security-hardening.md).
-
-## Testing
-
-The backend includes automated API integration tests using xUnit and a custom web application factory.
-
-Run the tests from the repository root:
+## Test and verify
 
 ```bash
+# From repository root: backend tests
 dotnet test backend/TaskFlow.Api.Tests/TaskFlow.Api.Tests.csproj
-```
 
-Frontend unit tests also run in CI. From the repository root:
-
-```bash
+# Frontend checks
 cd frontend
 npm ci
 npm test
-npm run build
 npm run lint
+npm run build
 ```
 
-Dependency audits run in a separate GitHub Actions workflow for npm and NuGet packages. The production-only npm audit is enforced; development-tool advisories are recorded and tracked in `docs/security-review-2026-11-18.md`.
+Playwright browser suites and real PostgreSQL integration checks are also configured in `.github/workflows/`. See the relevant workflow definitions and `frontend/e2e/` for their execution commands and test environment requirements.
 
-The API test suite is also executed in CI. A dedicated backend workflow verifies authentication throttling, trusted-origin CORS, input validation, and task ownership.
+## Deployment and operational safeguards
 
-## Project Goals
+| Component | Hosting |
+| --- | --- |
+| React web client | Vercel |
+| ASP.NET Core API | Render |
+| PostgreSQL | Render |
 
-TaskFlow was built to develop practical full-stack engineering skills, including:
+Runtime configuration is supplied via environment variables, not hardcoded production credentials. Production workflows include read-only smoke checks, failure alerting, and latency sampling. The recovery documentation clearly distinguishes test-only restore rehearsals from real production backup verification.
 
-- Designing and implementing REST API endpoints.
-- Building an interactive React frontend.
-- Connecting a frontend to a backend.
-- Modeling relational data with Entity Framework Core.
-- Implementing authentication and user-specific authorization.
-- Validating requests and handling API errors.
-- Writing automated integration tests.
-- Configuring and deploying a full-stack application.
-- Managing source code with Git and GitHub.
+## Roadmap
 
-## Future Improvements
-
-- Expand browser-level end-to-end testing and automate release smoke tests.
-- Implement password recovery.
-- Improve application monitoring and structured logging.
-- Add pagination for larger task collections.
-- Improve session expiration and token-refresh handling.
+- Complete and validate [task dependencies and advanced subtasks](https://github.com/fnguyen0720/TaskFlow/pull/55).
+- Continue expanding accessibility and cross-browser regression coverage.
+- Improve operational visibility and verify production backup practices.
+- Extend performance and user experience for larger datasets.
 
 ## Author
 
-**Felix Nguyen**
-
-[GitHub Profile](https://github.com/fnguyen0720)
+**Felix Nguyen** · [GitHub](https://github.com/fnguyen0720) · [LinkedIn](https://www.linkedin.com/in/felix-nguyen-41abb2373/)
