@@ -19,6 +19,8 @@ TaskFlow supports daily task planning, project organization, recurring work, dea
 ### Organize tasks and projects
 - Create, edit, complete, and delete tasks; undo accidental deletion during the short recovery window.
 - Assign priorities, categories, due dates, notes, and checklist items.
+- Link tasks to prerequisite tasks. Incomplete prerequisites block completion, and circular or cross-account dependencies are rejected by the API.
+- Organize richer checklist subtasks with one level of nesting, individual priority and due date, completion status, and stable identifiers.
 - Create and rename private projects, see project progress, filter by project, and move tasks between projects.
 - Create a task directly inside the currently selected project; ungrouped tasks remain supported.
 - Search, sort, and filter work by status, schedule, category, and project.
@@ -44,8 +46,6 @@ TaskFlow supports daily task planning, project organization, recurring work, dea
 - Input validation, rate limiting on identity endpoints, and explicit trusted-origin CORS configuration.
 - Provider-gated password recovery and email verification interfaces. **Email delivery and public recovery availability depend on verified operator configuration; do not assume they are enabled.**
 - In-app notification center with configurable overdue, due-today, and upcoming alerts.
-
-> **In development:** Task dependencies and more advanced nested subtasks are currently proposed in [PR #55](https://github.com/fnguyen0720/TaskFlow/pull/55). They are not represented here as released features.
 
 ## Technology stack
 
@@ -83,12 +83,14 @@ The server—not the browser—establishes account ownership and validates cross
 
 ## Engineering highlights
 
-- **Concurrency safety:** conditional task updates and version-aware restoration detect stale writes.
-- **Account isolation:** authorization and ownership checks protect records across tasks, projects, version history, activities, and settings.
+- **Concurrency safety:** conditional task updates and version-aware restoration detect stale writes. Dependency editing checks the previously observed links to prevent silent stale overwrites.
+- **Account isolation:** authorization and ownership checks protect records across tasks, projects, dependencies, version history, activities, and settings.
 - **Data preservation:** additive schema changes and tests prioritize retaining existing task records and compatible clients.
 - **Resilience:** request cancellation/session guards, error recovery, preserved drafts, and explicit empty/loading/error states.
 - **Testing:** API integration, PostgreSQL isolation, frontend unit, and Playwright browser regression suites run through dedicated GitHub Actions workflows.
 - **Operations:** automated smoke checks and read-only synthetic latency measurements. A **disposable CI-only PostgreSQL dump/restore rehearsal** tests recovery logic; this is **not evidence that production backups are configured or verified**.
+
+Task dependencies and advanced nested subtasks were introduced in [PR #55](https://github.com/fnguyen0720/TaskFlow/pull/55). The CI suites and read-only production smoke checks passed at merge; production task-count preservation was not independently verified.
 
 Further implementation notes are in [docs/](docs/), including [projects](docs/projects-and-grouping.md), [version history](docs/task-version-history.md), [edit conflicts](docs/task-edit-conflicts.md), [recurring tasks](docs/recurring-tasks.md), [account recovery](docs/account-recovery.md), and [backup readiness](docs/backup-and-recovery.md).
 
@@ -160,7 +162,7 @@ Runtime configuration is supplied via environment variables, not hardcoded produ
 
 ## Roadmap
 
-- Complete and validate [task dependencies and advanced subtasks](https://github.com/fnguyen0720/TaskFlow/pull/55).
+- Improve task dependency and nested subtask usability, including progress visibility and more comprehensive browser coverage.
 - Continue expanding accessibility and cross-browser regression coverage.
 - Improve operational visibility and verify production backup practices.
 - Extend performance and user experience for larger datasets.
