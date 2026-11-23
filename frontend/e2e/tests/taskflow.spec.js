@@ -303,8 +303,17 @@ test("nested subtask board reorders sibling groups by buttons and drag without l
   await detail.getByRole("combobox", { name: "Parent step for step 2" }).selectOption({ label: "Parent A" });
   await detail.getByRole("button", { name: "Move step 3 up" }).click();
   expect(await detail.locator(".task-detail-step > input:not([type])").evaluateAll(inputs => inputs.map(input => input.value))).toEqual(["Parent B", "Parent A", "Child A"]);
+  await page.evaluate(() => {
+    window.__subtaskDragEvents = [];
+    for (const type of ["dragstart", "dragenter", "dragover", "drop", "dragend"]) {
+      document.addEventListener(type, event => window.__subtaskDragEvents.push({ type,
+        key: event.target.closest?.(".task-detail-step")?.dataset.stepKey ?? null,
+      }), true);
+    }
+  });
   await detail.getByRole("button", { name: "Drag step 2 to reorder" })
     .dragTo(detail.locator(".task-detail-step").first(), { targetPosition: { x: 8, y: 6 } });
+  console.log("SUBTASK DRAG EVENTS", JSON.stringify(await page.evaluate(() => window.__subtaskDragEvents)));
   await expect.poll(() => detail.locator(".task-detail-step > input:not([type])").evaluateAll(inputs => inputs.map(input => input.value))).toEqual(["Parent A", "Child A", "Parent B"]);
   await expect(detail.locator(".task-detail-step-nested")).toHaveCount(1);
   await detail.getByRole("button", { name: "Save details" }).click();
