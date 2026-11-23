@@ -500,6 +500,32 @@ test("month mode reschedules through keyboard-accessible date input", async ({ p
   await expect(month.getByRole("region", { name: "Friday, November 20, 2026" })).toContainText("Monthly move");
 });
 
+test("month view drag reschedules task to another day and ignores its original date", async ({ page }) => {
+  const api = await installMockApi(page, { initialTasks: [fixtureTask(309, "Drag monthly", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ }).click();
+  await page.getByRole("group", { name: "Calendar display" }).getByRole("button", { name: "Month" }).click();
+  const month = page.getByRole("region", { name: "Monthly task calendar" });
+  const originalDay = month.getByRole("region", { name: "Thursday, November 19, 2026" });
+  const destination = month.getByRole("region", { name: "Friday, November 20, 2026" });
+  await originalDay.locator(".month-task").dragTo(destination);
+  await expect.poll(() => api.calls.filter(call => call.pathname === "/api/tasks/309/due-date").length).toBe(1);
+  await expect(destination).toContainText("Drag monthly");
+  await expect(originalDay).not.toContainText("Drag monthly");
+  await destination.locator(".month-task").dragTo(destination);
+  expect(api.calls.filter(call => call.pathname === "/api/tasks/309/due-date")).toHaveLength(1);
+});
+
+test("month view keeps the date picker available for keyboard rescheduling", async ({ page }) => {
+  await installMockApi(page, { initialTasks: [fixtureTask(310, "Accessible monthly move", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Calendar/ }).click();
+  await page.getByRole("group", { name: "Calendar display" }).getByRole("button", { name: "Month" }).click();
+  const month = page.getByRole("region", { name: "Monthly task calendar" });
+  await month.getByRole("button", { name: "Move Accessible monthly move to date" }).click();
+  await expect(month.locator("#month-move-310")).toBeVisible();
+});
+
 test("weekly date jump from PR12 selects a distant week and fits mobile", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 750 });
   await installMockApi(page, { initialTasks: [fixtureTask(304, "Future target", "2027-01-01")] });
