@@ -10,6 +10,8 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
   const dueDateId = useId();
   const dueHelpId = useId();
   const nextKey = useRef((task.checklist ?? []).length);
+  const dragStepRef = useRef(null);
+  const [dragOverKey, setDragOverKey] = useState(null);
   const [initialDueDate] = useState(task.dueDate?.slice(0, 10) ?? "");
   const [initialVersion] = useState(task.version ?? null);
   const [dueDate, setDueDate] = useState(initialDueDate);
@@ -69,6 +71,46 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
 
   function updateItem(key, changes) {
     setItems(current => current.map(item => item.key === key ? { ...item, ...changes } : item));
+  }
+
+  // Only reorder siblings. Moving a parent also moves its children as one block.
+  function reorderStep(sourceKey, targetKey, position = "before") {
+    setItems(current => {
+      const source = current.find(item => item.key === sourceKey);
+      const target = current.find(item => item.key === targetKey);
+      if (!source || !target || source.key === target.key || source.parentId !== target.parentId) return current;
+      const siblings = current.filter(item => item.parentId === source.parentId);
+      const from = siblings.findIndex(item => item.key === sourceKey);
+      const to = siblings.findIndex(item => item.key === targetKey);
+      const reordered = [...siblings];
+      const [moving] = reordered.splice(from, 1);
+      const insertion = reordered.findIndex(item => item.key === targetKey);
+      reordered.splice(insertion + (position === "after" ? 1 : 0), 0, moving);
+      if (reordered.every((item, index) => item.key === siblings[index].key)) return current;
+      const siblingsByParent = new Map();
+      for (const item of current) {
+        const parent = item.parentId ?? null;
+        if (!siblingsByParent.has(parent)) siblingsByParent.set(parent, []);
+        siblingsByParent.get(parent).push(item);
+      }
+      siblingsByParent.set(source.parentId ?? null, reordered);
+      const ordered = [];
+      for (const root of siblingsByParent.get(null) ?? []) {
+        ordered.push(root);
+        ordered.push(...(siblingsByParent.get(root.id) ?? []));
+      }
+      return ordered.length === current.length ? ordered : current;
+    });
+    setError("");
+  }
+
+  function moveStepBy(key, delta) {
+    const item = items.find(step => step.key === key);
+    if (!item) return;
+    const siblings = items.filter(step => step.parentId === item.parentId);
+    const index = siblings.findIndex(step => step.key === key);
+    const adjacent = siblings[index + delta];
+    if (adjacent) reorderStep(key, adjacent.key, delta < 0 ? "before" : "after");
   }
 
   function addItem() {
@@ -158,8 +200,26 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
             {items.length > 0 && <progress max={items.length} value={completedSteps} aria-label="Completed checklist steps" />}
             {nestedSteps > 0 && <span>{nestedSteps} nested {nestedSteps === 1 ? "step" : "steps"}</span>}
           </div>
+          <p className="task-step-order-help">Drag a step by its handle, or use Move up and Move down. Parent steps move with their children.</p>
           {items.map(({ key, text, completed }, index) => (
-            <div key={key} className={`task-detail-step${items[index].parentId ? " task-detail-step-nested" : ""}`}>
+            <div key={key}
+              data-step-key={key}
+              className={`task-detail-step${items[index].parentId ? " task-detail-step-nested" : ""}${dragOverKey === key ? " task-detail-step-drop-target" : ""}`}
+              onDragOver={event => {
+                const moving = items.find(step => step.key === dragStepRef.current);
+                if (moving && moving.key !== key && moving.parentId === items[index].parentId) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  setDragOverKey(key);
+                }
+              }}
+              onDragLeave={() => setDragOverKey(current => current === key ? null : current)}
+              onDrop={event => {
+                event.preventDefault();
+                if (dragStepRef.current != null) reorderStep(dragStepRef.current, key);
+                dragStepRef.current = null;
+                setDragOverKey(null);
+              }}>
               <input type="checkbox" checked={completed} aria-label={`Complete step ${index + 1}`}
                 onChange={event => { updateItem(key, { completed: event.target.checked }); setError(""); }} />
               <input value={text} onChange={event => { updateItem(key, { text: event.target.value }); setError(""); }}
@@ -184,6 +244,22 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
               <button type="button" aria-label={`Remove step ${index + 1}`}
                 onClick={() => setItems(current => current.filter(item =>
                   item.key !== key && item.parentId !== items[index].id))}>×</button>
+              <div className="task-step-order-controls">
+                <button type="button" className="task-step-drag-handle" draggable
+                  aria-label={`Drag step ${index + 1} to reorder`} title="Drag to reorder"
+                  onDragStart={event => {
+                    dragStepRef.current = key;
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", String(key));
+                  }}
+                  onDragEnd={() => { dragStepRef.current = null; setDragOverKey(null); }}>⠿</button>
+                <button type="button" aria-label={`Move step ${index + 1} up`}
+                  disabled={!items.some((item, i) => i < index && item.parentId === items[index].parentId)}
+                  onClick={() => moveStepBy(key, -1)}>↑</button>
+                <button type="button" aria-label={`Move step ${index + 1} down`}
+                  disabled={!items.some((item, i) => i > index && item.parentId === items[index].parentId)}
+                  onClick={() => moveStepBy(key, 1)}>↓</button>
+              </div>
             </div>
           ))}
           <button type="button" onClick={addItem} disabled={items.length >= 30}>Add step</button>
