@@ -10,8 +10,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
   const dueDateId = useId();
   const dueHelpId = useId();
   const nextKey = useRef((task.checklist ?? []).length);
-  const dragStepRef = useRef(null);
-  const dragTargetRef = useRef(null);
+  const pointerCleanupRef = useRef(null);
   const [dragOverKey, setDragOverKey] = useState(null);
   const [initialDueDate] = useState(task.dueDate?.slice(0, 10) ?? "");
   const [initialVersion] = useState(task.version ?? null);
@@ -114,6 +113,53 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
     if (adjacent) reorderStep(key, adjacent.key, delta < 0 ? "before" : "after");
   }
 
+  function startStepDrag(event, sourceKey) {
+    if (event.button !== 0 || saving) return;
+    event.preventDefault();
+    event.currentTarget.focus();
+    pointerCleanupRef.current?.();
+    const originX = event.clientX;
+    const originY = event.clientY;
+    const source = items.find(item => item.key === sourceKey);
+    let active = false;
+    let targetKey = null;
+
+    const onMove = move => {
+      if (move.pointerId !== event.pointerId) return;
+      if (!active && Math.hypot(move.clientX - originX, move.clientY - originY) < 6) return;
+      active = true;
+      const row = document.elementFromPoint(move.clientX, move.clientY)?.closest("[data-step-key]");
+      const key = row ? Number(row.dataset.stepKey) : null;
+      const target = items.find(item => item.key === key);
+      targetKey = target && source && target.key !== source.key &&
+        target.parentId === source.parentId ? key : null;
+      setDragOverKey(targetKey);
+    };
+    const cleanup = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onCancel);
+      setDragOverKey(null);
+      pointerCleanupRef.current = null;
+    };
+    const onUp = up => {
+      if (up.pointerId !== event.pointerId) return;
+      const target = targetKey;
+      cleanup();
+      if (active && target != null) reorderStep(sourceKey, target);
+    };
+    const onCancel = cancel => {
+      if (cancel.pointerId !== event.pointerId) return;
+      cleanup();
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onCancel);
+    pointerCleanupRef.current = cleanup;
+  }
+
+  useEffect(() => () => pointerCleanupRef.current?.(), []);
+
   function addItem() {
     const key = nextKey.current++;
     setItems(current => [...current, { key, id: crypto.randomUUID(), parentId: null, text: "", completed: false, priority: "Medium", dueDate: null }]);
@@ -206,25 +252,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
             <div key={key}
               data-step-key={key}
               className={`task-detail-step${items[index].parentId ? " task-detail-step-nested" : ""}${dragOverKey === key ? " task-detail-step-drop-target" : ""}`}
-              onDragOver={event => {
-                const moving = items.find(step => step.key === dragStepRef.current);
-                if (moving && moving.key !== key && moving.parentId === items[index].parentId) {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                  dragTargetRef.current = key;
-                  setDragOverKey(current => current === key ? current : key);
-                }
-              }}
-              onDragLeave={() => setDragOverKey(current => current === key ? null : current)}
-              onDrop={event => {
-                event.preventDefault();
-                const from = dragStepRef.current ?? Number(event.dataTransfer.getData("text/plain"));
-                const moving = items.find(step => step.key === from);
-                if (moving && moving.parentId === items[index].parentId) reorderStep(from, key);
-                dragStepRef.current = null;
-                dragTargetRef.current = null;
-                setDragOverKey(null);
-              }}>
+              >
               <input type="checkbox" checked={completed} aria-label={`Complete step ${index + 1}`}
                 onChange={event => { updateItem(key, { completed: event.target.checked }); setError(""); }} />
               <input value={text} onChange={event => { updateItem(key, { text: event.target.value }); setError(""); }}
@@ -250,29 +278,14 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                 onClick={() => setItems(current => current.filter(item =>
                   item.key !== key && item.parentId !== items[index].id))}>×</button>
               <div className="task-step-order-controls">
-                <span className="task-step-drag-handle" role="button" tabIndex={0} draggable="true"
-                  aria-label={`Drag step ${index + 1} to reorder`} title="Drag to reorder"
+                <span className="task-step-drag-handle" role="button" tabIndex={0}
+                  aria-label={`Drag step ${index + 1} to reorder`} title="Drag or use arrow keys to reorder"
+                  onPointerDown={event => startStepDrag(event, key)}
                   onKeyDown={event => {
                     if (event.key === "ArrowUp" || event.key === "ArrowDown") {
                       event.preventDefault();
                       moveStepBy(key, event.key === "ArrowUp" ? -1 : 1);
                     }
-                  }}
-                  onDragStart={event => {
-                    dragStepRef.current = key;
-                    dragTargetRef.current = null;
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("text/plain", String(key));
-                  }}
-                  onDragEnd={() => {
-                    // Some browser input controls consume the drop event. Use the
-                    // last valid sibling target when the drag finishes instead.
-                    if (dragTargetRef.current != null && dragStepRef.current != null) {
-                      reorderStep(dragStepRef.current, dragTargetRef.current);
-                    }
-                    dragStepRef.current = null;
-                    dragTargetRef.current = null;
-                    setDragOverKey(null);
                   }}>⠿</span>
                 <button type="button" aria-label={`Move step ${index + 1} up`}
                   disabled={!items.some((item, i) => i < index && item.parentId === items[index].parentId)}
