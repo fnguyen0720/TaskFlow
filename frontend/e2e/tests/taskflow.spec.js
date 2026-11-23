@@ -244,6 +244,45 @@ test("logout and explicit discard require confirmation for new task draft", asyn
   await expect(page.getByRole("textbox", { name: "New task title" })).toHaveValue("");
 });
 
+test("task dependency editor persists prerequisites and refuses circular links", async ({ page }) => {
+  const api = await installMockApi(page, { initialTasks: [
+    fixtureTask(701, "Write specification", "2026-11-19"),
+    fixtureTask(702, "Ship feature", "2026-11-20"),
+  ] });
+  await signIn(page);
+  await page.getByRole("button", { name: "Ship feature", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Ship feature" });
+  await details.getByRole("combobox", { name: "Select prerequisite task" }).selectOption("701");
+  await details.getByRole("button", { name: "Add", exact: true }).click();
+  await details.getByRole("button", { name: "Save dependencies" }).click();
+  await expect(details.getByText("Write specification", { exact: false })).toBeVisible();
+  expect(api.calls.some(call => call.pathname === "/api/tasks/702/dependencies" &&
+    call.method === "PUT" && call.body.dependsOnIds.includes(701))).toBe(true);
+});
+
+test("advanced nested subtasks keep their priority, date and parent relationship", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(703, "Prepare release", "2026-11-19")],
+  });
+  await signIn(page);
+  await page.getByRole("button", { name: "Prepare release", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Prepare release" });
+  await details.getByRole("button", { name: "Add step" }).click();
+  await details.getByRole("textbox", { name: "Step 1" }).fill("Test backend");
+  await details.getByRole("button", { name: "Add step" }).click();
+  await details.getByRole("textbox", { name: "Step 2" }).fill("Verify database");
+  await details.getByRole("combobox", { name: "Priority for step 2" }).selectOption("High");
+  await details.getByLabel("Subtask deadline 2").fill("2026-12-01");
+  const parent = details.getByRole("combobox", { name: "Parent step for step 2" });
+  await parent.selectOption({ label: "Test backend" });
+  await details.getByRole("button", { name: "Save details" }).click();
+  await expect(details).toHaveCount(0);
+  const steps = api.tasks[0].checklist;
+  expect(steps).toHaveLength(2);
+  expect(steps[1]).toMatchObject({ text: "Verify database", priority: "High",
+    dueDate: "2026-12-01", parentId: steps[0].id });
+});
+
 test("task details protect changed notes and checklist from accidental close", async ({ page }) => {
   const api = await installMockApi(page, {
     initialTasks: [fixtureTask(55, "Keep notes", "2026-11-19")],

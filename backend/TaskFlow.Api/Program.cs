@@ -410,6 +410,77 @@ app.MapPut("/api/tasks/{id:int}/project", async (
     return Results.Ok(updated);
 }).RequireAuthorization();
 
+// Dependencies are per-account edges. A client cannot link to another account's
+// tasks or create a directed cycle. Expected set guards against stale editors.
+app.MapGet("/api/tasks/{id:int}/dependencies", async (
+    int id, ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    if (!await db.Tasks.AnyAsync(t => t.Id == id && t.UserId == userId))
+        return Results.NotFound();
+    var ids = await db.TaskDependencies.AsNoTracking()
+        .Where(d => d.TaskId == id)
+        .Join(db.Tasks.Where(t => t.UserId == userId), d => d.DependsOnTaskId,
+            t => t.Id, (d, t) => new { t.Id, t.Title, t.Completed })
+        .OrderBy(t => t.Id).ToListAsync();
+    return Results.Ok(ids);
+}).RequireAuthorization();
+
+app.MapPut("/api/tasks/{id:int}/dependencies", async (
+    int id, TaskDependenciesUpdate request, ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    if (request.DependsOnIds is null || request.ExpectedDependsOnIds is null ||
+        request.DependsOnIds.Count > 50 || request.ExpectedDependsOnIds.Count > 50 ||
+        request.DependsOnIds.Any(x => x <= 0 || x == id) ||
+        request.DependsOnIds.Distinct().Count() != request.DependsOnIds.Count)
+        return Results.BadRequest("Select at most 50 distinct dependencies, excluding this task.");
+
+    await using var transaction = await db.Database.BeginTransactionAsync(
+        System.Data.IsolationLevel.Serializable);
+    var ownedIds = await db.Tasks.AsNoTracking().Where(t => t.UserId == userId)
+        .Select(t => t.Id).ToListAsync();
+    var owned = ownedIds.ToHashSet();
+    if (!owned.Contains(id)) return Results.NotFound();
+    if (request.DependsOnIds.Any(x => !owned.Contains(x))) return Results.NotFound();
+
+    var links = await db.TaskDependencies.AsNoTracking()
+        .Where(d => ownedIds.Contains(d.TaskId) && ownedIds.Contains(d.DependsOnTaskId))
+        .ToListAsync();
+    var previous = links.Where(d => d.TaskId == id)
+        .Select(d => d.DependsOnTaskId).OrderBy(x => x).ToArray();
+    if (!previous.SequenceEqual(request.ExpectedDependsOnIds.OrderBy(x => x)))
+        return Results.Conflict("Dependencies changed elsewhere. Reload before saving.");
+
+    // Search from each proposed prerequisite: if it can already reach the task,
+    // adding this edge would make a circular dependency.
+    var graph = links.Where(d => d.TaskId != id)
+        .GroupBy(d => d.TaskId)
+        .ToDictionary(g => g.Key, g => g.Select(d => d.DependsOnTaskId).ToArray());
+    foreach (var prerequisite in request.DependsOnIds)
+    {
+        var stack = new Stack<int>();
+        var seen = new HashSet<int>();
+        stack.Push(prerequisite);
+        while (stack.Count > 0)
+        {
+            var node = stack.Pop();
+            if (node == id)
+                return Results.BadRequest("Circular task dependencies are not allowed.");
+            if (seen.Add(node) && graph.TryGetValue(node, out var parents))
+                foreach (var parent in parents) stack.Push(parent);
+        }
+    }
+
+    var oldLinks = await db.TaskDependencies.Where(d => d.TaskId == id).ToListAsync();
+    db.TaskDependencies.RemoveRange(oldLinks);
+    db.TaskDependencies.AddRange(request.DependsOnIds.Select(other =>
+        new TaskDependency { TaskId = id, DependsOnTaskId = other }));
+    await db.SaveChangesAsync();
+    await transaction.CommitAsync();
+    return Results.Ok(new { DependsOnIds = request.DependsOnIds.OrderBy(x => x) });
+}).RequireAuthorization();
+
 // GET: All legacy clients still receive their complete account-specific task list.
 // New clients can request bounded pages, maintaining the same global sort order.
 // Stable Id tie-breaking prevents nondeterministic boundaries for equal-priority dates.
@@ -593,8 +664,7 @@ app.MapPost("/api/tasks/{id:int}/restore", async (
         p.Id == saved.ProjectId.Value && p.UserId == userId))
         return Results.BadRequest("The saved project is no longer available.");
     if (validationError is not null || candidate.Notes.Length > 4000 ||
-        candidate.Checklist.Count > 30 ||
-        candidate.Checklist.Any(step => string.IsNullOrWhiteSpace(step.Text) || step.Text.Length > 160))
+        !TaskChecklistValidation.IsValid(candidate.Checklist))
         return Results.BadRequest("Saved version is not valid for restoration.");
 
     await using var transaction = await db.Database.BeginTransactionAsync();
@@ -682,6 +752,13 @@ app.MapPut("/api/tasks/{id}", async (
     var task = await db.Tasks.AsNoTracking().FirstOrDefaultAsync(
         t => t.Id == id && t.UserId == userId);
     if (task is null) return Results.NotFound();
+
+    if (!task.Completed && await db.TaskDependencies.AsNoTracking()
+        .Where(d => d.TaskId == id)
+        .Join(db.Tasks.Where(t => t.UserId == userId && !t.Completed),
+            d => d.DependsOnTaskId, t => t.Id, (d, t) => t.Id)
+        .AnyAsync())
+        return Results.Conflict("Complete prerequisite tasks before finishing this task.");
 
     if (task.Completed)
     {
@@ -795,8 +872,7 @@ app.MapPut("/api/tasks/{id}/details", async (
 
     var notes = details.Notes ?? "";
     var checklist = details.Checklist ?? [];
-    if (notes.Length > 4000 || checklist.Count > 30 ||
-        checklist.Any(item => item is null || string.IsNullOrWhiteSpace(item.Text) || item.Text.Length > 160))
+    if (notes.Length > 4000 || !TaskChecklistValidation.IsValid(checklist))
         return Results.BadRequest("Notes are limited to 4,000 characters and checklists to 30 items of 160 characters each.");
 
     var checklistJson = JsonSerializer.Serialize(checklist.Select(item => item! with { Text = item!.Text.Trim() }));

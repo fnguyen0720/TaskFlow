@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import TaskActivityTimeline from "./TaskActivityTimeline.jsx";
 import TaskVersionHistory from "./TaskVersionHistory.jsx";
+import TaskDependencies from "./TaskDependencies.jsx";
 
-export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest, onRestored, token, onUnauthorized, projects = [], onAssignProject, assigningProject = false }) {
+export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onReloadLatest, onRestored, token, onUnauthorized, tasks = [], projects = [], onAssignProject, assigningProject = false }) {
   const dialogRef = useRef(null);
   const headingRef = useRef(null);
   const previousFocusRef = useRef(null);
@@ -14,22 +15,31 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
   const [dueDate, setDueDate] = useState(initialDueDate);
   const [notes, setNotes] = useState(task.notes ?? "");
   const [items, setItems] = useState(() =>
-    (task.checklist ?? []).map((item, key) => ({ ...item, key }))
+    (task.checklist ?? []).map((item, key) => ({
+      ...item, key, id: item.id || crypto.randomUUID(),
+      parentId: item.parentId ?? null,
+      priority: item.priority ?? "Medium",
+      dueDate: item.dueDate ?? null,
+    }))
   );
   const [saving, setSaving] = useState(false);
+  const [dependenciesDirty, setDependenciesDirty] = useState(false);
   const [projectChoice, setProjectChoice] = useState(task.projectId == null ? "none" : String(task.projectId));
   const [error, setError] = useState("");
 
+  const normalizedSteps = steps => steps.map(({ text, completed, id, parentId, priority, dueDate }) =>
+    ({ text, completed, id, parentId, priority, dueDate }));
   const initialSnapshot = useRef(JSON.stringify({
     dueDate: task.dueDate?.slice(0, 10) ?? "",
     notes: task.notes ?? "",
-    checklist: (task.checklist ?? []).map(({ text, completed }) => ({ text, completed })),
+    checklist: normalizedSteps(items),
   }));
-  const dirty = JSON.stringify({
+  const detailsDirty = JSON.stringify({
     dueDate,
     notes,
-    checklist: items.map(({ text, completed }) => ({ text, completed })),
+    checklist: normalizedSteps(items),
   }) !== initialSnapshot.current;
+  const dirty = detailsDirty || dependenciesDirty;
 
   useEffect(() => {
     onDirtyChange(dirty);
@@ -60,12 +70,16 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
 
   function addItem() {
     const key = nextKey.current++;
-    setItems(current => [...current, { key, text: "", completed: false }]);
+    setItems(current => [...current, { key, id: crypto.randomUUID(), parentId: null, text: "", completed: false, priority: "Medium", dueDate: null }]);
   }
 
   async function submit(event) {
     event.preventDefault();
     if (saving || items.some(item => !item.text.trim())) return;
+    if (dependenciesDirty) {
+      setError("Save or discard your dependency changes before saving task details.");
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -75,7 +89,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
         expectedVersion: initialVersion,
         updateDueDate: dueDate !== initialDueDate,
         dueDate: dueDate || null,
-        checklist: items.map(({ text, completed }) => ({ text: text.trim(), completed })),
+        checklist: normalizedSteps(items).map(item => ({ ...item, text: item.text.trim() })),
       });
       onClose();
     } catch (error) {
@@ -142,8 +156,26 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                 onChange={event => { updateItem(key, { completed: event.target.checked }); setError(""); }} />
               <input value={text} onChange={event => { updateItem(key, { text: event.target.value }); setError(""); }}
                 aria-label={`Step ${index + 1}`} maxLength={160} required />
+              <select aria-label={`Priority for step ${index + 1}`} value={items[index].priority}
+                onChange={event => updateItem(key, { priority: event.target.value })}>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </select>
+              <input type="date" aria-label={`Subtask deadline ${index + 1}`}
+                value={items[index].dueDate || ""}
+                onChange={event => updateItem(key, { dueDate: event.target.value || null })} />
+              <select aria-label={`Parent step for step ${index + 1}`}
+                value={items[index].parentId || ""}
+                onChange={event => updateItem(key, { parentId: event.target.value || null })}>
+                <option value="">Top-level step</option>
+                {items.filter(other => other.id !== items[index].id && !other.parentId &&
+                  other.parentId !== items[index].id).map(other =>
+                  <option key={other.id} value={other.id}>{other.text || "Untitled step"}</option>)}
+              </select>
               <button type="button" aria-label={`Remove step ${index + 1}`}
-                onClick={() => setItems(current => current.filter(item => item.key !== key))}>×</button>
+                onClick={() => setItems(current => current.filter(item =>
+                  item.key !== key && item.parentId !== items[index].id))}>×</button>
             </div>
           ))}
           <button type="button" onClick={addItem} disabled={items.length >= 30}>Add step</button>
@@ -158,6 +190,8 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
         {!error && (saving || dirty) && <p className="task-detail-save-status" role="status">
           {saving ? "Saving your changes…" : "Unsaved changes — review and save when ready."}
         </p>}
+        <TaskDependencies task={task} tasks={tasks} token={token}
+          onUnauthorized={onUnauthorized} disabled={detailsDirty || saving} onDirtyChange={setDependenciesDirty} />
         <TaskActivityTimeline taskId={task.id} token={token} onUnauthorized={onUnauthorized} />
         <TaskVersionHistory task={task} token={token} onUnauthorized={onUnauthorized}
           onRestored={onRestored} disabled={dirty || saving} />

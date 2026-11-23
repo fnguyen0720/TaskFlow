@@ -240,6 +240,15 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                     b.ToTable("TaskActivities");
                 });
 
+            modelBuilder.Entity("TaskDependency", b =>
+                {
+                    b.Property<int>("TaskId").HasColumnType("integer");
+                    b.Property<int>("DependsOnTaskId").HasColumnType("integer");
+                    b.HasKey("TaskId", "DependsOnTaskId");
+                    b.HasIndex("DependsOnTaskId");
+                    b.ToTable("TaskDependencies", t => t.HasCheckConstraint("CK_TaskDependencies_NoSelf", "\"TaskId\" <> \"DependsOnTaskId\""));
+                });
+
             modelBuilder.Entity("TaskProject", b =>
                 {
                     b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("integer");
@@ -397,6 +406,17 @@ namespace TaskFlow.Api.Migrations.PostgreSql
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TaskDependency", b =>
+                {
+                    b.HasOne("TaskItem", null).WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                    b.HasOne("TaskItem", null).WithMany()
+                        .HasForeignKey("DependsOnTaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
             modelBuilder.Entity("TaskItem", b =>
                 {
                     b.HasOne("TaskProject", null).WithMany()

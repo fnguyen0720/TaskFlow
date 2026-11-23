@@ -395,7 +395,7 @@ function App() {
           onClose={closePreferences} />
       )}
       {detailTask && (
-        <TaskDetails key={detailTask.id} task={detailTask} onSave={saveDetails}
+        <TaskDetails key={detailTask.id} task={detailTask} tasks={visibleTasks} onSave={saveDetails}
           token={token} onUnauthorized={handleUnauthorized}
           projects={projects.status === "ready" ? projects.projects : []}
           onAssignProject={projects.assignProject} assigningProject={projects.assigningId === detailTask.id}

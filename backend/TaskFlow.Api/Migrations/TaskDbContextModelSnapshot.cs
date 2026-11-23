@@ -230,6 +230,15 @@ namespace TaskFlow.Api.Migrations
                     b.ToTable("TaskActivities");
                 });
 
+            modelBuilder.Entity("TaskDependency", b =>
+                {
+                    b.Property<int>("TaskId").HasColumnType("INTEGER");
+                    b.Property<int>("DependsOnTaskId").HasColumnType("INTEGER");
+                    b.HasKey("TaskId", "DependsOnTaskId");
+                    b.HasIndex("DependsOnTaskId");
+                    b.ToTable("TaskDependencies", t => t.HasCheckConstraint("CK_TaskDependencies_NoSelf", "\"TaskId\" <> \"DependsOnTaskId\""));
+                });
+
             modelBuilder.Entity("TaskProject", b =>
                 {
                     b.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER");
@@ -383,6 +392,17 @@ namespace TaskFlow.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("TaskDependency", b =>
+                {
+                    b.HasOne("TaskItem", null).WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                    b.HasOne("TaskItem", null).WithMany()
+                        .HasForeignKey("DependsOnTaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
             modelBuilder.Entity("TaskItem", b =>
                 {
                     b.HasOne("TaskProject", null).WithMany()

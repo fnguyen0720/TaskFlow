@@ -14,6 +14,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
   const activities = [];
   const versions = [];
   const projects = [];
+  const dependencies = new Map();
   let nextProjectId = 1;
   let nextVersionId = 1;
   function snapshot(task) {
@@ -24,7 +25,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       recurrenceRule: task.recurrenceRule ?? "None",
       reminderDaysBefore: task.reminderDaysBefore ?? null,
       notes: task.notes ?? "",
-      checklistJson: JSON.stringify((task.checklist ?? []).map(({ text, completed }) => ({ text, completed }))),
+      checklistJson: JSON.stringify(task.checklist ?? []),
       projectId: task.projectId ?? null
     };
   }
@@ -126,6 +127,37 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       const limit = Number(query.get("limit") ?? tasks.length);
       if (!Number.isInteger(offset) || offset < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) return respond(400, {});
       return respond(200, tasks.slice(offset, offset + limit));
+    }
+    const deps = /^\/api\/tasks\/(\d+)\/dependencies$/.exec(pathname);
+    if (deps) {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      const id = Number(deps[1]);
+      if (!tasks.some(task => task.id === id)) return respond(404, {});
+      const current = dependencies.get(id) || [];
+      if (method === "GET")
+        return respond(200, current.map(other => tasks.find(t => t.id === other))
+          .filter(Boolean).map(t => ({ id: t.id, title: t.title, completed: t.completed })));
+      if (method === "PUT") {
+        if (!Array.isArray(body.dependsOnIds) || !Array.isArray(body.expectedDependsOnIds))
+          return respond(400, {});
+        if (JSON.stringify([...current].sort()) !== JSON.stringify([...body.expectedDependsOnIds].sort()))
+          return respond(409, {});
+        if (body.dependsOnIds.some(other => !tasks.some(t => t.id === other)))
+          return respond(404, {});
+        if (body.dependsOnIds.includes(id)) return respond(400, {});
+        const graph = new Map(dependencies);
+        graph.set(id, body.dependsOnIds);
+        function reaches(node, target, visited = new Set()) {
+          if (node === target) return true;
+          if (visited.has(node)) return false;
+          visited.add(node);
+          return (graph.get(node) || []).some(other => reaches(other, target, visited));
+        }
+        if (body.dependsOnIds.some(other => reaches(other, id)))
+          return respond(400, "Circular task dependencies are not allowed.");
+        dependencies.set(id, [...body.dependsOnIds]);
+        return respond(200, { dependsOnIds: [...body.dependsOnIds] });
+      }
     }
     const versionRoute = /^\/api\/tasks\/(\d+)\/versions$/.exec(pathname);
     if (versionRoute && method === "GET") {
