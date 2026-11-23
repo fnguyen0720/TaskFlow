@@ -40,6 +40,9 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
     checklist: normalizedSteps(items),
   }) !== initialSnapshot.current;
   const dirty = detailsDirty || dependenciesDirty;
+  const completedSteps = items.filter(item => item.completed).length;
+  const progressPercent = items.length ? Math.round((completedSteps / items.length) * 100) : 0;
+  const nestedSteps = items.filter(item => item.parentId).length;
 
   useEffect(() => {
     onDirtyChange(dirty);
@@ -150,8 +153,13 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
         </label>
         <fieldset className="task-detail-checklist" disabled={saving}>
           <legend>Checklist</legend>
+          <div className="task-step-progress" aria-label="Checklist progress">
+            <span>{items.length ? `${completedSteps} of ${items.length} steps complete (${progressPercent}%)` : "No steps yet"}</span>
+            {items.length > 0 && <progress max={items.length} value={completedSteps} aria-label="Completed checklist steps" />}
+            {nestedSteps > 0 && <span>{nestedSteps} nested {nestedSteps === 1 ? "step" : "steps"}</span>}
+          </div>
           {items.map(({ key, text, completed }, index) => (
-            <div key={key} className="task-detail-step">
+            <div key={key} className={`task-detail-step${items[index].parentId ? " task-detail-step-nested" : ""}`}>
               <input type="checkbox" checked={completed} aria-label={`Complete step ${index + 1}`}
                 onChange={event => { updateItem(key, { completed: event.target.checked }); setError(""); }} />
               <input value={text} onChange={event => { updateItem(key, { text: event.target.value }); setError(""); }}
@@ -170,7 +178,7 @@ export default function TaskDetails({ task, onSave, onClose, onDirtyChange, onRe
                 onChange={event => updateItem(key, { parentId: event.target.value || null })}>
                 <option value="">Top-level step</option>
                 {items.filter(other => other.id !== items[index].id && !other.parentId &&
-                  other.parentId !== items[index].id).map(other =>
+                  !items.some(child => child.parentId === other.id && child.id !== items[index].id)).map(other =>
                   <option key={other.id} value={other.id}>{other.text || "Untitled step"}</option>)}
               </select>
               <button type="button" aria-label={`Remove step ${index + 1}`}
