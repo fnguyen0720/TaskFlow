@@ -9,6 +9,25 @@ export default function MonthlyCalendar({ tasks, onOpenTask, onAddTask, adding, 
   const [monthOffset, setMonthOffset] = useState(0);
   const [movingId, setMovingId] = useState(null);
   const [moveDate, setMoveDate] = useState("");
+  const [draggedTask, setDraggedTask] = useState(null);
+  const [dropDate, setDropDate] = useState(null);
+
+  function finishDrag() {
+    setDraggedTask(null);
+    setDropDate(null);
+  }
+
+  function canDrop(date) {
+    return draggedTask && !loadingTask && draggedTask.dueDate?.slice(0, 10) !== date;
+  }
+
+  function dropTask(event, date) {
+    if (!canDrop(date)) return;
+    event.preventDefault();
+    const taskId = draggedTask.id;
+    finishDrag();
+    onRescheduleTask(taskId, date);
+  }
   const { month, days } = getMonthDays(tasks, new Date(), monthOffset);
   const visibleCount = days.filter(day => day.inMonth).reduce((sum, day) => sum + day.tasks.length, 0);
 
@@ -32,15 +51,27 @@ export default function MonthlyCalendar({ tasks, onOpenTask, onAddTask, adding, 
           <button type="button" aria-label="Next month" onClick={() => setMonthOffset(value => value + 1)}>›</button>
         </div>
       </div>
-      <p className="calendar-guidance">Open a task to see details, use Move to reschedule, or add a task to a chosen date.</p>
+      <p className="calendar-guidance">Drag a task to another day, open it for details, or use Move to reschedule with a date picker.</p>
       <div className="month-grid-scroll" role="region" aria-label="Scrollable month grid" tabIndex="0">
       <div className="month-grid" role="group" aria-label="Month days">
         {weekdayLabels.map(label => <div key={label} className="month-weekday" aria-hidden="true">{label}</div>)}
         {days.map(day => {
           const key = formatDateForInput(day.date);
           return (
-            <section key={key} className={"month-day" + (day.inMonth ? "" : " month-day-outside")}
-              aria-label={fullFormat.format(day.date)}>
+            <section key={key} data-month-date={key}
+              className={"month-day" + (day.inMonth ? "" : " month-day-outside") + (dropDate === key ? " month-day-drop-target" : "")}
+              aria-label={fullFormat.format(day.date)}
+              onDragOver={event => {
+                if (!canDrop(key)) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                setDropDate(key);
+              }}
+              onDragLeave={event => {
+                if (!event.currentTarget.contains(event.relatedTarget))
+                  setDropDate(current => current === key ? null : current);
+              }}
+              onDrop={event => dropTask(event, key)}>
               <div className="month-day-header">
                 <span aria-current={day.isToday ? "date" : undefined}>{day.date.getDate()}</span>
                 <button type="button" disabled={adding}
@@ -50,7 +81,15 @@ export default function MonthlyCalendar({ tasks, onOpenTask, onAddTask, adding, 
               <ul>
                 {day.tasks.slice(0, 3).map(task => {
                   const busy = loadingTask?.id === task.id || String(task.id).startsWith("temp-");
-                  return <li key={task.id} className="month-task">
+                  return <li key={task.id} className="month-task"
+                    draggable={!busy && !loadingTask}
+                    onDragStart={event => {
+                      if (busy || loadingTask) { event.preventDefault(); return; }
+                      event.dataTransfer.effectAllowed = "move";
+                      event.dataTransfer.setData("text/plain", String(task.id));
+                      setDraggedTask(task);
+                    }}
+                    onDragEnd={finishDrag}>
                     <button type="button" disabled={busy} className={task.completed ? "month-task-title done" : "month-task-title"}
                       onClick={() => onOpenTask(task.id)} aria-haspopup="dialog"
                       aria-label={task.title + (task.completed ? ", completed" : "")}>{task.title}</button>
