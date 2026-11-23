@@ -1289,5 +1289,12 @@ html, body, #root {
 }
 .task-detail-dialog .task-step-order-controls button:disabled { opacity: .4; cursor: not-allowed; }
 .task-detail-dialog .task-step-order-controls button:focus-visible { outline: 3px solid #cabaff; outline-offset: 2px; }
-.task-detail-dialog .task-step-drag-handle { cursor: grab; touch-action: none; }
+.task-detail-dialog .task-step-drag-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 36px; min-width: 40px; box-sizing: border-box;
+  border: 1px solid #58516c; border-radius: 8px;
+  background: #252237; color: inherit;
+  cursor: grab; touch-action: none; user-select: none;
+}
+.task-detail-dialog .task-step-drag-handle:focus-visible { outline: 3px solid #cabaff; outline-offset: 2px; }
 .task-detail-dialog .task-step-drag-handle:active { cursor: grabbing; }
