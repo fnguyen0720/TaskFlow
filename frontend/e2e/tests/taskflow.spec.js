@@ -304,8 +304,8 @@ test("nested subtask board reorders sibling groups by buttons and drag without l
   await detail.getByRole("button", { name: "Move step 3 up" }).click();
   expect(await detail.locator(".task-detail-step > input:not([type])").evaluateAll(inputs => inputs.map(input => input.value))).toEqual(["Parent B", "Parent A", "Child A"]);
   await detail.getByRole("button", { name: "Drag step 2 to reorder" })
-    .dragTo(detail.locator(".task-detail-step").first());
-  expect(await detail.locator(".task-detail-step > input:not([type])").evaluateAll(inputs => inputs.map(input => input.value))).toEqual(["Parent A", "Child A", "Parent B"]);
+    .dragTo(detail.locator(".task-detail-step").first(), { targetPosition: { x: 8, y: 6 } });
+  await expect.poll(() => detail.locator(".task-detail-step > input:not([type])").evaluateAll(inputs => inputs.map(input => input.value))).toEqual(["Parent A", "Child A", "Parent B"]);
   await expect(detail.locator(".task-detail-step-nested")).toHaveCount(1);
   await detail.getByRole("button", { name: "Save details" }).click();
   await expect(detail).toHaveCount(0);
