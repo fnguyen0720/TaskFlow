@@ -290,6 +290,29 @@ test("advanced nested subtasks keep their priority, date and parent relationship
     dueDate: "2026-12-01", parentId: steps[0].id });
 });
 
+test("nested subtask board reorders sibling groups by buttons and drag without losing children", async ({ page }) => {
+  const api = await installMockApi(page, { initialTasks: [fixtureTask(704, "Order the release", "2026-11-19")] });
+  await signIn(page);
+  await page.getByRole("button", { name: "Order the release", exact: true }).click();
+  const detail = page.getByRole("dialog", { name: "Order the release" });
+  for (const title of ["Parent A", "Child A", "Parent B"]) {
+    await detail.getByRole("button", { name: "Add step" }).click();
+    const inputs = detail.locator(".task-detail-step > input:not([type])");
+    await inputs.last().fill(title);
+  }
+  await detail.getByRole("combobox", { name: "Parent step for step 2" }).selectOption({ label: "Parent A" });
+  await detail.getByRole("button", { name: "Move step 3 up" }).click();
+  expect(await detail.locator(".task-detail-step > input:not([type])").evaluateAll(inputs => inputs.map(input => input.value))).toEqual(["Parent B", "Parent A", "Child A"]);
+  await detail.getByRole("button", { name: "Drag step 2 to reorder" })
+    .dragTo(detail.locator(".task-detail-step").first(), { targetPosition: { x: 8, y: 6 } });
+  await expect.poll(() => detail.locator(".task-detail-step > input:not([type])").evaluateAll(inputs => inputs.map(input => input.value))).toEqual(["Parent A", "Child A", "Parent B"]);
+  await expect(detail.locator(".task-detail-step-nested")).toHaveCount(1);
+  await detail.getByRole("button", { name: "Save details" }).click();
+  await expect(detail).toHaveCount(0);
+  expect(api.tasks[0].checklist.map(item => item.text)).toEqual(["Parent A", "Child A", "Parent B"]);
+  expect(api.tasks[0].checklist[1].parentId).toBe(api.tasks[0].checklist[0].id);
+});
+
 test("task details protect changed notes and checklist from accidental close", async ({ page }) => {
   const api = await installMockApi(page, {
     initialTasks: [fixtureTask(55, "Keep notes", "2026-11-19")],

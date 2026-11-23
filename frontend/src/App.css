@@ -1261,3 +1261,40 @@ html, body, #root {
   border-left: 2px solid var(--border-color, #cbd5e1);
   padding-left: 10px;
 }
+
+
+/* PR #59: accessible sibling-aware reordering within the checklist. */
+.task-step-order-help { margin: 4px 0 10px; font-size: .83rem; opacity: .83; line-height: 1.4; }
+.task-detail-dialog .task-detail-step-drop-target {
+  outline: 2px dashed #cabaff;
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+.task-detail-dialog .task-detail-step > .task-step-order-controls {
+  grid-column: 2 / -1;
+  grid-row: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.task-detail-dialog .task-step-order-controls button {
+  min-height: 36px;
+  min-width: 40px;
+  border: 1px solid #58516c;
+  border-radius: 8px;
+  background: #252237;
+  color: inherit;
+  cursor: pointer;
+}
+.task-detail-dialog .task-step-order-controls button:disabled { opacity: .4; cursor: not-allowed; }
+.task-detail-dialog .task-step-order-controls button:focus-visible { outline: 3px solid #cabaff; outline-offset: 2px; }
+.task-detail-dialog .task-step-drag-handle {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 36px; min-width: 40px; box-sizing: border-box;
+  border: 1px solid #58516c; border-radius: 8px;
+  background: #252237; color: inherit;
+  cursor: grab; touch-action: none; user-select: none;
+}
+.task-detail-dialog .task-step-drag-handle:focus-visible { outline: 3px solid #cabaff; outline-offset: 2px; }
+.task-detail-dialog .task-step-drag-handle:active { cursor: grabbing; }
