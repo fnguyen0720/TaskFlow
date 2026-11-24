@@ -1,6 +1,6 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingUnauthorizedReads = unauthorizedTaskReads;
   let remainingFailedLogins = failLoginAttempts;
@@ -112,6 +112,20 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         record(task.id, "edited");
       }
       return respond(200, task);
+    }
+    if (pathname === "/api/analytics/coach/capabilities" && method === "GET") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      return respond(200, { available: aiCoachEnabled, provider: "OpenAI",
+        sends: "Only anonymized aggregate counts and a server-validated insight code" });
+    }
+    if (pathname === "/api/analytics/coach/explain" && method === "POST") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (!["steady", "busy-week", "overdue-ready", "shared-prerequisite",
+        "blocked-deadline", "recent-activity"].includes(body?.insightId)) return respond(400, {});
+      if (!aiCoachEnabled) return respond(503, {});
+      if (failAiCoach) return respond(502, {});
+      return respond(200, { insightId: body.insightId, analysis: "ai-explanation",
+        isSuggestion: true, explanation: "Review current workload and prioritize one prerequisite." });
     }
     if (pathname === "/api/analytics/bottlenecks" && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
