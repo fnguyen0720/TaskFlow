@@ -473,6 +473,44 @@ test("AI provider errors never replace rule-based recommendations", async ({ pag
   await expect(insights).toContainText("No major bottlenecks detected");
 });
 
+test("progression awards XP once per different task and shows achievements", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(700, "Motivation task", "2026-11-19")],
+    initialActivities: [
+      { id: 1, taskId: 700, kind: "completed", occurredAt: "2026-11-19T08:00:00Z" },
+      { id: 2, taskId: 700, kind: "reopened", occurredAt: "2026-11-19T09:00:00Z" },
+      { id: 3, taskId: 700, kind: "completed", occurredAt: "2026-11-19T10:00:00Z" }
+    ]
+  });
+  await signIn(page);
+  const panel = page.getByRole("region", { name: "Progress and achievements" });
+  await expect(panel).toContainText("25 XP");
+  await expect(panel).toContainText("1 different tasks completed");
+  await expect(panel.getByRole("progressbar", { name: "Level progress" }))
+    .toHaveAttribute("aria-valuenow", "25");
+  await panel.getByRole("button", { name: "Show achievements" }).click();
+  await expect(panel.getByRole("region", { name: "Seven-day quest" })).toContainText("1 of 5 completed");
+  const awards = panel.getByRole("region", { name: "Achievements" });
+  await expect(awards).toContainText("First Step");
+  await expect(awards).toContainText("Unlocked");
+  await expect(awards).toContainText("1 / 10");
+  await expect(panel).toContainText("No leaderboard or streak penalties");
+  expect(api.calls.filter(call => call.method !== "GET" &&
+    call.pathname.startsWith("/api/tasks"))).toHaveLength(0);
+});
+
+test("empty progression remains truthful on narrow mobile screens", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 750 });
+  await installMockApi(page);
+  await signIn(page);
+  const panel = page.getByRole("region", { name: "Progress and achievements" });
+  await expect(panel).toContainText("0 XP");
+  await panel.getByRole("button", { name: "Show achievements" }).click();
+  await expect(panel).toContainText("0 / 1");
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(width).toBeLessThanOrEqual(320);
+});
+
 test("bottleneck coach explains blockers, opens the related task and never changes data", async ({ page }) => {
   const task = fixtureTask(650, "Shared blocker", "2026-11-19");
   const api = await installMockApi(page, {
