@@ -91,6 +91,8 @@ builder.Services
 // signing in until verified-address enforcement is separately rolled out.
 builder.Services.AddSingleton<AccountEmailDelivery>();
 builder.Services.AddHttpClient<TaskFlowIdentityEmailSender>();
+// Optional inference is opt-in and disabled unless both the flag and server key are set.
+builder.Services.AddHttpClient("ai-coach", client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddTransient<Microsoft.AspNetCore.Identity.IEmailSender<ApplicationUser>>(
     sp => sp.GetRequiredService<TaskFlowIdentityEmailSender>());
 builder.Services.Configure<Microsoft.AspNetCore.Identity.DataProtectionTokenProviderOptions>(
@@ -189,6 +191,19 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 12,
                 Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            }));
+
+    // Cost protection for optional external inference. The untrusted client cannot
+    // supply the partition key. Never use X-Forwarded-For directly.
+    options.AddPolicy("ai-coach", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: "ai:" + AuthClientIpPartition.GetKey(context, false),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
                 QueueLimit = 0,
                 AutoReplenishment = true
             }));
@@ -757,6 +772,48 @@ app.MapGet("/api/analytics/bottlenecks", async (ClaimsPrincipal user, TaskDbCont
         }).ToArray()
     });
 }).RequireAuthorization();
+
+// The model is OFF unless the operator opts in and supplies a backend-only key.
+// GET does not contact the provider or disclose configuration secrets.
+app.MapGet("/api/analytics/coach/capabilities", (IConfiguration configuration) =>
+    Results.Ok(new { Available = AiCoachExplanation.IsEnabled(configuration), Provider = "OpenAI",
+        Sends = "Only anonymized aggregate counts and a server-validated insight code" }))
+    .RequireAuthorization();
+
+// The user explicitly clicks to ask for a single explanation. No raw prompt,
+// task content, activity stream, or account IDs are accepted from the caller.
+app.MapPost("/api/analytics/coach/explain", async (
+    AiCoachExplainRequest request, ClaimsPrincipal user, TaskDbContext db,
+    IConfiguration configuration, IHttpClientFactory httpClients, HttpContext context) =>
+{
+    if (!AiCoachExplanation.IsAllowed(request.InsightId))
+        return Results.BadRequest(new { Message = "Choose a current bottleneck insight." });
+    if (!AiCoachExplanation.IsEnabled(configuration))
+        return Results.Problem("AI explanations have not been configured.", statusCode: 503);
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var evidence = await AiCoachExplanation.GetEvidenceAsync(
+        db, userId, request.InsightId!, context.RequestAborted);
+    if (evidence is null)
+        return Results.Conflict(new { Message = "The insight is no longer current. Reanalyze your tasks." });
+    try
+    {
+        var explanation = await AiCoachExplanation.GenerateAsync(
+            evidence, configuration, httpClients, context.RequestAborted);
+        return explanation is null
+            ? Results.Problem("AI explanation is temporarily unavailable.", statusCode: 502)
+            : Results.Ok(new { InsightId = request.InsightId, Explanation = explanation,
+                Analysis = "ai-explanation", IsSuggestion = true });
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+        throw;
+    }
+    catch (Exception)
+    {
+        // No raw provider errors or prompt fragments leave the backend.
+        return Results.Problem("AI explanation is temporarily unavailable.", statusCode: 502);
+    }
+}).RequireAuthorization().RequireRateLimiting("ai-coach");
 
 // This endpoint never accepts a user ID, and never returns events of another account.
 // A missing or cross-account task looks identical: 404.
