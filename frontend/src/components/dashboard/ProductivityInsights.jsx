@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
+import AiCoachOptIn from "./AiCoachOptIn.jsx";
 import { getPlanningAnalytics, getProductivityInsights } from "../../utils/productivityInsights.js";
 
 const DUE_STATES = [
@@ -207,6 +208,7 @@ export default function ProductivityInsights({ tasks, token, onUnauthorized, onO
                   </li>)}
                 </ol>
                 <p className="insights-note">Explainable rule-based analysis, not an AI model. Suggestions never modify tasks automatically.</p>
+                <AiCoachOptIn key={token} token={token} recommendations={coach.recommendations} onUnauthorized={onUnauthorized} />
               </>}
         </section>
         <section className="insights-advice" aria-label="Planning recommendations">
