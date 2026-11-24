@@ -38,7 +38,7 @@ export default function ProductivityInsights({ tasks, token, onUnauthorized }) {
       if (controller.signal.aborted || data === null) return;
       if (data.timeZone !== "UTC" || data.windowDays !== 30 ||
           !Array.isArray(data.days) || data.days.length !== 30 ||
-          data.days.some(day => !/^\\d{4}-\\d{2}-\\d{2}$/.test(day.date) ||
+          data.days.some(day => !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day.date) ||
             !Number.isSafeInteger(day.completed) || day.completed < 0 ||
             !Number.isSafeInteger(day.reopened) || day.reopened < 0)) {
         throw new Error("Completion history response was invalid.");
