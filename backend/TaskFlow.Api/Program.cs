@@ -645,6 +645,119 @@ app.MapGet("/api/analytics/completions", async (ClaimsPrincipal user, TaskDbCont
     });
 }).RequireAuthorization();
 
+// Explainable, read-only bottleneck detection. All three sources are filtered to
+// the caller before any task content reaches memory. No external AI calls or writes.
+app.MapGet("/api/analytics/bottlenecks", async (ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var today = DateTime.UtcNow.Date;
+    var tasks = await db.Tasks.AsNoTracking().Where(t => t.UserId == userId)
+        .Select(t => new { t.Id, t.Title, t.Completed, t.Priority, t.DueDate })
+        .ToListAsync();
+    var byId = tasks.ToDictionary(t => t.Id);
+    var active = tasks.Where(t => !t.Completed).ToArray();
+
+    // Join both ends to tasks owned by the caller, never accept task IDs from
+    // the request. Deleted / cross-account links cannot leak information.
+    var edges = await db.TaskDependencies.AsNoTracking()
+        .Join(db.Tasks.AsNoTracking().Where(t => t.UserId == userId),
+            e => e.TaskId, t => t.Id, (e, t) => e)
+        .Join(db.Tasks.AsNoTracking().Where(t => t.UserId == userId),
+            e => e.DependsOnTaskId, t => t.Id,
+            (e, t) => new { e.TaskId, e.DependsOnTaskId })
+        .ToListAsync();
+
+    var unresolved = edges.Where(edge =>
+        byId.TryGetValue(edge.TaskId, out var task) && !task.Completed &&
+        byId.TryGetValue(edge.DependsOnTaskId, out var prerequisite) && !prerequisite.Completed)
+        .ToArray();
+    var blockedIds = unresolved.Select(e => e.TaskId).ToHashSet();
+    var urgentBlocked = active.Where(t => blockedIds.Contains(t.Id) &&
+        t.DueDate.HasValue && t.DueDate.Value.Date <= today.AddDays(7))
+        .OrderBy(t => t.DueDate).ThenBy(t => t.Id).FirstOrDefault();
+    var topBlocker = unresolved.GroupBy(e => e.DependsOnTaskId)
+        .OrderByDescending(group => group.Select(e => e.TaskId).Distinct().Count())
+        .ThenBy(group => group.Key).FirstOrDefault();
+
+    var overdueReady = active.Where(t => !blockedIds.Contains(t.Id) &&
+        t.DueDate.HasValue && t.DueDate.Value.Date < today)
+        .OrderBy(t => t.Priority == "High" ? 0 : t.Priority == "Medium" ? 1 : 2)
+        .ThenBy(t => t.DueDate).ThenBy(t => t.Id).ToArray();
+    var dueThisWeek = active.Count(t => t.DueDate.HasValue &&
+        t.DueDate.Value.Date >= today && t.DueDate.Value.Date < today.AddDays(7));
+
+    var lastWeek = await db.TaskActivities.AsNoTracking().CountAsync(e =>
+        e.UserId == userId && e.Kind == TaskActivityKinds.Completed &&
+        e.OccurredAt >= today.AddDays(-6) && e.OccurredAt < today.AddDays(1));
+    var previousWeek = await db.TaskActivities.AsNoTracking().CountAsync(e =>
+        e.UserId == userId && e.Kind == TaskActivityKinds.Completed &&
+        e.OccurredAt >= today.AddDays(-13) && e.OccurredAt < today.AddDays(-6));
+
+    var advice = new List<(string Id, string Severity, string Title, string Detail, int? TaskId)>();
+    if (urgentBlocked is not null)
+    {
+        var dependencies = unresolved.Count(e => e.TaskId == urgentBlocked.Id);
+        advice.Add(("blocked-deadline", "high", "Unblock an approaching deadline",
+            "A task due within seven days (or overdue) is waiting for " +
+            dependencies + " unfinished prerequisite(s). Open its dependencies and finish the blockers first.",
+            urgentBlocked.Id));
+    }
+    if (topBlocker is not null)
+    {
+        var impacted = topBlocker.Select(e => e.TaskId).Distinct().Count();
+        advice.Add(("shared-prerequisite", impacted >= 2 ? "high" : "medium",
+            "Resolve a prerequisite to unblock work",
+            "Completing this prerequisite can unblock progress on " + impacted +
+            " active " + (impacted == 1 ? "task" : "tasks") +
+            ". Check the prerequisite before adding more dependent work.", topBlocker.Key));
+    }
+    if (overdueReady.Length > 0)
+    {
+        advice.Add(("overdue-ready", "medium", "Start with unblocked overdue work",
+            overdueReady.Length + " overdue active " +
+            (overdueReady.Length == 1 ? "task has" : "tasks have") +
+            " no unfinished prerequisites. Review the most urgent one, or reschedule it if needed.",
+            overdueReady[0].Id));
+    }
+    // This is a change in recorded events, not evidence of lower productivity;
+    // earlier completions may predate the activity ledger.
+    if (previousWeek >= 3 && lastWeek * 2 < previousWeek)
+    {
+        advice.Add(("recent-activity", "info", "Review your recent completion activity",
+            "Recorded completion events were " + lastWeek +
+            " in the last seven UTC days versus " + previousWeek +
+            " in the preceding seven. Check whether deadlines or blocked tasks explain the difference.",
+            null));
+    }
+    if (dueThisWeek >= 5 && advice.Count < 4)
+    {
+        advice.Add(("busy-week", "info", "Spread out upcoming deadlines",
+            dueThisWeek + " active tasks are due over the next seven UTC days. Consider redistributing flexible work.", null));
+    }
+    if (advice.Count == 0)
+        advice.Add(("steady", "info", "No major bottlenecks detected",
+            "No urgent dependency or overdue-work signals were found in the current snapshot. Continue reviewing your task plan.", null));
+
+    return Results.Ok(new
+    {
+        GeneratedAtUtc = DateTime.UtcNow,
+        Analysis = "rules",
+        TimeZone = "UTC",
+        Metrics = new
+        {
+            ActiveTasks = active.Length,
+            BlockedTasks = blockedIds.Count,
+            OverdueReadyTasks = overdueReady.Length,
+            DueWithin7Days = dueThisWeek,
+            CompletionsLast7Days = lastWeek,
+            CompletionsPrevious7Days = previousWeek
+        },
+        Recommendations = advice.Take(4).Select(x => new {
+            x.Id, x.Severity, x.Title, x.Detail, x.TaskId
+        }).ToArray()
+    });
+}).RequireAuthorization();
+
 // This endpoint never accepts a user ID, and never returns events of another account.
 // A missing or cross-account task looks identical: 404.
 app.MapGet("/api/tasks/{id:int}/activity", async (
