@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
@@ -8,6 +8,7 @@ export default function ProgressionCard({ tasks, token, onUnauthorized }) {
   const [state, setState] = useState({ token: null, status: "loading", data: null });
   const [expanded, setExpanded] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const taskCompletionSignature = useMemo(() => tasks.map(task => `${task.id}:${task.completed}`).sort().join("|"), [tasks]);
   const unauthorizedRef = useRef(onUnauthorized);
   unauthorizedRef.current = onUnauthorized;
 
@@ -40,7 +41,7 @@ export default function ProgressionCard({ tasks, token, onUnauthorized }) {
         setState({ token, status: "error", data: null, error: error.message });
     });
     return () => controller.abort();
-  }, [token, tasks, refresh]);
+  }, [token, taskCompletionSignature, refresh]);
 
   const data = state.token === token && state.status === "ready" ? state.data : null;
   const progress = data
