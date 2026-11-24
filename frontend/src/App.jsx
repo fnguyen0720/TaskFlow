@@ -8,6 +8,7 @@ import MobileBottomNav from "./components/dashboard/MobileBottomNav.jsx";
 import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
 import ProductivityInsights from "./components/dashboard/ProductivityInsights.jsx";
+import ProgressionCard from "./components/dashboard/ProgressionCard.jsx";
 import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
 import TaskPanel from "./components/tasks/TaskPanel.jsx";
@@ -377,6 +378,7 @@ function App() {
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
+          <ProgressionCard tasks={visibleTasks} token={token} onUnauthorized={handleUnauthorized} />
           <ProductivityInsights tasks={visibleTasks} token={token} onUnauthorized={handleUnauthorized} onOpenTask={setDetailId} />
         </>
       ) : null}

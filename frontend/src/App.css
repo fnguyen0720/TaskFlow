@@ -1339,3 +1339,31 @@ html, body, #root {
 .insights-ai-answer { width:100%; border-left:3px solid #9b8be7; padding:12px; background:#27233e; border-radius:7px; }
 .insights-ai-answer strong { color:#f0eaff; font-size:12px; display:block; margin-bottom:6px; }
 .insights-ai button { min-height:36px; }
+
+
+/* Read-only reward system, designed for sustainable completion rather than streak pressure. */
+.progression-panel { border:1px solid #453d5f; border-radius:12px; background:#1c1b2b; padding:18px 20px; margin:12px 0 16px; }
+.progression-panel>header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.progression-panel h2 { font:700 18px Manrope,sans-serif; color:#f0eefe; margin:6px 0 4px; }
+.progression-panel>header p,.progression-details p { color:#aaa6ba; font-size:12px; line-height:1.45; margin:0; }
+.progression-actions { display:flex; gap:7px; flex-wrap:wrap; }
+.progression-panel button { border:1px solid #514872; border-radius:8px; background:#302b4b; color:#ddd5fd; cursor:pointer; padding:8px 12px; min-height:34px; }
+.progression-panel button:disabled { opacity:.5; cursor:default; }
+.progression-level { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:17px; }
+.progression-level>div { display:flex; align-items:baseline; flex-wrap:wrap; gap:10px; }
+.progression-level strong { font:700 20px Manrope,sans-serif; color:#f0ebff; }
+.progression-level span { color:#c0baca; font-size:12px; }
+.progression-track { width:100%; height:10px; margin:10px 0 1px; border-radius:20px; background:#333149; overflow:hidden; }
+.progression-track>span { display:block; height:100%; background:linear-gradient(90deg,#7567dd,#bba4ff); border-radius:20px; }
+.progression-details { display:grid; gap:14px; margin-top:18px; }
+.progression-details>section { border:1px solid #36314a; border-radius:9px; padding:13px; background:#222034; }
+.progression-details h3 { color:#eeebfc; font-size:14px; margin:0 0 8px; }
+.progression-quest { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:8px; font-size:12px; }
+.progression-quest strong { color:#d5c8ff; }
+.progression-awards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; padding:0; margin:0; list-style:none; }
+.progression-awards li { display:flex; align-items:flex-start; gap:8px; padding:10px; border:1px solid #3e3a50; background:#292637; border-radius:9px; }
+.progression-awards li.progression-unlocked { border-color:#8271b8; background:#302842; }
+.progression-awards li>span { font-size:21px; line-height:1; }
+.progression-awards strong { color:#eae5fb; font-size:12px; }
+.progression-awards small { display:block; margin-top:6px; font-size:11px; color:#bfa9e4; }
+@media(max-width:700px){.progression-awards{grid-template-columns:1fr}.progression-panel{padding:14px}.progression-panel>header{flex-direction:column}}
