@@ -448,7 +448,7 @@ test("bottleneck coach explains blockers, opens the related task and never chang
   const insights = page.getByRole("region", { name: "Productivity insights" });
   await insights.getByRole("button", { name: "Show insights" }).click();
   const coach = insights.getByRole("region", { name: "Bottleneck coach" });
-  await expect(coach.getByRole("region", { name: "Bottleneck metrics" })).toContainText("Blocked tasks");
+  await expect(coach.getByRole("group", { name: "Bottleneck metrics" })).toContainText("Blocked tasks");
   await expect(coach).toContainText("2 active tasks");
   await expect(coach).toContainText("Explainable rule-based analysis, not an AI model");
   await coach.getByRole("button", { name: "Open task for Resolve a prerequisite to unblock work" }).click();
