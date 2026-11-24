@@ -24,6 +24,9 @@ export default function ProgressionCard({ tasks, projects = [], token, onUnautho
       return response.json();
     }).then(data => {
       if (controller.signal.aborted || data === null) return;
+      // Allow the older API response during a staggered frontend/backend rollout.
+      // The XP panel must remain usable while Render finishes deploying quests.
+      const quests = data.projectQuests === undefined ? [] : data.projectQuests;
       if (data.basis !== "first-recorded-completion" ||
           !Number.isSafeInteger(data.level) || data.level < 1 ||
           !Number.isSafeInteger(data.xp) || data.xp < 0 ||
@@ -34,14 +37,16 @@ export default function ProgressionCard({ tasks, projects = [], token, onUnautho
           data.achievements.some(item => typeof item.id !== "string" ||
             typeof item.name !== "string" || typeof item.unlocked !== "boolean") ||
           !data.challenge || !Number.isSafeInteger(data.challenge.progress) ||
-          !Array.isArray(data.projectQuests) || data.projectQuests.length > 20 ||
-          data.projectQuests.some(project => !Number.isSafeInteger(project.projectId) ||
+          !Array.isArray(quests) || quests.length > 20 ||
+          quests.some(project => !Number.isSafeInteger(project.projectId) ||
             typeof project.name !== "string" || !Number.isSafeInteger(project.totalTasks) ||
             !Number.isSafeInteger(project.completedTasks) ||
             project.completedTasks > project.totalTasks)) {
         throw new Error("Your progression data was invalid.");
       }
-      setState({ token, status: "ready", data });
+      setState({ token, status: "ready", data: {
+        ...data, projectQuests: quests, totalProjects: data.totalProjects ?? 0
+      } });
     }).catch(error => {
       if (!controller.signal.aborted)
         setState({ token, status: "error", data: null, error: error.message });
