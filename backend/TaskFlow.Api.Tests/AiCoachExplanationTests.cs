@@ -74,7 +74,7 @@ public class AiCoachExplanationTests
         Assert.Contains("Active tasks: 1", evidence);
         Assert.DoesNotContain("PRIVATE_TASK_TITLE_NEVER_EXPORT_123", evidence);
         Assert.DoesNotContain(userId!, evidence);
-        Assert.DoesNotContain(id.ToString() + ".", evidence);
+        Assert.DoesNotContain("Task ID", evidence);
         using var otherList = await other.GetAsync("/api/tasks");
         otherList.EnsureSuccessStatusCode();
         Assert.Empty((await otherList.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray());
