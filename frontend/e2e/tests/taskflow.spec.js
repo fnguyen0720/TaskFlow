@@ -430,6 +430,49 @@ test("command palette has a useful empty state on narrow mobile screens", async 
   await expect(palette).toHaveCount(0);
 });
 
+test("AI explanations stay opt-in and transmit only a selected insight code", async ({ page }) => {
+  const api = await installMockApi(page, { aiCoachEnabled: true });
+  await signIn(page);
+  const insights = page.getByRole("region", { name: "Productivity insights" });
+  await insights.getByRole("button", { name: "Show insights" }).click();
+  const ai = insights.getByRole("region", { name: "Optional AI explanation" });
+  await expect(ai).toContainText("no task titles, notes, identifiers");
+  await expect(ai.getByRole("button", { name: "Generate AI explanation" })).toBeDisabled();
+  expect(api.calls.filter(call => call.pathname === "/api/analytics/coach/explain")).toHaveLength(0);
+  await ai.getByRole("checkbox", { name: /I agree to share/ }).check();
+  await ai.getByRole("button", { name: "Generate AI explanation" }).click();
+  await expect(ai.getByRole("status")).toContainText("Review current workload");
+  const requests = api.calls.filter(call => call.pathname === "/api/analytics/coach/explain");
+  expect(requests).toHaveLength(1);
+  expect(requests[0].body).toEqual({ insightId: "steady" });
+  expect(api.calls.filter(call => call.method !== "GET" &&
+    call.pathname.startsWith("/api/tasks"))).toHaveLength(0);
+});
+
+test("AI explanation is unavailable without configuration, preserving rule-based coaching", async ({ page }) => {
+  const api = await installMockApi(page);
+  await signIn(page);
+  const insights = page.getByRole("region", { name: "Productivity insights" });
+  await insights.getByRole("button", { name: "Show insights" }).click();
+  const coach = insights.getByRole("region", { name: "Bottleneck coach" });
+  await expect(coach).toContainText("No major bottlenecks detected");
+  await expect(coach).toContainText("AI explanations are not configured");
+  await expect(coach.getByRole("button", { name: "Generate AI explanation" })).toHaveCount(0);
+  expect(api.calls.filter(call => call.pathname === "/api/analytics/coach/explain")).toHaveLength(0);
+});
+
+test("AI provider errors never replace rule-based recommendations", async ({ page }) => {
+  await installMockApi(page, { aiCoachEnabled: true, failAiCoach: true });
+  await signIn(page);
+  const insights = page.getByRole("region", { name: "Productivity insights" });
+  await insights.getByRole("button", { name: "Show insights" }).click();
+  const ai = insights.getByRole("region", { name: "Optional AI explanation" });
+  await ai.getByRole("checkbox", { name: /I agree to share/ }).check();
+  await ai.getByRole("button", { name: "Generate AI explanation" }).click();
+  await expect(ai.getByRole("alert")).toContainText("AI explanation is unavailable");
+  await expect(insights).toContainText("No major bottlenecks detected");
+});
+
 test("bottleneck coach explains blockers, opens the related task and never changes data", async ({ page }) => {
   const task = fixtureTask(650, "Shared blocker", "2026-11-19");
   const api = await installMockApi(page, {
