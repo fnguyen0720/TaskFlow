@@ -113,6 +113,36 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
       }
       return respond(200, task);
     }
+    if (pathname === "/api/analytics/progression" && method === "GET") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      const firstByTask = new Map();
+      for (const event of activities) {
+        if (event.kind !== "completed" || firstByTask.has(event.taskId)) continue;
+        firstByTask.set(event.taskId, event.occurredAt);
+      }
+      const count = firstByTask.size;
+      const xp = count * 25;
+      let level = 1, levelStartXp = 0, nextLevelXp = 100;
+      while (xp >= nextLevelXp) { levelStartXp = nextLevelXp; level++; nextLevelXp += level * 100; }
+      const recent = [...firstByTask.values()].filter(date =>
+        date >= "2026-11-13T00:00:00Z" && date < "2026-11-20T00:00:00Z");
+      const achievement = (id, name, description, goal) => ({
+        id, name, description, goal, progress: Math.min(count, goal), unlocked: count >= goal
+      });
+      return respond(200, {
+        basis: "first-recorded-completion", timeZone: "UTC", xp, level, levelStartXp, nextLevelXp,
+        uniqueCompletedTasks: count, completedThisWeek: recent.length,
+        activeCompletionDays: new Set(recent.map(date => date.slice(0, 10))).size,
+        challenge: { id: "seven-day-quest", name: "Seven-day Quest",
+          description: "Complete five different tasks in the last seven UTC days",
+          progress: Math.min(recent.length, 5), goal: 5, complete: recent.length >= 5 },
+        achievements: [
+          achievement("first-step", "First Step", "Complete your first task", 1),
+          achievement("ten-tasks", "Getting Things Done", "Complete 10 different tasks", 10),
+          achievement("fifty-tasks", "Task Master", "Complete 50 different tasks", 50)
+        ]
+      });
+    }
     if (pathname === "/api/analytics/coach/capabilities" && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       return respond(200, { available: aiCoachEnabled, provider: "OpenAI",
