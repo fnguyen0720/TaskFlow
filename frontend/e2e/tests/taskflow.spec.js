@@ -450,7 +450,11 @@ test("productivity insights show current category and due-date snapshot", async 
   await expect(section.getByRole("region", { name: "Tasks by category" })).toContainText("Work");
   await expect(section.getByRole("region", { name: "Active task schedule" })).toContainText("Overdue");
   await expect(section.getByRole("region", { name: "Active task schedule" })).toContainText("Due today");
-  await expect(section).toContainText("Current task snapshot");
+  await expect(section).toContainText("Charts and planning suggestions");
+  await expect(section.getByRole("region", { name: "Tasks due in the next seven days" })).toBeVisible();
+  await expect(section.getByRole("region", { name: "Active task priorities" })).toBeVisible();
+  await expect(section.getByRole("region", { name: "Planning recommendations" })).toBeVisible();
+  await expect(section).toContainText("These recommendations use deadlines and priorities");
   await section.getByRole("button", { name: "Hide insights" }).click();
   await expect(section.getByRole("region", { name: "Tasks by category" })).toHaveCount(0);
 });
@@ -462,6 +466,7 @@ test("productivity insights fit 320px mobile and show an empty workspace safely"
   const section = page.getByRole("region", { name: "Productivity insights" });
   await section.getByRole("button", { name: "Show insights" }).click();
   await expect(section).toContainText("Add a task to see the category breakdown.");
+  await expect(section).toContainText("No major planning alerts in this snapshot");
   const width = await page.evaluate(() => document.documentElement.scrollWidth);
   expect(width).toBeLessThanOrEqual(320);
 });
