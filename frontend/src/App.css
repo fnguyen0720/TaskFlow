@@ -1326,3 +1326,16 @@ html, body, #root {
 .insights-coach-item strong { color:#f1effe; font-size:12px; }
 .insights-coach-item p { color:#beb9d1; font-size:12px; line-height:1.5; margin:5px 0 0; }
 @media(max-width:420px) { .insights-coach { padding:12px; } .insights-coach-metrics { grid-template-columns:1fr 1fr; } .insights-coach-metrics>div:last-child { grid-column:1/-1; } }
+
+
+/* Explicit opt-in: the model never runs until the user consents and clicks. */
+.insights-ai { margin-top:15px; border-top:1px solid #49415f; padding-top:14px; display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
+.insights-ai h4 { margin:0; font-size:13px; color:#eeeaff; }
+.insights-ai p { margin:0; color:#c0bdd0; font-size:12px; line-height:1.55; }
+.insights-ai>label:not(.insights-ai-consent) { color:#e6e1fa; font-size:12px; font-weight:600; }
+.insights-ai select { width:100%; max-width:440px; min-height:38px; border:1px solid #574e75; background:#272239; color:#f5f1ff; border-radius:7px; padding:7px 9px; }
+.insights-ai-consent { display:flex; align-items:flex-start; gap:10px; color:#d6d0e6; font-size:12px; line-height:1.5; cursor:pointer; }
+.insights-ai-consent input { flex:none; margin-top:2px; min-width:16px; min-height:16px; accent-color:#aa93f0; }
+.insights-ai-answer { width:100%; border-left:3px solid #9b8be7; padding:12px; background:#27233e; border-radius:7px; }
+.insights-ai-answer strong { color:#f0eaff; font-size:12px; display:block; margin-bottom:6px; }
+.insights-ai button { min-height:36px; }
