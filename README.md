@@ -49,6 +49,13 @@ AiCoach__Model=gpt-4o-mini
 
 The model name is configurable; verify the chosen model supports the Responses API in your account. Never commit or expose the API key. Each request has a 15-second timeout, a bounded output limit, `store: false`, and a five-requests-per-ten-minutes network bucket. Availability is reported separately, and no provider call is made until the signed-in user opts in. API usage can incur charges and needs operator budget controls. No persistence of AI answers is implemented.
 
+### Progression and achievements
+- Earn 25 XP for the **first recorded completion of each distinct task**; reopening and completing it again never awards more XP.
+- Level up through cumulative XP thresholds and unlock permanent First Step, Getting Things Done, and Task Master achievements.
+- The optional Seven-day Quest tracks progress on five different task completions during the most recent seven UTC days. It is a rolling challenge, **not** a punitive daily streak.
+- Progress is a read-only authenticated aggregate of server-recorded events. There is no user-editable XP counter, leaderboard, reward purchase, migration, or automatic task change.
+- Tasks completed before activity tracking began are not backfilled; deleted tasks retain past earned credit. Users can collapse the achievement details to minimize distractions.
+
 ### Edit with confidence
 - Preserve unsaved task drafts across many navigation and save-failure scenarios; show clear retry and discard options.
 - Detect stale edits and reject conflicting writes rather than silently overwriting newer task data.
