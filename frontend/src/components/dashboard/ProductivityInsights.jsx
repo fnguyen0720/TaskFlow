@@ -192,7 +192,7 @@ export default function ProductivityInsights({ tasks, token, onUnauthorized, onO
               ? <p role="alert">{bottlenecks.message} <button type="button"
                   onClick={() => setRefreshBottlenecks(count => count + 1)}>Retry analysis</button></p>
               : coach && <>
-                <div className="insights-coach-metrics" aria-label="Bottleneck metrics">
+                <div className="insights-coach-metrics" role="group" aria-label="Bottleneck metrics">
                   <div><strong>{coach.metrics.blockedTasks}</strong><span>Blocked tasks</span></div>
                   <div><strong>{coach.metrics.overdueReadyTasks}</strong><span>Unblocked overdue</span></div>
                   <div><strong>{coach.metrics.completionsLast7Days}</strong><span>Recorded completions · 7 days</span></div>
