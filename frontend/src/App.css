@@ -1305,3 +1305,24 @@ html, body, #root {
 .insights-history-column { display:flex; align-items:flex-end; flex:1; min-height:0; width:100%; background:#252437; border-radius:5px; overflow:hidden; }
 .insights-history-column>span { width:100%; background:#8f86ee; border-radius:5px 5px 0 0; }
 .insights-history-date { font-size:9px; color:#bab6ca; white-space:nowrap; height:13px; }
+
+
+/* Bottleneck Coach: deterministic signals with clear actions and mobile layout. */
+.insights-coach { border:1px solid #40385b; background:#1b1a2a; border-radius:12px; padding:16px; margin-bottom:14px; min-width:0; }
+.insights-coach>header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.insights-coach h3 { color:#eeebff; font-size:15px; margin:0 0 6px; }
+.insights-coach button { background:#322c4d; color:#e3dcff; border:1px solid #625780; border-radius:8px; padding:8px 12px; cursor:pointer; }
+.insights-coach button:disabled { opacity:.5; cursor:wait; }
+.insights-coach button:focus-visible { outline:2px solid #b3a3ff; outline-offset:2px; }
+.insights-coach-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:14px; }
+.insights-coach-metrics>div { background:#252236; border:1px solid #37314d; border-radius:8px; padding:10px; display:flex; flex-direction:column; gap:4px; min-width:0; }
+.insights-coach-metrics strong { font:700 22px Manrope,sans-serif; color:#efeaff; }
+.insights-coach-metrics span { color:#aaa6c0; font-size:11px; line-height:1.4; }
+.insights-coach-list { list-style:none; padding:0; margin:14px 0; display:grid; gap:9px; }
+.insights-coach-item { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; background:#242236; border-left:3px solid #8580aa; border-radius:6px; padding:11px 12px; }
+.insights-coach-high { border-left-color:#dc9b72; }
+.insights-coach-medium { border-left-color:#a193ef; }
+.insights-coach-item>div { flex:1; min-width:0; }
+.insights-coach-item strong { color:#f1effe; font-size:12px; }
+.insights-coach-item p { color:#beb9d1; font-size:12px; line-height:1.5; margin:5px 0 0; }
+@media(max-width:420px) { .insights-coach { padding:12px; } .insights-coach-metrics { grid-template-columns:1fr 1fr; } .insights-coach-metrics>div:last-child { grid-column:1/-1; } }
