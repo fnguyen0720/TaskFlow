@@ -1,6 +1,6 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], initialProjects = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingUnauthorizedReads = unauthorizedTaskReads;
   let remainingFailedLogins = failLoginAttempts;
@@ -13,9 +13,9 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
   const tasks = structuredClone(initialTasks);
   const activities = structuredClone(initialActivities);
   const versions = [];
-  const projects = [];
+  const projects = structuredClone(initialProjects);
   const dependencies = new Map();
-  let nextProjectId = 1;
+  let nextProjectId = Math.max(0, ...projects.map(project => Number(project.id) || 0)) + 1;
   let nextVersionId = 1;
   function snapshot(task) {
     return {
@@ -140,7 +140,14 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
           achievement("first-step", "First Step", "Complete your first task", 1),
           achievement("ten-tasks", "Getting Things Done", "Complete 10 different tasks", 10),
           achievement("fifty-tasks", "Task Master", "Complete 50 different tasks", 50)
-        ]
+        ],
+        totalProjects: projects.length,
+        projectQuests: projects.slice(0, 20).map(project => {
+          const list = tasks.filter(task => task.projectId === project.id);
+          const finished = list.filter(task => task.completed).length;
+          return { projectId: project.id, name: project.name, totalTasks: list.length,
+            completedTasks: finished, complete: list.length > 0 && finished === list.length };
+        })
       });
     }
     if (pathname === "/api/analytics/coach/capabilities" && method === "GET") {

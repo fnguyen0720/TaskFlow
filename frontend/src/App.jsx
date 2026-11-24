@@ -378,7 +378,8 @@ function App() {
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
-          <ProgressionCard tasks={visibleTasks} token={token} onUnauthorized={handleUnauthorized} />
+          <ProgressionCard tasks={visibleTasks} projects={projects.status === "ready" ? projects.projects : []}
+            token={token} onUnauthorized={handleUnauthorized} />
           <ProductivityInsights tasks={visibleTasks} token={token} onUnauthorized={handleUnauthorized} onOpenTask={setDetailId} />
         </>
       ) : null}

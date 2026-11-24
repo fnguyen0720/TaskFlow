@@ -1367,3 +1367,15 @@ html, body, #root {
 .progression-awards strong { color:#eae5fb; font-size:12px; }
 .progression-awards small { display:block; margin-top:6px; font-size:11px; color:#bfa9e4; }
 @media(max-width:700px){.progression-awards{grid-template-columns:1fr}.progression-panel{padding:14px}.progression-panel>header{flex-direction:column}}
+
+
+/* Project quests use current project membership; they do not generate XP. */
+.progression-projects { list-style:none; padding:0; margin:12px 0 0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.progression-projects li { min-width:0; border:1px solid #3d3554; background:#29253a; border-radius:8px; padding:11px; }
+.progression-project-heading { display:flex; justify-content:space-between; flex-wrap:wrap; align-items:baseline; gap:6px; }
+.progression-project-heading strong { min-width:0; max-width:100%; overflow-wrap:anywhere; font-size:12px; }
+.progression-project-heading span { font-size:11px; color:#c2b7d9; }
+.progression-project-track { margin-top:9px; height:8px; border-radius:8px; overflow:hidden; background:#3b3550; }
+.progression-project-track>span { display:block; height:100%; background:#9788ec; border-radius:8px; }
+.progression-empty { margin-top:10px!important; }
+@media(max-width:620px){.progression-projects{grid-template-columns:1fr}}

@@ -76,6 +76,54 @@ public class ProgressionTests
     }
 
     [Fact]
+    public async Task ProjectQuestsAreAccountIsolatedAndDoNotGrantAdditionalXp()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        await factory.InitializeDatabaseAsync();
+        using var alice = factory.CreateClient();
+        using var bob = factory.CreateClient();
+        await Authenticate(alice);
+        await Authenticate(bob);
+
+        using var created = await alice.PostAsJsonAsync("/api/projects",
+            new { name = "PRIVATE_PROJECT_QUEST" });
+        created.EnsureSuccessStatusCode();
+        var projectId = (await created.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetInt32();
+        using var taskCreate = await alice.PostAsJsonAsync("/api/tasks",
+            new { title = "Quest task", priority = "Medium", projectId });
+        taskCreate.EnsureSuccessStatusCode();
+        var taskId = (await taskCreate.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id").GetInt32();
+
+        using var response = await alice.GetAsync("/api/analytics/progression");
+        response.EnsureSuccessStatusCode();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var quest = Assert.Single(json.RootElement.GetProperty("projectQuests").EnumerateArray());
+        Assert.Equal(projectId, quest.GetProperty("projectId").GetInt32());
+        Assert.Equal("PRIVATE_PROJECT_QUEST", quest.GetProperty("name").GetString());
+        Assert.Equal(1, quest.GetProperty("totalTasks").GetInt32());
+        Assert.Equal(0, quest.GetProperty("completedTasks").GetInt32());
+        Assert.False(quest.GetProperty("complete").GetBoolean());
+
+        using (var finish = await alice.PutAsync($"/api/tasks/{taskId}", null))
+            Assert.Equal(HttpStatusCode.OK, finish.StatusCode);
+        using var after = await alice.GetAsync("/api/analytics/progression");
+        after.EnsureSuccessStatusCode();
+        using var afterJson = JsonDocument.Parse(await after.Content.ReadAsStringAsync());
+        var completeQuest = Assert.Single(afterJson.RootElement.GetProperty("projectQuests").EnumerateArray());
+        Assert.True(completeQuest.GetProperty("complete").GetBoolean());
+        Assert.Equal(1, completeQuest.GetProperty("completedTasks").GetInt32());
+        Assert.Equal(25, afterJson.RootElement.GetProperty("xp").GetInt64());
+
+        using var isolated = await bob.GetAsync("/api/analytics/progression");
+        isolated.EnsureSuccessStatusCode();
+        using var otherJson = JsonDocument.Parse(await isolated.Content.ReadAsStringAsync());
+        Assert.Empty(otherJson.RootElement.GetProperty("projectQuests").EnumerateArray());
+        Assert.DoesNotContain("PRIVATE_PROJECT_QUEST", otherJson.RootElement.GetRawText());
+    }
+
+    [Fact]
     public async Task FreshAccountsHaveZeroXpWithoutBackfill()
     {
         await using var factory = new CustomWebApplicationFactory();

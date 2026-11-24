@@ -820,6 +820,45 @@ app.MapGet("/api/analytics/progression", async (ClaimsPrincipal user, TaskDbCont
             Unlocked = completedTasks >= 50, Progress = Math.Min(completedTasks, 50), Goal = 50 }
     };
 
+    // Current project quests are separate from earned XP. Membership can change,
+    // so completing a project displays progress but never grants repeatable XP.
+    // Both the project and task queries are scoped to the signed-in account.
+    var totalProjects = await db.TaskProjects.AsNoTracking()
+        .CountAsync(p => p.UserId == userId);
+    var projects = await db.TaskProjects.AsNoTracking()
+        .Where(p => p.UserId == userId)
+        .OrderBy(p => p.CreatedAt).ThenBy(p => p.Id)
+        .Take(20)
+        .Select(p => new { p.Id, p.Name })
+        .ToListAsync();
+    var projectIds = projects.Select(p => p.Id).ToArray();
+    var taskTotals = await db.Tasks.AsNoTracking()
+        .Where(t => t.UserId == userId && t.ProjectId.HasValue &&
+            projectIds.Contains(t.ProjectId.Value))
+        .GroupBy(t => t.ProjectId)
+        .Select(group => new
+        {
+            ProjectId = group.Key,
+            Total = group.Count(),
+            Completed = group.Count(t => t.Completed)
+        })
+        .ToListAsync();
+    var byProject = taskTotals.ToDictionary(p => p.ProjectId!.Value);
+    var projectQuests = projects.Select(p =>
+    {
+        byProject.TryGetValue(p.Id, out var totals);
+        var total = totals?.Total ?? 0;
+        var completed = totals?.Completed ?? 0;
+        return new
+        {
+            ProjectId = p.Id,
+            Name = p.Name,
+            TotalTasks = total,
+            CompletedTasks = completed,
+            Complete = total > 0 && completed == total
+        };
+    }).ToArray();
+
     return Results.Ok(new
     {
         Basis = "first-recorded-completion",
@@ -834,7 +873,9 @@ app.MapGet("/api/analytics/progression", async (ClaimsPrincipal user, TaskDbCont
         Challenge = new { Id = "seven-day-quest", Name = "Seven-day Quest",
             Description = "Complete five different tasks in the last seven UTC days",
             Progress = Math.Min(completedThisWeek, 5), Goal = 5, Complete = completedThisWeek >= 5 },
-        Achievements = achievements
+        Achievements = achievements,
+        ProjectQuests = projectQuests,
+        TotalProjects = totalProjects
     });
 }).RequireAuthorization();
 

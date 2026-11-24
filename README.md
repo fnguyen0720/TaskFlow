@@ -53,6 +53,7 @@ The model name is configurable; verify the chosen model supports the Responses A
 - Earn 25 XP for the **first recorded completion of each distinct task**; reopening and completing it again never awards more XP.
 - Level up through cumulative XP thresholds and unlock permanent First Step, Getting Things Done, and Task Master achievements.
 - The optional Seven-day Quest tracks progress on five different task completions during the most recent seven UTC days. It is a rolling challenge, **not** a punitive daily streak.
+- Project Quests turn existing private projects into progress objectives (completed/total tasks) without awarding extra XP; empty projects are not falsely marked complete. Up to 20 projects are shown in the dashboard quest view.
 - Progress is a read-only authenticated aggregate of server-recorded events. There is no user-editable XP counter, leaderboard, reward purchase, migration, or automatic task change.
 - Tasks completed before activity tracking began are not backfilled; deleted tasks retain past earned credit. Users can collapse the achievement details to minimize distractions.
 
