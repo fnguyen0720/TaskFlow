@@ -4,11 +4,12 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
 // Read-only achievements: every task ID earns XP at most once, using server
 // activity timestamps, not client-side counters or user-editable local state.
-export default function ProgressionCard({ tasks, token, onUnauthorized }) {
+export default function ProgressionCard({ tasks, projects = [], token, onUnauthorized }) {
   const [state, setState] = useState({ token: null, status: "loading", data: null });
   const [expanded, setExpanded] = useState(false);
   const [refresh, setRefresh] = useState(0);
-  const taskCompletionSignature = useMemo(() => tasks.map(task => `${task.id}:${task.completed}`).sort().join("|"), [tasks]);
+  const taskCompletionSignature = useMemo(() => tasks.map(task => `${task.id}:${task.completed}:${task.projectId ?? ""}`).sort().join("|"), [tasks]);
+  const projectSignature = useMemo(() => projects.map(project => `${project.id}:${project.name}`).sort().join("|"), [projects]);
   const unauthorizedRef = useRef(onUnauthorized);
   unauthorizedRef.current = onUnauthorized;
 
@@ -32,7 +33,12 @@ export default function ProgressionCard({ tasks, token, onUnauthorized }) {
           !Array.isArray(data.achievements) || data.achievements.length > 10 ||
           data.achievements.some(item => typeof item.id !== "string" ||
             typeof item.name !== "string" || typeof item.unlocked !== "boolean") ||
-          !data.challenge || !Number.isSafeInteger(data.challenge.progress)) {
+          !data.challenge || !Number.isSafeInteger(data.challenge.progress) ||
+          !Array.isArray(data.projectQuests) || data.projectQuests.length > 20 ||
+          data.projectQuests.some(project => !Number.isSafeInteger(project.projectId) ||
+            typeof project.name !== "string" || !Number.isSafeInteger(project.totalTasks) ||
+            !Number.isSafeInteger(project.completedTasks) ||
+            project.completedTasks > project.totalTasks)) {
         throw new Error("Your progression data was invalid.");
       }
       setState({ token, status: "ready", data });
@@ -41,7 +47,7 @@ export default function ProgressionCard({ tasks, token, onUnauthorized }) {
         setState({ token, status: "error", data: null, error: error.message });
     });
     return () => controller.abort();
-  }, [token, taskCompletionSignature, refresh]);
+  }, [token, taskCompletionSignature, projectSignature, refresh]);
 
   const data = state.token === token && state.status === "ready" ? state.data : null;
   const progress = data
@@ -86,6 +92,33 @@ export default function ProgressionCard({ tasks, token, onUnauthorized }) {
                   <span>{data.challenge.progress} of {data.challenge.goal} completed</span>
                   <strong>{data.challenge.complete ? "Quest complete" : "Keep going at your own pace"}</strong>
                 </div>
+              </section>
+              <section aria-label="Project quests">
+                <h3>Project Quests</h3>
+                <p>Finish work within each project. Moving tasks between projects updates progress, but never awards extra XP.</p>
+                {data.projectQuests.length === 0 ?
+                  <p className="progression-empty">Create a project to start a quest.</p> :
+                  <ul className="progression-projects">
+                    {data.projectQuests.map(project => {
+                      const percent = project.totalTasks
+                        ? Math.round(100 * project.completedTasks / project.totalTasks) : 0;
+                      return <li key={project.projectId}>
+                        <div className="progression-project-heading">
+                          <strong>{project.name}</strong>
+                          <span>{project.totalTasks === 0 ? "No tasks yet" :
+                            project.complete ? "Quest complete!" :
+                            `${project.completedTasks} / ${project.totalTasks} tasks`}</span>
+                        </div>
+                        <div className="progression-project-track" role="progressbar"
+                          aria-label={`${project.name} completion`}
+                          aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+                          <span style={{ width: percent + "%" }} />
+                        </div>
+                      </li>;
+                    })}
+                  </ul>}
+                {data.totalProjects > data.projectQuests.length &&
+                  <p className="insights-note">Showing {data.projectQuests.length} of {data.totalProjects} projects.</p>}
               </section>
               <section aria-label="Achievements">
                 <h3>Achievements</h3>
