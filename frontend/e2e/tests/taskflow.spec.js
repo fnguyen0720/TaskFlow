@@ -459,6 +459,37 @@ test("productivity insights show current category and due-date snapshot", async 
   await expect(section.getByRole("region", { name: "Tasks by category" })).toHaveCount(0);
 });
 
+test("completion history plots recorded UTC events without inventing past task dates", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(900, "Review analytics", "2026-11-19")],
+    initialActivities: [
+      { id: 1, taskId: 900, kind: "completed", occurredAt: "2026-11-18T10:00:00Z" },
+      { id: 2, taskId: 900, kind: "reopened", occurredAt: "2026-11-19T09:00:00Z" },
+      { id: 3, taskId: 900, kind: "completed", occurredAt: "2026-11-19T11:00:00Z" },
+    ]
+  });
+  await signIn(page);
+  const insights = page.getByRole("region", { name: "Productivity insights" });
+  await insights.getByRole("button", { name: "Show insights" }).click();
+  const history = insights.getByRole("region", { name: "Completion history" });
+  await expect(history).toContainText("2 completion events");
+  await expect(history).toContainText("1 reopenings");
+  await expect(history.getByRole("img")).toHaveAttribute("aria-label", /2026-11-18: 1 completions/);
+  await expect(history.getByRole("region", { name: "Scrollable 30-day completion chart" })).toBeVisible();
+  await history.getByRole("button", { name: "Refresh trend" }).click();
+  await expect.poll(() => api.calls.filter(call => call.pathname === "/api/analytics/completions").length).toBe(2);
+});
+
+test("completion history failure explains missing data without showing invented totals", async ({ page }) => {
+  await installMockApi(page, { failCompletionHistory: true });
+  await signIn(page);
+  const insights = page.getByRole("region", { name: "Productivity insights" });
+  await insights.getByRole("button", { name: "Show insights" }).click();
+  const history = insights.getByRole("region", { name: "Completion history" });
+  await expect(history.getByRole("alert")).toContainText("Could not load completion history");
+  await expect(history.getByRole("img")).toHaveCount(0);
+});
+
 test("productivity insights fit 320px mobile and show an empty workspace safely", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 750 });
   await installMockApi(page);
