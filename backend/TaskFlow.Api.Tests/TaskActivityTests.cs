@@ -108,6 +108,60 @@ public class TaskActivityTests
     }
 
     [Fact]
+    public async Task CompletionAnalyticsAreAuthenticatedTenantIsolatedAndReadOnly()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        await factory.InitializeDatabaseAsync();
+        using var alice = factory.CreateClient();
+        using var bob = factory.CreateClient();
+        using (var anonymous = await alice.GetAsync("/api/analytics/completions"))
+            Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+
+        alice.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", await Login(alice, $"analytics-alice-{Guid.NewGuid():N}@example.test"));
+        bob.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", await Login(bob, $"analytics-bob-{Guid.NewGuid():N}@example.test"));
+        var task = await Create(alice);
+        var id = task.GetProperty("id").GetInt32();
+        using (var complete = await alice.PutAsync($"/api/tasks/{id}", null))
+            Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+        using (var reopen = await alice.PutAsync($"/api/tasks/{id}", null))
+            Assert.Equal(HttpStatusCode.OK, reopen.StatusCode);
+        using (var completeAgain = await alice.PutAsync($"/api/tasks/{id}", null))
+            Assert.Equal(HttpStatusCode.OK, completeAgain.StatusCode);
+
+        using var result = await alice.GetAsync("/api/analytics/completions");
+        result.EnsureSuccessStatusCode();
+        using var data = JsonDocument.Parse(await result.Content.ReadAsStringAsync());
+        var root = data.RootElement;
+        Assert.Equal("UTC", root.GetProperty("timeZone").GetString());
+        Assert.Equal(30, root.GetProperty("windowDays").GetInt32());
+        var days = root.GetProperty("days").EnumerateArray().ToArray();
+        Assert.Equal(30, days.Length);
+        Assert.All(days, day => {
+            Assert.Matches(@"^\d{4}-\d{2}-\d{2}$", day.GetProperty("date").GetString()!);
+            Assert.False(day.TryGetProperty("taskId", out _));
+            Assert.False(day.TryGetProperty("title", out _));
+        });
+        Assert.Equal(2, root.GetProperty("totalCompletions").GetInt32());
+        Assert.Equal(1, root.GetProperty("totalReopenings").GetInt32());
+        Assert.Equal(2, days.Sum(day => day.GetProperty("completed").GetInt32()));
+        Assert.Equal(1, days.Sum(day => day.GetProperty("reopened").GetInt32()));
+
+        using var other = await bob.GetAsync("/api/analytics/completions");
+        other.EnsureSuccessStatusCode();
+        using var otherData = JsonDocument.Parse(await other.Content.ReadAsStringAsync());
+        Assert.Equal(0, otherData.RootElement.GetProperty("totalCompletions").GetInt32());
+        Assert.Equal(0, otherData.RootElement.GetProperty("totalReopenings").GetInt32());
+
+        // Analytics reads must not alter the original task or audit metadata.
+        using var taskResponse = await alice.GetAsync("/api/tasks");
+        taskResponse.EnsureSuccessStatusCode();
+        var tasks = (await taskResponse.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().ToArray();
+        Assert.True(Assert.Single(tasks).GetProperty("completed").GetBoolean());
+    }
+
+    [Fact]
     public async Task UnauthenticatedActivityRequiresLogin()
     {
         await using var factory = new CustomWebApplicationFactory();

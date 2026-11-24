@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 import { getPlanningAnalytics, getProductivityInsights } from "../../utils/productivityInsights.js";
 
 const DUE_STATES = [
@@ -8,8 +10,12 @@ const DUE_STATES = [
   { key: "unscheduled", label: "Unscheduled" },
 ];
 
-export default function ProductivityInsights({ tasks }) {
+export default function ProductivityInsights({ tasks, token, onUnauthorized }) {
   const [expanded, setExpanded] = useState(false);
+  const [history, setHistory] = useState({ status: "idle", token: null, data: null });
+  const unauthorizedRef = useRef(onUnauthorized);
+  unauthorizedRef.current = onUnauthorized;
+  const [refreshHistory, setRefreshHistory] = useState(0);
   // Avoid grouping and sorting the entire workspace while insights are collapsed.
   // useMemo retains the snapshot until tasks change and expanded views need it.
   const snapshot = useMemo(() => expanded ? getProductivityInsights(tasks) : null, [expanded, tasks]);
@@ -17,6 +23,39 @@ export default function ProductivityInsights({ tasks }) {
   const plan = useMemo(() => expanded ? getPlanningAnalytics(tasks) : null, [expanded, tasks]);
   const maxDue = plan ? Math.max(1, ...plan.week.map(day => day.count)) : 1;
   const maxPriority = plan ? Math.max(1, ...Object.values(plan.priority)) : 1;
+
+  useEffect(() => {
+    if (!expanded || !token) return;
+    const controller = new AbortController();
+    setHistory({ status: "loading", token, data: null });
+    fetch(`${API}/api/analytics/completions`, {
+      headers: { Authorization: `Bearer ${token}` }, signal: controller.signal
+    }).then(async response => {
+      if (response.status === 401) { unauthorizedRef.current?.(token); return null; }
+      if (!response.ok) throw new Error("Could not load completion history.");
+      return response.json();
+    }).then(data => {
+      if (controller.signal.aborted || data === null) return;
+      if (data.timeZone !== "UTC" || data.windowDays !== 30 ||
+          !Array.isArray(data.days) || data.days.length !== 30 ||
+          data.days.some(day => !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day.date) ||
+            !Number.isSafeInteger(day.completed) || day.completed < 0 ||
+            !Number.isSafeInteger(day.reopened) || day.reopened < 0)) {
+        throw new Error("Completion history response was invalid.");
+      }
+      setHistory({ status: "ready", token, data });
+    }).catch(error => {
+      if (!controller.signal.aborted) setHistory({
+        status: "error", token, data: null,
+        message: error.message || "Could not load completion history."
+      });
+    });
+    return () => controller.abort();
+  }, [expanded, token, refreshHistory, tasks]);
+
+  const historyData = history.token === token && history.status === "ready" ? history.data : null;
+  const historyMax = historyData ? Math.max(1, ...historyData.days.map(day => day.completed)) : 1;
+
 
   return (
     <section className="productivity-insights" aria-label="Productivity insights">
@@ -38,6 +77,38 @@ export default function ProductivityInsights({ tasks }) {
           <div><strong>{snapshot.completed}</strong><span>Completed</span></div>
           <div><strong>{snapshot.completionRate}%</strong><span>Completed share</span></div>
         </div>
+        <section className="insights-history" aria-label="Completion history">
+          <header>
+            <div><h3>Completion history · last 30 days</h3>
+              <p className="insights-note">Recorded completion events by UTC date (not unique tasks). Reopened tasks may be completed again.</p>
+            </div>
+            <button type="button" onClick={() => setRefreshHistory(count => count + 1)}
+              disabled={history.status === "loading" && history.token === token}>Refresh trend</button>
+          </header>
+          {history.token !== token || history.status === "loading" || history.status === "idle"
+            ? <p role="status">Loading recorded completion history…</p>
+            : history.status === "error"
+              ? <p role="alert">{history.message} <button type="button" onClick={() => setRefreshHistory(count => count + 1)}>Retry</button></p>
+              : historyData && <>
+                <p className="insights-history-total">
+                  <strong>{historyData.totalCompletions}</strong> completion events · {historyData.totalReopenings} reopenings
+                </p>
+                <div className="insights-history-scroll" role="region" tabIndex={0}
+                  aria-label="Scrollable 30-day completion chart">
+                  <div className="insights-history-bars" role="img"
+                    aria-label={historyData.days.map(day => `${day.date}: ${day.completed} completions`).join("; ")}>
+                    {historyData.days.map((day, index) => <div key={day.date} className="insights-history-bar"
+                      title={`${day.date}: ${day.completed} completion events, ${day.reopened} reopenings`}>
+                      <span className="insights-history-column">
+                        <span style={{ height: (day.completed / historyMax * 100) + "%" }} />
+                      </span>
+                      <span className="insights-history-date">{index % 5 === 0 || index === 29 ? day.date.slice(5) : ""}</span>
+                    </div>)}
+                  </div>
+                </div>
+                <p className="insights-note">History begins when TaskFlow started recording activity. Earlier completions cannot be reconstructed from current task status.</p>
+              </>}
+        </section>
         <div className="insights-charts" aria-label="Workload charts">
           <section aria-label="Tasks due in the next seven days">
             <h3>Upcoming deadlines</h3>

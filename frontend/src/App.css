@@ -1285,3 +1285,23 @@ html, body, #root {
 .insights-advice li strong { font-size:12px; }
 .insights-advice li p { margin:5px 0 0; font-size:12px; line-height:1.5; color:#b9b7ca; }
 @media(max-width:700px) { .insights-charts { grid-template-columns:1fr; } }
+
+
+/* Recorded completion history: scrollable on narrow screens, no fake trend data. */
+.insights-history {
+  min-width:0; margin-bottom:14px; padding:16px; border:1px solid #323244;
+  border-radius:11px; background:#171824;
+}
+.insights-history>header { display:flex; align-items:start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.insights-history h3 { color:#f0eefe; font-size:13px; margin:0 0 6px; }
+.insights-history button { border:1px solid #514a68; background:#302b4b; color:#eee7ff; padding:7px 10px; border-radius:7px; cursor:pointer; }
+.insights-history button:disabled { opacity:.5; cursor:wait; }
+.insights-history-total { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; font-size:12px; color:#b7b4c8; }
+.insights-history-total strong { font:700 21px Manrope,sans-serif; color:#efedff; }
+.insights-history-scroll { max-width:100%; overflow-x:auto; padding:4px 0 9px; }
+.insights-history-scroll:focus-visible { outline:2px solid #b3a3ff; outline-offset:3px; }
+.insights-history-bars { display:grid; grid-template-columns:repeat(30,minmax(15px,1fr)); min-width:600px; height:128px; gap:4px; }
+.insights-history-bar { min-width:0; display:flex; flex-direction:column; align-items:center; gap:5px; }
+.insights-history-column { display:flex; align-items:flex-end; flex:1; min-height:0; width:100%; background:#252437; border-radius:5px; overflow:hidden; }
+.insights-history-column>span { width:100%; background:#8f86ee; border-radius:5px 5px 0 0; }
+.insights-history-date { font-size:9px; color:#bab6ca; white-space:nowrap; height:13px; }

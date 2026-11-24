@@ -1,6 +1,6 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingUnauthorizedReads = unauthorizedTaskReads;
   let remainingFailedLogins = failLoginAttempts;
@@ -11,7 +11,7 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
   let remainingFailedCreates = failTaskCreates;
   let remainingFailedDetails = failTaskDetails;
   const tasks = structuredClone(initialTasks);
-  const activities = [];
+  const activities = structuredClone(initialActivities);
   const versions = [];
   const projects = [];
   const dependencies = new Map();
@@ -112,6 +112,21 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         record(task.id, "edited");
       }
       return respond(200, task);
+    }
+    if (pathname === "/api/analytics/completions" && method === "GET") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (failCompletionHistory) return respond(503, {});
+      const current = new Date("2026-11-19T12:00:00Z");
+      const start = Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() - 29);
+      const days = Array.from({ length: 30 }, (_, offset) => {
+        const date = new Date(start + offset * 86400000).toISOString().slice(0, 10);
+        const events = activities.filter(event => event.occurredAt.slice(0, 10) === date);
+        return { date, completed: events.filter(event => event.kind === "completed").length,
+          reopened: events.filter(event => event.kind === "reopened").length };
+      });
+      return respond(200, { timeZone: "UTC", windowDays: 30,
+        totalCompletions: days.reduce((sum, day) => sum + day.completed, 0),
+        totalReopenings: days.reduce((sum, day) => sum + day.reopened, 0), days });
     }
     if (pathname === "/api/tasks" && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
