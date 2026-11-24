@@ -817,11 +817,7 @@ app.MapGet("/api/analytics/progression", async (ClaimsPrincipal user, TaskDbCont
         new { Id = "ten-tasks", Name = "Getting Things Done", Description = "Complete 10 different tasks",
             Unlocked = completedTasks >= 10, Progress = Math.Min(completedTasks, 10), Goal = 10 },
         new { Id = "fifty-tasks", Name = "Task Master", Description = "Complete 50 different tasks",
-            Unlocked = completedTasks >= 50, Progress = Math.Min(completedTasks, 50), Goal = 50 },
-        new { Id = "focused-week", Name = "Focused Week", Description = "Complete five different tasks in seven UTC days",
-            Unlocked = completedThisWeek >= 5, Progress = Math.Min(completedThisWeek, 5), Goal = 5 },
-        new { Id = "steady-days", Name = "Steady Progress", Description = "Complete tasks on three different UTC days in seven days",
-            Unlocked = activeDays >= 3, Progress = Math.Min(activeDays, 3), Goal = 3 }
+            Unlocked = completedTasks >= 50, Progress = Math.Min(completedTasks, 50), Goal = 50 }
     };
 
     return Results.Ok(new
@@ -835,6 +831,9 @@ app.MapGet("/api/analytics/progression", async (ClaimsPrincipal user, TaskDbCont
         UniqueCompletedTasks = completedTasks,
         CompletedThisWeek = completedThisWeek,
         ActiveCompletionDays = activeDays,
+        Challenge = new { Id = "seven-day-quest", Name = "Seven-day Quest",
+            Description = "Complete five different tasks in the last seven UTC days",
+            Progress = Math.Min(completedThisWeek, 5), Goal = 5, Complete = completedThisWeek >= 5 },
         Achievements = achievements
     });
 }).RequireAuthorization();
