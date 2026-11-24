@@ -32,6 +32,23 @@ TaskFlow supports daily task planning, project organization, recurring work, dea
 - Open the command palette with **Ctrl/⌘ + K** to search and navigate quickly.
 - Use a responsive mobile layout, keyboard-friendly dialogs, accessible focus states, and an installable **online-only PWA**. Offline task editing and synchronization are **not** supported.
 
+### Productivity intelligence
+- Inspect seven-day upcoming deadlines, priority mix, 30-day recorded completion events, and owner-scoped dependency bottlenecks.
+- The deterministic Bottleneck Coach works without an AI provider. The optional AI explanation sends **only aggregated numeric metrics and a server-validated insight code** to OpenAI after the user explicitly checks consent and requests an explanation. Task titles, descriptions, notes, task IDs, and account details are not sent.
+- AI output is advisory text only: it does not create, edit, reschedule, complete, or delete tasks. Rule-based recommendations remain available if inference is offline.
+
+#### Optional AI coaching configuration (API server only)
+
+AI explanations are **disabled by default**. To enable them, set these environment variables on the API backend service (not Vercel/frontend):
+
+```text
+AiCoach__Enabled=true
+OPENAI_API_KEY=<server-side-secret>
+AiCoach__Model=gpt-4o-mini
+```
+
+The model name is configurable; verify the chosen model supports the Responses API in your account. Never commit or expose the API key. Each request has a 15-second timeout, a bounded output limit, `store: false`, and a five-requests-per-ten-minutes network bucket. Availability is reported separately, and no provider call is made until the signed-in user opts in. API usage can incur charges and needs operator budget controls. No persistence of AI answers is implemented.
+
 ### Edit with confidence
 - Preserve unsaved task drafts across many navigation and save-failure scenarios; show clear retry and discard options.
 - Detect stale edits and reject conflicting writes rather than silently overwriting newer task data.
