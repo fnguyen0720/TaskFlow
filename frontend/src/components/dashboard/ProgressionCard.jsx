@@ -45,7 +45,8 @@ export default function ProgressionCard({ tasks, projects = [], token, onUnautho
         throw new Error("Your progression data was invalid.");
       }
       setState({ token, status: "ready", data: {
-        ...data, projectQuests: quests, totalProjects: data.totalProjects ?? 0
+        ...data, projectQuests: quests, totalProjects: data.totalProjects ?? 0,
+        projectQuestsSupported: data.projectQuests !== undefined
       } });
     }).catch(error => {
       if (!controller.signal.aborted)
@@ -101,7 +102,9 @@ export default function ProgressionCard({ tasks, projects = [], token, onUnautho
               <section aria-label="Project quests">
                 <h3>Project Quests</h3>
                 <p>Finish work within each project. Moving tasks between projects updates progress, but never awards extra XP.</p>
-                {data.projectQuests.length === 0 ?
+                {!data.projectQuestsSupported ?
+                  <p className="progression-empty">Project quests are not yet available on the API.</p> :
+                  data.projectQuests.length === 0 ?
                   <p className="progression-empty">Create a project to start a quest.</p> :
                   <ul className="progression-projects">
                     {data.projectQuests.map(project => {
