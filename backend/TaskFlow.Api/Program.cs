@@ -600,6 +600,51 @@ app.MapPut("/api/notifications/state/{taskId:int}/{kind}", async (
 })
 .RequireAuthorization();
 
+// Completion history uses existing server-generated audit timestamps. No migration,
+// backfill, or task content exposure; results are scoped to the authenticated user.
+// Dates and 30-day buckets use UTC consistently (not a user's due-date timezone).
+app.MapGet("/api/analytics/completions", async (ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var todayUtc = DateTime.UtcNow.Date;
+    var startUtc = todayUtc.AddDays(-29);
+    var endExclusive = todayUtc.AddDays(1);
+
+    // Only read timestamps and event kinds, never titles or notes.
+    var events = await db.TaskActivities.AsNoTracking()
+        .Where(a => a.UserId == userId &&
+            (a.Kind == TaskActivityKinds.Completed || a.Kind == TaskActivityKinds.Reopened) &&
+            a.OccurredAt >= startUtc && a.OccurredAt < endExclusive)
+        .Select(a => new { a.Kind, a.OccurredAt })
+        .ToListAsync();
+
+    var grouped = events.GroupBy(e => e.OccurredAt.Date)
+        .ToDictionary(g => g.Key, g => new
+        {
+            Completed = g.Count(e => e.Kind == TaskActivityKinds.Completed),
+            Reopened = g.Count(e => e.Kind == TaskActivityKinds.Reopened)
+        });
+    var days = Enumerable.Range(0, 30).Select(offset =>
+    {
+        var date = startUtc.AddDays(offset);
+        grouped.TryGetValue(date, out var counts);
+        return new
+        {
+            Date = date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            Completed = counts?.Completed ?? 0,
+            Reopened = counts?.Reopened ?? 0
+        };
+    }).ToArray();
+    return Results.Ok(new
+    {
+        TimeZone = "UTC",
+        WindowDays = 30,
+        TotalCompletions = days.Sum(day => day.Completed),
+        TotalReopenings = days.Sum(day => day.Reopened),
+        Days = days
+    });
+}).RequireAuthorization();
+
 // This endpoint never accepts a user ID, and never returns events of another account.
 // A missing or cross-account task looks identical: 404.
 app.MapGet("/api/tasks/{id:int}/activity", async (
