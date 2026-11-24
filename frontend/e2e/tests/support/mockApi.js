@@ -1,6 +1,6 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingUnauthorizedReads = unauthorizedTaskReads;
   let remainingFailedLogins = failLoginAttempts;
@@ -112,6 +112,18 @@ export async function installMockApi(page, { initialTasks = [], failTaskReads = 
         record(task.id, "edited");
       }
       return respond(200, task);
+    }
+    if (pathname === "/api/analytics/bottlenecks" && method === "GET") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (failBottleneckReads) return respond(503, {});
+      return respond(200, bottleneckReport ?? {
+        generatedAtUtc: "2026-11-19T12:00:00Z", analysis: "rules", timeZone: "UTC",
+        metrics: { activeTasks: tasks.filter(task => !task.completed).length,
+          blockedTasks: 0, overdueReadyTasks: 0, dueWithin7Days: 0,
+          completionsLast7Days: 0, completionsPrevious7Days: 0 },
+        recommendations: [{ id: "steady", severity: "info", title: "No major bottlenecks detected",
+          detail: "No urgent dependency or overdue-work signals were found.", taskId: null }]
+      });
     }
     if (pathname === "/api/analytics/completions" && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
