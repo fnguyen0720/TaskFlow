@@ -102,14 +102,13 @@ public class TaskDependencyTests
         await Login(outsider);
 
         var prerequisite = await NewTask(owner, "Shared prerequisite");
-        var first = await NewTask(owner, "Dependent A");
-        var second = await NewTask(owner, "Dependent B");
-        var privateTask = await NewTask(outsider, "Other account private work");
-
         var dueTomorrow = DateTime.UtcNow.Date.AddDays(1).ToString("yyyy-MM-dd");
-        using (var date = await owner.PatchAsJsonAsync($"/api/tasks/{first}/due-date",
-            new { dueDate = dueTomorrow, expectedDueDate = (string?)null }))
-            Assert.Equal(HttpStatusCode.OK, date.StatusCode);
+        using var dated = await owner.PostAsJsonAsync("/api/tasks",
+            new { title = "Dependent A", priority = "High", dueDate = dueTomorrow });
+        Assert.Equal(HttpStatusCode.Created, dated.StatusCode);
+        var first = (await dated.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+        var second = await NewTask(owner, "Dependent B");
+        _ = await NewTask(outsider, "Other account private work");
         using (var linked = await owner.PutAsJsonAsync($"/api/tasks/{first}/dependencies",
             new { dependsOnIds = new[] { prerequisite }, expectedDependsOnIds = Array.Empty<int>() }))
             Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
