@@ -499,6 +499,31 @@ test("progression awards XP once per different task and shows achievements", asy
     call.pathname.startsWith("/api/tasks"))).toHaveLength(0);
 });
 
+test("project quests show account project completion without extra XP awards", async ({ page }) => {
+  const finished = fixtureTask(750, "Completed quest step", "2026-11-18");
+  finished.completed = true;
+  finished.projectId = 45;
+  const active = fixtureTask(751, "Pending quest step", "2026-11-20");
+  active.projectId = 45;
+  await installMockApi(page, {
+    initialProjects: [{ id: 45, name: "Portfolio Launch" }, { id: 46, name: "Fresh Project" }],
+    initialTasks: [finished, active],
+    initialActivities: [{ id: 1, taskId: 750, kind: "completed", occurredAt: "2026-11-18T10:00:00Z" }]
+  });
+  await signIn(page);
+  const panel = page.getByRole("region", { name: "Progress and achievements" });
+  await expect(panel).toContainText("25 XP");
+  await panel.getByRole("button", { name: "Show achievements" }).click();
+  const quests = panel.getByRole("region", { name: "Project quests" });
+  await expect(quests).toContainText("Portfolio Launch");
+  await expect(quests).toContainText("1 / 2 tasks");
+  await expect(quests).toContainText("Fresh Project");
+  await expect(quests).toContainText("No tasks yet");
+  await expect(quests.getByRole("progressbar", { name: "Portfolio Launch completion" }))
+    .toHaveAttribute("aria-valuenow", "50");
+  await expect(panel).toContainText("25 XP");
+});
+
 test("empty progression remains truthful on narrow mobile screens", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 750 });
   await installMockApi(page);
