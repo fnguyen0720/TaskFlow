@@ -90,6 +90,83 @@ public class TaskDependencyTests
     }
 
     [Fact]
+    public async Task BottleneckCoachIsReadOnlyPrivateAndPrioritizesSharedBlockers()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        await factory.InitializeDatabaseAsync();
+        using var owner = factory.CreateClient();
+        using var outsider = factory.CreateClient();
+        using (var anonymous = await owner.GetAsync("/api/analytics/bottlenecks"))
+            Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
+        await Login(owner);
+        await Login(outsider);
+
+        var prerequisite = await NewTask(owner, "Shared prerequisite");
+        var dueTomorrow = DateTime.UtcNow.Date.AddDays(1).ToString("yyyy-MM-dd");
+        using var dated = await owner.PostAsJsonAsync("/api/tasks",
+            new { title = "Dependent A", priority = "High", dueDate = dueTomorrow });
+        Assert.Equal(HttpStatusCode.Created, dated.StatusCode);
+        var first = (await dated.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt32();
+        var second = await NewTask(owner, "Dependent B");
+        _ = await NewTask(outsider, "Other account private work");
+        using (var linked = await owner.PutAsJsonAsync($"/api/tasks/{first}/dependencies",
+            new { dependsOnIds = new[] { prerequisite }, expectedDependsOnIds = Array.Empty<int>() }))
+            Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
+        using (var linked = await owner.PutAsJsonAsync($"/api/tasks/{second}/dependencies",
+            new { dependsOnIds = new[] { prerequisite }, expectedDependsOnIds = Array.Empty<int>() }))
+            Assert.Equal(HttpStatusCode.OK, linked.StatusCode);
+
+        using var response = await owner.GetAsync("/api/analytics/bottlenecks");
+        response.EnsureSuccessStatusCode();
+        using var result = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var root = result.RootElement;
+        Assert.Equal("rules", root.GetProperty("analysis").GetString());
+        Assert.Equal(3, root.GetProperty("metrics").GetProperty("activeTasks").GetInt32());
+        Assert.Equal(2, root.GetProperty("metrics").GetProperty("blockedTasks").GetInt32());
+        var advice = root.GetProperty("recommendations").EnumerateArray().ToArray();
+        Assert.Contains(advice, x => x.GetProperty("id").GetString() == "blocked-deadline" &&
+            x.GetProperty("taskId").GetInt32() == first);
+        Assert.Contains(advice, x => x.GetProperty("id").GetString() == "shared-prerequisite" &&
+            x.GetProperty("taskId").GetInt32() == prerequisite);
+        Assert.DoesNotContain("Other account private work", root.GetRawText());
+
+        using var otherResponse = await outsider.GetAsync("/api/analytics/bottlenecks");
+        otherResponse.EnsureSuccessStatusCode();
+        using var other = JsonDocument.Parse(await otherResponse.Content.ReadAsStringAsync());
+        Assert.Equal(1, other.RootElement.GetProperty("metrics").GetProperty("activeTasks").GetInt32());
+        Assert.Equal(0, other.RootElement.GetProperty("metrics").GetProperty("blockedTasks").GetInt32());
+        Assert.DoesNotContain(first.ToString(), other.RootElement.GetProperty("recommendations").GetRawText());
+
+        using var stillBlocked = await owner.PutAsync($"/api/tasks/{first}", null);
+        Assert.Equal(HttpStatusCode.Conflict, stillBlocked.StatusCode);
+        using var taskList = await owner.GetAsync("/api/tasks");
+        taskList.EnsureSuccessStatusCode();
+        Assert.Equal(3, (await taskList.Content.ReadFromJsonAsync<JsonElement>()).GetArrayLength());
+    }
+
+    [Fact]
+    public async Task BottleneckCoachCountsOnlyCallerRecordedCompletionEvents()
+    {
+        await using var factory = new CustomWebApplicationFactory();
+        await factory.InitializeDatabaseAsync();
+        using var owner = factory.CreateClient();
+        using var other = factory.CreateClient();
+        await Login(owner);
+        await Login(other);
+        var taskId = await NewTask(owner, "Completed item");
+        using (var completed = await owner.PutAsync($"/api/tasks/{taskId}", null))
+            Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
+        using var ownerResponse = await owner.GetAsync("/api/analytics/bottlenecks");
+        ownerResponse.EnsureSuccessStatusCode();
+        using var ownerJson = JsonDocument.Parse(await ownerResponse.Content.ReadAsStringAsync());
+        Assert.Equal(1, ownerJson.RootElement.GetProperty("metrics").GetProperty("completionsLast7Days").GetInt32());
+        using var otherResponse = await other.GetAsync("/api/analytics/bottlenecks");
+        otherResponse.EnsureSuccessStatusCode();
+        using var otherJson = JsonDocument.Parse(await otherResponse.Content.ReadAsStringAsync());
+        Assert.Equal(0, otherJson.RootElement.GetProperty("metrics").GetProperty("completionsLast7Days").GetInt32());
+    }
+
+    [Fact]
     public async Task NestedSubtasksKeepMetadataAndRejectBadParents()
     {
         await using var factory = new CustomWebApplicationFactory();

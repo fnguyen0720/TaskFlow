@@ -430,6 +430,44 @@ test("command palette has a useful empty state on narrow mobile screens", async 
   await expect(palette).toHaveCount(0);
 });
 
+test("bottleneck coach explains blockers, opens the related task and never changes data", async ({ page }) => {
+  const task = fixtureTask(650, "Shared blocker", "2026-11-19");
+  const api = await installMockApi(page, {
+    initialTasks: [task],
+    bottleneckReport: {
+      generatedAtUtc: "2026-11-19T12:00:00Z", analysis: "rules", timeZone: "UTC",
+      metrics: { activeTasks: 1, blockedTasks: 2, overdueReadyTasks: 0,
+        dueWithin7Days: 1, completionsLast7Days: 3, completionsPrevious7Days: 2 },
+      recommendations: [
+        { id: "shared-prerequisite", severity: "high", title: "Resolve a prerequisite to unblock work",
+          detail: "Completing this prerequisite can unblock progress on 2 active tasks.", taskId: 650 }
+      ]
+    }
+  });
+  await signIn(page);
+  const insights = page.getByRole("region", { name: "Productivity insights" });
+  await insights.getByRole("button", { name: "Show insights" }).click();
+  const coach = insights.getByRole("region", { name: "Bottleneck coach" });
+  await expect(coach.getByRole("group", { name: "Bottleneck metrics" })).toContainText("Blocked tasks");
+  await expect(coach).toContainText("2 active tasks");
+  await expect(coach).toContainText("Explainable rule-based analysis, not an AI model");
+  await coach.getByRole("button", { name: "Open task for Resolve a prerequisite to unblock work" }).click();
+  await expect(page.getByRole("dialog", { name: "Shared blocker" })).toBeVisible();
+  expect(api.tasks[0].title).toBe("Shared blocker");
+  expect(api.calls.filter(call => call.method !== "GET" && call.pathname.startsWith("/api/tasks"))).toHaveLength(0);
+});
+
+test("bottleneck analysis failure offers retry without invented recommendations", async ({ page }) => {
+  await installMockApi(page, { failBottleneckReads: true });
+  await signIn(page);
+  const insights = page.getByRole("region", { name: "Productivity insights" });
+  await insights.getByRole("button", { name: "Show insights" }).click();
+  const coach = insights.getByRole("region", { name: "Bottleneck coach" });
+  await expect(coach.getByRole("alert")).toContainText("Could not load bottleneck recommendations");
+  await expect(coach.getByRole("button", { name: "Retry analysis" })).toBeVisible();
+  await expect(coach.getByRole("list")).toHaveCount(0);
+});
+
 test("productivity insights show current category and due-date snapshot", async ({ page }) => {
   const tasks = [
     fixtureTask(201, "Late project", "2026-11-18"),

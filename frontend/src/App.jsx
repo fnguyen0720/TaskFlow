@@ -377,7 +377,7 @@ function App() {
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
-          <ProductivityInsights tasks={visibleTasks} token={token} onUnauthorized={handleUnauthorized} />
+          <ProductivityInsights tasks={visibleTasks} token={token} onUnauthorized={handleUnauthorized} onOpenTask={setDetailId} />
         </>
       ) : null}
       {projects.status === "ready" && <ProjectShelf projects={projects.projects} tasks={visibleTasks}

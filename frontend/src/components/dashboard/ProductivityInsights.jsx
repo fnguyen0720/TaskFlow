@@ -10,12 +10,14 @@ const DUE_STATES = [
   { key: "unscheduled", label: "Unscheduled" },
 ];
 
-export default function ProductivityInsights({ tasks, token, onUnauthorized }) {
+export default function ProductivityInsights({ tasks, token, onUnauthorized, onOpenTask }) {
   const [expanded, setExpanded] = useState(false);
   const [history, setHistory] = useState({ status: "idle", token: null, data: null });
   const unauthorizedRef = useRef(onUnauthorized);
   unauthorizedRef.current = onUnauthorized;
   const [refreshHistory, setRefreshHistory] = useState(0);
+  const [bottlenecks, setBottlenecks] = useState({ status: "idle", token: null, data: null });
+  const [refreshBottlenecks, setRefreshBottlenecks] = useState(0);
   // Avoid grouping and sorting the entire workspace while insights are collapsed.
   // useMemo retains the snapshot until tasks change and expanded views need it.
   const snapshot = useMemo(() => expanded ? getProductivityInsights(tasks) : null, [expanded, tasks]);
@@ -52,6 +54,40 @@ export default function ProductivityInsights({ tasks, token, onUnauthorized }) {
     });
     return () => controller.abort();
   }, [expanded, token, refreshHistory, tasks]);
+
+
+  useEffect(() => {
+    if (!expanded || !token) return;
+    const controller = new AbortController();
+    setBottlenecks({ status: "loading", token, data: null });
+    fetch(`${API}/api/analytics/bottlenecks`, {
+      headers: { Authorization: `Bearer ${token}` }, signal: controller.signal
+    }).then(async response => {
+      if (response.status === 401) { unauthorizedRef.current?.(token); return null; }
+      if (!response.ok) throw new Error("Could not load bottleneck recommendations.");
+      return response.json();
+    }).then(data => {
+      if (controller.signal.aborted || data === null) return;
+      if (data.analysis !== "rules" || data.timeZone !== "UTC" ||
+          !data.metrics || !Number.isSafeInteger(data.metrics.blockedTasks) ||
+          !Array.isArray(data.recommendations) || data.recommendations.length > 4 ||
+          data.recommendations.some(item =>
+            typeof item.id !== "string" || typeof item.title !== "string" ||
+            typeof item.detail !== "string" ||
+            (item.taskId != null && !Number.isSafeInteger(item.taskId)))) {
+        throw new Error("Bottleneck analysis response was invalid.");
+      }
+      setBottlenecks({ status: "ready", token, data });
+    }).catch(error => {
+      if (!controller.signal.aborted) setBottlenecks({
+        status: "error", token, data: null,
+        message: error.message || "Could not load bottleneck recommendations."
+      });
+    });
+    return () => controller.abort();
+  }, [expanded, token, refreshBottlenecks, tasks]);
+
+  const coach = bottlenecks.token === token && bottlenecks.status === "ready" ? bottlenecks.data : null;
 
   const historyData = history.token === token && history.status === "ready" ? history.data : null;
   const historyMax = historyData ? Math.max(1, ...historyData.days.map(day => day.completed)) : 1;
@@ -141,6 +177,38 @@ export default function ProductivityInsights({ tasks, token, onUnauthorized }) {
             </ul>
           </section>
         </div>
+        <section className="insights-coach" aria-label="Bottleneck coach">
+          <header>
+            <div>
+              <h3>Bottleneck coach</h3>
+              <p className="insights-note">Dependency-aware priorities using recorded task activity and deadlines.</p>
+            </div>
+            <button type="button" disabled={bottlenecks.token === token && bottlenecks.status === "loading"}
+              onClick={() => setRefreshBottlenecks(count => count + 1)}>Analyze again</button>
+          </header>
+          {bottlenecks.token !== token || bottlenecks.status === "loading" || bottlenecks.status === "idle"
+            ? <p role="status">Checking dependencies and recent activity…</p>
+            : bottlenecks.status === "error"
+              ? <p role="alert">{bottlenecks.message} <button type="button"
+                  onClick={() => setRefreshBottlenecks(count => count + 1)}>Retry analysis</button></p>
+              : coach && <>
+                <div className="insights-coach-metrics" role="group" aria-label="Bottleneck metrics">
+                  <div><strong>{coach.metrics.blockedTasks}</strong><span>Blocked tasks</span></div>
+                  <div><strong>{coach.metrics.overdueReadyTasks}</strong><span>Unblocked overdue</span></div>
+                  <div><strong>{coach.metrics.completionsLast7Days}</strong><span>Recorded completions · 7 days</span></div>
+                </div>
+                <ol className="insights-coach-list">
+                  {coach.recommendations.map(item => <li key={item.id} className={`insights-coach-item insights-coach-${item.severity}`}>
+                    <div><strong>{item.title}</strong><p>{item.detail}</p></div>
+                    {item.taskId != null && tasks.some(task => task.id === item.taskId) && (
+                      <button type="button" onClick={() => onOpenTask?.(item.taskId)}
+                        aria-label={`Open task for ${item.title}`}>Open task</button>
+                    )}
+                  </li>)}
+                </ol>
+                <p className="insights-note">Explainable rule-based analysis, not an AI model. Suggestions never modify tasks automatically.</p>
+              </>}
+        </section>
         <section className="insights-advice" aria-label="Planning recommendations">
           <header><h3>Planning recommendations</h3><span>Rule-based · Private to this dashboard</span></header>
           <ul>
