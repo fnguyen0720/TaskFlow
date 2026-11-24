@@ -773,6 +773,72 @@ app.MapGet("/api/analytics/bottlenecks", async (ClaimsPrincipal user, TaskDbCont
     });
 }).RequireAuthorization();
 
+// Read-only motivation from distinct task IDs with recorded completions.
+// Reopening/recompleting a task never grants additional XP. Deleted tasks retain
+// historical credit; no leaderboard, streak punishment or mutable reward balance.
+app.MapGet("/api/analytics/progression", async (ClaimsPrincipal user, TaskDbContext db) =>
+{
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var firstCompletions = await db.TaskActivities.AsNoTracking()
+        .Where(a => a.UserId == userId && a.Kind == TaskActivityKinds.Completed)
+        .GroupBy(a => a.TaskId)
+        .Select(group => new
+        {
+            TaskId = group.Key,
+            FirstCompletion = group.Min(a => a.OccurredAt)
+        })
+        .ToListAsync();
+
+    var completedTasks = firstCompletions.Count;
+    long xp = completedTasks * 25L;
+    var level = 1;
+    long levelStart = 0;
+    long levelEnd = 100;
+    while (xp >= levelEnd && level < 1000)
+    {
+        levelStart = levelEnd;
+        level++;
+        levelEnd += level * 100L;
+    }
+    var today = DateTime.UtcNow.Date;
+    var startUtc = today.AddDays(-6);
+    var completedThisWeek = firstCompletions
+        .Count(item => item.FirstCompletion >= startUtc &&
+            item.FirstCompletion < today.AddDays(1));
+    var activeDays = firstCompletions
+        .Where(item => item.FirstCompletion >= startUtc &&
+            item.FirstCompletion < today.AddDays(1))
+        .Select(item => item.FirstCompletion.Date).Distinct().Count();
+
+    var achievements = new[]
+    {
+        new { Id = "first-step", Name = "First Step", Description = "Complete your first task",
+            Unlocked = completedTasks >= 1, Progress = Math.Min(completedTasks, 1), Goal = 1 },
+        new { Id = "ten-tasks", Name = "Getting Things Done", Description = "Complete 10 different tasks",
+            Unlocked = completedTasks >= 10, Progress = Math.Min(completedTasks, 10), Goal = 10 },
+        new { Id = "fifty-tasks", Name = "Task Master", Description = "Complete 50 different tasks",
+            Unlocked = completedTasks >= 50, Progress = Math.Min(completedTasks, 50), Goal = 50 },
+        new { Id = "focused-week", Name = "Focused Week", Description = "Complete five different tasks in seven UTC days",
+            Unlocked = completedThisWeek >= 5, Progress = Math.Min(completedThisWeek, 5), Goal = 5 },
+        new { Id = "steady-days", Name = "Steady Progress", Description = "Complete tasks on three different UTC days in seven days",
+            Unlocked = activeDays >= 3, Progress = Math.Min(activeDays, 3), Goal = 3 }
+    };
+
+    return Results.Ok(new
+    {
+        Basis = "first-recorded-completion",
+        TimeZone = "UTC",
+        Xp = xp,
+        Level = level,
+        LevelStartXp = levelStart,
+        NextLevelXp = levelEnd,
+        UniqueCompletedTasks = completedTasks,
+        CompletedThisWeek = completedThisWeek,
+        ActiveCompletionDays = activeDays,
+        Achievements = achievements
+    });
+}).RequireAuthorization();
+
 // The model is OFF unless the operator opts in and supplies a backend-only key.
 // GET does not contact the provider or disclose configuration secrets.
 app.MapGet("/api/analytics/coach/capabilities", (IConfiguration configuration) =>
