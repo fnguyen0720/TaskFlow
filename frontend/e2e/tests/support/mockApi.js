@@ -288,7 +288,7 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
       return respond(201, task);
     }
 
-    const toggleRoute = /^\\/api\\/tasks\\/(\\d+)$/.exec(pathname);
+    const toggleRoute = new RegExp("^/api/tasks/(\\d+)$").exec(pathname);
     if (toggleRoute && method === "PUT") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       const task = tasks.find(item => item.id === Number(toggleRoute[1]));
