@@ -66,7 +66,7 @@ function DemoDetails({ task, onClose, onEdit }) {
         <span className="demo-pill">Sample task</span>
         <h2 id="demo-dialog-title">{task.title}</h2>
         <p>{task.completed ? "Completed" : "To do"} · {task.priority} priority</p>
-        <p>{task.dueDate ? formatDueDate(task.dueDate) : "No due date"}</p>
+        <p>{task.dueDate ? (task.completed ? `Due date: ${task.dueDate}` : formatDueDate(task.dueDate)) : "No due date"}</p>
         <button className="demo-primary" type="button" onClick={onEdit}>Edit task</button>
       </section>
     </div>
@@ -200,20 +200,20 @@ export default function DemoWorkspace({ onExit }) {
           Moved {lastMove.title} <button type="button" onClick={undoMove}>Undo move</button>
           <button type="button" onClick={() => setLastMove(null)} aria-label="Dismiss move">×</button>
         </div>}
-        <form className="task-form task-form-quick demo-create-form" onSubmit={addTask} aria-label="Add a new task">
-          <div className="task-quick-row">
-            <input ref={titleRef} type="text" maxLength={100} className="create-title"
+        <form className="demo-create-form" onSubmit={addTask} aria-label="Add a new task">
+          <div className="demo-add-row">
+            <input ref={titleRef} type="text" maxLength={100} className="demo-title-input"
               aria-label="New task title" placeholder="Add a task…" value={draft.title}
               onChange={event => setDraft(current => ({ ...current, title: event.target.value }))} />
-            <button type="submit" className="create-submit" disabled={!draft.title.trim()}>＋ Add task</button>
+            <button type="submit" className="demo-add-submit" disabled={!draft.title.trim()}>＋ Add task</button>
           </div>
-          <div className="task-quick-options-line">
+          <div className="demo-options-row">
             <button className="demo-options-toggle" type="button" aria-expanded={showOptions}
               aria-controls="demo-create-options" onClick={() => setShowOptions(current => !current)}>
               {showOptions ? "Fewer options" : "More options"}
             </button>
             {!showOptions && (draft.priority !== "Medium" || draft.dueDate) &&
-              <span className="task-quick-summary"> {draft.priority !== "Medium" ? draft.priority : ""}
+              <span className="demo-options-summary"> {draft.priority !== "Medium" ? draft.priority : ""}
                 {draft.dueDate ? " · " + draft.dueDate : ""}</span>}
           </div>
           {showOptions && <div id="demo-create-options" className="demo-form-options">
@@ -273,7 +273,7 @@ export default function DemoWorkspace({ onExit }) {
               </div> : <>
                 <div className="task-title"><button type="button" className="task-detail-trigger"
                   aria-haspopup="dialog" onClick={() => setDetailId(task.id)}>{task.title}</button></div>
-                {task.dueDate && <span className={"task-due-date " + getDueDateClass(task.dueDate)}>{formatDueDate(task.dueDate)}</span>}
+                {!task.completed && task.dueDate && <span className={"task-due-date " + getDueDateClass(task.dueDate)}>{formatDueDate(task.dueDate)}</span>}
                 <span className={"priority priority-" + task.priority.toLowerCase()}>{task.priority}</span>
                 <span className="category">{task.category}</span>
                 <button type="button" className="edit-button" aria-label={"Edit " + task.title} onClick={() => startEditing(task)}>Edit</button>
