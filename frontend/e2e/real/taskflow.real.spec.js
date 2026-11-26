@@ -46,6 +46,7 @@ test("real registration, login, create, calendar Move and Undo persist in Postgr
 
   const title = `Real end to end ${randomUUID().slice(0, 8)}`;
   await page.getByRole("textbox", { name: "New task title" }).fill(title);
+  await page.getByRole("button", { name: "More options" }).click();
   await page.getByLabel("Due date").fill("2026-11-17");
   await page.getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText(title);
@@ -117,6 +118,7 @@ test("real browser can configure recurrence and see its in-app reminder", async 
 
   const title = `Repeat and remind ${randomUUID().slice(0, 8)}`;
   await page.getByRole("textbox", { name: "New task title" }).fill(title);
+  await page.getByRole("button", { name: "More options" }).click();
   await page.getByLabel("Due date").fill("2026-11-20");
   await page.getByRole("combobox", { name: "Repeat task" }).selectOption("Daily");
   await page.getByRole("combobox", { name: "Task reminder" }).selectOption("1");
