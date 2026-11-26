@@ -178,3 +178,37 @@ test("authenticated completed tasks hide warning labels but preserve underlying 
   await expect(item.locator(".task-due-date")).toHaveCount(0);
   expect(api.tasks[0].dueDate).toBe("2026-11-18T00:00:00Z");
 });
+
+
+test("demo date picker paints readable text while retaining an accessible native date input on narrow screens", async ({ page }) => {
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 760 });
+    await page.goto("/?demo=1");
+    const form = page.getByRole("form", { name: "Add a new task" });
+    await form.getByRole("button", { name: "More options" }).click();
+
+    const shell = form.locator(".demo-date-shell");
+    const display = shell.locator(".demo-date-display");
+    const picker = form.getByRole("textbox", { name: "Demo due date" }).or(form.locator('input[type="date"]'));
+    await expect(display).toHaveText("Choose a date");
+    await expect(display).toBeVisible();
+    await expect(picker).toHaveAttribute("type", "date");
+    await expect(picker).toHaveValue("");
+    await expect(picker).toHaveCSS("opacity", "0");
+    const [shellBox, displayBox] = await Promise.all([shell.boundingBox(), display.boundingBox()]);
+    expect(shellBox.width).toBeGreaterThan(130);
+    expect(displayBox.width).toBeGreaterThan(130);
+    expect(displayBox.x).toBeGreaterThanOrEqual(shellBox.x - 1);
+    expect(displayBox.x + displayBox.width).toBeLessThanOrEqual(shellBox.x + shellBox.width + 1);
+
+    await picker.fill("2026-12-05");
+    await expect(display).toHaveText("Dec 5, 2026");
+    await form.getByRole("button", { name: "Fewer options" }).click();
+    await expect(form.locator(".demo-options-summary")).toContainText("2026-12-05");
+    await form.getByRole("button", { name: "More options" }).click();
+    await expect(display).toHaveText("Dec 5, 2026");
+    await picker.fill("");
+    await expect(display).toHaveText("Choose a date");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+});
