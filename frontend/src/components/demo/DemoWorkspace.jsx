@@ -96,8 +96,10 @@ export default function DemoWorkspace({ onExit }) {
   const detailTask = tasks.find(task => task.id === detailId);
 
   function changeView(next) {
-    if (editing && (editing.title !== tasks.find(task => task.id === editing.id)?.title) &&
-        !window.confirm("Discard your demo task edits?")) return false;
+    const currentTask = tasks.find(task => task.id === editing?.id);
+    const unsaved = currentTask && (editing.title !== currentTask.title ||
+      editing.priority !== currentTask.priority || (editing.dueDate || null) !== currentTask.dueDate);
+    if (unsaved && !window.confirm("Discard your demo task edits?")) return false;
     setEditing(null);
     setStatus("all");
     setView(next);
@@ -286,7 +288,7 @@ export default function DemoWorkspace({ onExit }) {
         </>}
       </section>
       {detailTask && <DemoDetails task={detailTask} onClose={() => setDetailId(null)}
-        onEdit={() => { setDetailId(null); startEditing(detailTask); changeView("all"); }} />}
+        onEdit={() => { setDetailId(null); setView("all"); setStatus("all"); startEditing(detailTask); }} />}
       {!detailTask && <MobileBottomNav view={view} onChangeView={changeView} onQuickCreate={quickAdd} />}
       <footer className="app-footer"><span>TaskFlow</span><span>Demo data only • Never saved</span></footer>
     </div>
