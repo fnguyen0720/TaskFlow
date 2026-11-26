@@ -46,6 +46,6 @@ export async function getAuthErrorMessage(response, { registering = false } = {}
   if (payload && typeof payload === "object") return fallback;
   // Avoid displaying framework status text without an actionable explanation.
   if (/^(failed|failure|error)$/i.test(raw)) return fallback;
-  if (raw && raw.length <= 300 && !/^[{\\[<]/u.test(raw)) return raw;
+  if (raw && raw.length <= 300 && !["{", "[", "<"].some(prefix => raw.startsWith(prefix))) return raw;
   return fallback;
 }
