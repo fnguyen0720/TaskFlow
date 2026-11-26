@@ -44,6 +44,8 @@ export async function getAuthErrorMessage(response, { registering = false } = {}
 
   // Ignore generic RFC 7807 titles (and JSON/HTML), which are not actionable.
   if (payload && typeof payload === "object") return fallback;
-  // ASP.NET Core Identity can return the literal "Failed" for rejected credentials.\n  // Never expose this unhelpful framework response as the user-facing error.\n  if (!registering && [400, 401, 403].includes(response.status)) return "Invalid email or password.";\n  if (raw && raw.length <= 300 && !/^[{\[<]/u.test(raw)) return raw;
+  // Avoid displaying framework status text without an actionable explanation.
+  if (/^(failed|failure|error)$/i.test(raw)) return fallback;
+  if (raw && raw.length <= 300 && !/^[{\\[<]/u.test(raw)) return raw;
   return fallback;
 }
