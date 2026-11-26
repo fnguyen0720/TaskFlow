@@ -167,6 +167,7 @@ function App() {
   }, [hasUnsavedWork, clearDrafts]);
 
   const closePreferences = useCallback(() => setPreferencesOpen(false), []);
+  const closeQuickTour = useCallback(() => setQuickTourOpen(false), []);
   const logout = () => {
     if (hasUnsavedWork && !window.confirm("Discard unsaved changes and log out?")) return;
     clearDrafts();
@@ -410,7 +411,7 @@ function App() {
       {commandOpen && !detailTask && <CommandPalette tasks={visibleTasks}
         onClose={() => setCommandOpen(false)} onOpenTask={openTaskFromPalette}
         onChangeView={changeView} onQuickCreate={quickCreateFromPalette} />}
-      {quickTourOpen && !detailTask && !commandOpen && <QuickTour onClose={() => setQuickTourOpen(false)} />}
+      {quickTourOpen && !detailTask && !commandOpen && <QuickTour onClose={closeQuickTour} />}
       {preferencesOpen && viewPreferences.status === "ready" && (
         <ViewPreferencesDialog preferences={viewPreferences.preferences} onSave={viewPreferences.update}
           onClose={closePreferences} />
