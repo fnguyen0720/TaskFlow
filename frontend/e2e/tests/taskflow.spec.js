@@ -255,6 +255,7 @@ test("new-task draft survives a failed request and can be saved on retry", async
   const api = await installMockApi(page, { failTaskCreates: 1 });
   await signIn(page);
   await page.getByRole("textbox", { name: "New task title" }).fill("Preserve my new task");
+  await page.getByRole("button", { name: "More options" }).click();
   await page.getByRole("combobox", { name: "Priority", exact: true }).selectOption("High");
   await page.getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("textbox", { name: "New task title" })).toHaveValue("Preserve my new task");
