@@ -1513,3 +1513,81 @@ html, body, #root {
   }
   .task-panel .task-form.task-form-quick { padding:9px; }
 }
+
+
+/* PR #70 — visual polish without adding interface copy or feature clutter. */
+.overview-card { border-radius:14px; }
+.overview-card:focus-within { border-color:#8d7ce3; }
+.completion-visual {
+  position:absolute; right:12px; top:12px; display:grid; place-items:center;
+  width:54px; height:54px;
+}
+.completion-ring { width:100%; height:100%; transform:rotate(-90deg); overflow:visible; }
+.completion-ring circle { fill:none; stroke-width:6; }
+.completion-ring-track { stroke:#38334c; }
+.completion-ring-fill {
+  stroke:#a99aff; stroke-linecap:round;
+  transition:stroke-dasharray .5s ease;
+}
+.completion-ring-label {
+  position:absolute; font:700 11px Manrope,sans-serif;
+  color:#f0eaff; font-variant-numeric:tabular-nums;
+}
+.overview-card:has(.completion-visual) { padding-right:75px; }
+.task-panel .task-list { gap:10px; }
+.task-panel .task-list .task {
+  position:relative; border-radius:12px; padding:14px 16px;
+  background:linear-gradient(110deg,#1c1d2a,#171923);
+  border:1px solid #373444;
+  box-shadow:0 4px 14px rgb(0 0 0 / 8%);
+  transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease;
+}
+.task-panel .task-list .task::before {
+  content:""; position:absolute; left:0; top:13px; bottom:13px;
+  width:3px; border-radius:4px; background:#8d82bc; opacity:.55;
+}
+.task-panel .task-list .task:has(.priority-high)::before { background:#f197aa; opacity:1; }
+.task-panel .task-list .task:has(.priority-low)::before { background:#74d1ab; opacity:.85; }
+.task-panel .task-list .task.completed::before { background:#59c799; opacity:.55; }
+.task-panel .task-list .task:hover {
+  transform:translateY(-1px); border-color:#6b5d95;
+  box-shadow:0 9px 23px rgb(0 0 0 / 16%);
+}
+.task-panel .task-list .task:focus-within { border-color:#9f90ef; }
+.task-panel .task-list .task .complete-button {
+  display:grid; place-items:center;
+  width:28px; height:28px; border-radius:9px;
+  border:2px solid #797488; font-size:17px; font-weight:700;
+  transition:background .2s ease,border-color .2s ease,transform .2s ease;
+}
+.task-panel .task-list .task .complete-button:hover:not(:disabled) { transform:scale(1.08); }
+.task-panel .task-list .task.completed .complete-button {
+  border-color:#64cfa2; background:#276b54; color:#f1fff8;
+}
+.task-panel .task-list .task .task-detail-trigger { font-size:13px; line-height:1.5; font-weight:600; }
+.task-panel .task-list .task.task-just-completed .complete-button {
+  animation:task-completion-pop .6s cubic-bezier(.2,.7,.2,1);
+}
+@keyframes task-completion-pop {
+  0% { transform:scale(.9); box-shadow:0 0 0 0 rgb(99 208 164 / 30%); }
+  55% { transform:scale(1.14); box-shadow:0 0 0 9px rgb(99 208 164 / 0%); }
+  100% { transform:scale(1); box-shadow:0 0 0 0 rgb(99 208 164 / 0%); }
+}
+@media(max-width:700px) {
+  .overview-card:has(.completion-visual) { padding-right:60px; }
+  .completion-visual { width:42px; height:42px; right:9px; top:11px; }
+  .completion-ring-label { font-size:9px; }
+  .task-panel .task-list .task { padding:12px 13px 12px 17px; }
+  .task-panel .task-list .task::before { top:11px; bottom:11px; }
+}
+@media(max-width:360px) {
+  .overview-card:has(.completion-visual) { padding-right:54px; }
+  .completion-visual { width:37px; height:37px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .completion-ring-fill,.task-panel .task-list .task,
+  .task-panel .task-list .task .complete-button { transition:none; }
+  .task-panel .task-list .task:hover,
+  .task-panel .task-list .task .complete-button:hover:not(:disabled) { transform:none; }
+  .task-panel .task-list .task.task-just-completed .complete-button { animation:none; }
+}

@@ -21,9 +21,14 @@ export default function DashboardOverview({ activeCount, completedCount, overdue
         <article className="overview-card">
           <span className="overview-label"><span aria-hidden="true">✓</span> Completed</span>
           <span className="overview-value">{completedCount}</span>
-          <div className="progress-track" role="progressbar" aria-label="Overall task completion"
+          <div className="completion-visual" role="progressbar" aria-label="Overall task completion"
             aria-valuenow={completionRate} aria-valuemin={0} aria-valuemax={100}>
-            <span style={{ width: completionRate + "%" }} />
+            <svg className="completion-ring" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+              <circle className="completion-ring-track" cx="32" cy="32" r="26" />
+              <circle className="completion-ring-fill" cx="32" cy="32" r="26"
+                style={{ strokeDasharray: `${completionRate * 1.63363} 163.363` }} />
+            </svg>
+            <span className="completion-ring-label">{completionRate}%</span>
           </div>
         </article>
         <article className="overview-card">

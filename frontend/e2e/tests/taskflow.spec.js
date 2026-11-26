@@ -30,6 +30,58 @@ test("registers and returns to sign-in without an authenticated session", async 
   await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
 });
 
+test("visual completion ring and task cards remain accessible at mobile width", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  const api = await installMockApi(page, {
+    initialTasks: [
+      fixtureTask(9201, "Finish visual polish", "2026-11-19"),
+      fixtureTask(9202, "Review mobile layout", "2026-11-20"),
+    ],
+  });
+  await signIn(page);
+  const progress = page.getByRole("progressbar", { name: "Overall task completion" });
+  await expect(progress).toHaveAttribute("aria-valuenow", "0");
+  await expect(page.locator(".completion-ring")).toBeVisible();
+  const item = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Finish visual polish" });
+  await expect(item).toBeVisible();
+  await expect(item.locator(".complete-button")).toHaveAttribute("aria-label", "Mark complete: Finish visual polish");
+  await item.getByRole("button", { name: "Mark complete: Finish visual polish" }).click();
+  await expect(item).toHaveClass(/completed/);
+  await expect(progress).toHaveAttribute("aria-valuenow", "50");
+  await expect(item.getByRole("button", { name: "Mark incomplete: Finish visual polish" })).toBeVisible();
+  expect(api.tasks.find(task => task.id === 9201).completed).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
+test("rejected completion rolls back without a success celebration", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(9204, "Protected incomplete task", "2026-11-19")],
+    failTaskToggles: 1,
+  });
+  await signIn(page);
+  const item = page.getByRole("list", { name: "Tasks" }).getByRole("listitem")
+    .filter({ hasText: "Protected incomplete task" });
+  await item.getByRole("button", { name: "Mark complete: Protected incomplete task" }).click();
+  await expect(page.getByRole("alert")).toContainText("Couldn't update task");
+  await expect(item).not.toHaveClass(/completed|task-just-completed/);
+  await expect(item.getByRole("button", { name: "Mark complete: Protected incomplete task" })).toBeEnabled();
+  expect(api.tasks[0].completed).toBe(false);
+});
+
+test("task completion polish honors reduced-motion preferences", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await installMockApi(page, { initialTasks: [fixtureTask(9203, "Motion-safe task", "2026-11-19")] });
+  await signIn(page);
+  const item = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Motion-safe task" });
+  await item.getByRole("button", { name: "Mark complete: Motion-safe task" }).click();
+  await expect(item).toHaveClass(/completed/);
+  const motion = await item.locator(".complete-button").evaluate(element => {
+    element.closest(".task").classList.add("task-just-completed");
+    return getComputedStyle(element).animationName;
+  });
+  expect(motion).toBe("none");
+});
+
 test("quick add creates a simple task without exposing advanced controls", async ({ page }) => {
   const api = await installMockApi(page);
   await signIn(page);

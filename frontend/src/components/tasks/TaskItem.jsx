@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { formatDueDate, getDueDateClass } from "../../utils/taskUtils.js";
 import TaskEditor from "./TaskEditor.jsx";
 
@@ -6,9 +7,27 @@ export default function TaskItem({ task, editing, loadingTask, actions }) {
   const checkedCount = checklist.filter(item => item.completed).length;
   const editingThis = editing.id === task.id;
   const busy = loadingTask?.id === task.id || String(task.id).startsWith("temp-");
+  const toggling = loadingTask?.id === task.id && loadingTask.action === "toggle";
+  const wasToggling = useRef(false);
+  const [celebrating, setCelebrating] = useState(false);
+
+  // Celebrate only after a request settles successfully, not on optimistic updates.
+  useEffect(() => {
+    if (toggling) {
+      wasToggling.current = true;
+      setCelebrating(false);
+      return;
+    }
+    if (!wasToggling.current) return;
+    wasToggling.current = false;
+    if (!task.completed) return;
+    setCelebrating(true);
+    const timeout = setTimeout(() => setCelebrating(false), 650);
+    return () => clearTimeout(timeout);
+  }, [toggling, task.completed]);
 
   return (
-    <div role="listitem" className={"task " + (task.completed ? "completed " : "") + (editingThis ? "editing" : "")}>
+    <div role="listitem" className={"task " + (task.completed ? "completed " : "") + (editingThis ? "editing " : "") + (celebrating ? "task-just-completed" : "")}>
       <button
         type="button"
         className="complete-button"
