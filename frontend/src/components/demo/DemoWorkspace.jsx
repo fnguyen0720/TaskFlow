@@ -86,6 +86,10 @@ export default function DemoWorkspace({ onExit }) {
   const [calendarMode, setCalendarMode] = useState("week");
   const [lastMove, setLastMove] = useState(null);
   const titleRef = useRef(null);
+  const formattedDraftDate = draft.dueDate
+    ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" })
+      .format(new Date(`${draft.dueDate}T12:00:00`))
+    : "Choose a date";
   const stats = getTaskStats(tasks);
   const views = getTaskViews(tasks);
   const source = view === "calendar" || view === "all" ? tasks : views[view] || tasks;
@@ -222,10 +226,14 @@ export default function DemoWorkspace({ onExit }) {
                 {["Low", "Medium", "High"].map(value => <option key={value}>{value}</option>)}
               </select>
             </label>
-            <label>Due date
-              <input type="date" aria-label="Demo due date" value={draft.dueDate}
-                onChange={event => setDraft(current => ({ ...current, dueDate: event.target.value }))} />
-            </label>
+            <div className="demo-date-group">
+              <label htmlFor="demo-create-due-date">Due date</label>
+              <div className="demo-date-shell">
+                <span className="demo-date-display" aria-hidden="true">{formattedDraftDate}</span>
+                <input id="demo-create-due-date" type="date" aria-label="Demo due date" value={draft.dueDate}
+                  onChange={event => setDraft(current => ({ ...current, dueDate: event.target.value }))} />
+              </div>
+            </div>
           </div>}
         </form>
         <div className="demo-filters">
