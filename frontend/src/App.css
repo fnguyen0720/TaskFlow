@@ -1379,3 +1379,38 @@ html, body, #root {
 .progression-project-track>span { display:block; height:100%; background:#9788ec; border-radius:8px; }
 .progression-empty { margin-top:10px!important; }
 @media(max-width:620px){.progression-projects{grid-template-columns:1fr}}
+
+
+/* Visual-first home: primary actions stay visible, detailed tools are opt-in. */
+.dashboard-header { margin-bottom:22px; padding-bottom:15px; }
+.dashboard-intro { align-items:center; margin-bottom:14px; }
+.dashboard-intro h2 { margin:0; }
+.overview { grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:18px; }
+.overview-card { min-height:96px; padding:15px; gap:12px; background:#191b29; border-color:#343147; }
+.overview-card-today { background:linear-gradient(145deg,#302749,#211d32); border-color:#5c4b82; }
+.overview-label { font-size:11px; letter-spacing:.15px; text-transform:none; color:#bbb8cb; display:flex; align-items:center; gap:8px; }
+.overview-label>span { color:#b8a9ff; font-size:15px; }
+.overview-value { font-size:30px; line-height:1; }
+.overview-card .progress-track { margin-top:auto; height:6px; }
+.daily-focus { padding:17px 20px; margin-bottom:14px; }
+.daily-focus-heading h2 { margin:0; font-size:18px; }
+.daily-focus-stats { margin:11px 0 14px; gap:8px; }
+.daily-focus-stats span { padding:5px 10px; }
+.daily-focus-list { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.home-discover { margin:0 0 16px; }
+.home-discover-toggle { display:flex; align-items:center; width:100%; gap:10px; min-height:46px; padding:10px 15px;
+  text-align:left; cursor:pointer; background:#191926; border:1px solid #373348;
+  border-radius:11px; color:#d5c8ff; font:600 13px Manrope,sans-serif; }
+.home-discover-toggle:hover { background:#242139; border-color:#645989; }
+.home-discover-toggle:focus-visible { outline:3px solid #c2adff; outline-offset:3px; }
+.home-discover-chevron { margin-left:auto; color:#b1a3df; font-size:20px; }
+#home-more-insights { padding-top:14px; }
+@media(max-width:700px) {
+  .dashboard-header { margin-bottom:16px; }
+  .overview { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .overview-card { padding:13px; min-height:88px; }
+  .overview-value { font-size:27px; }
+  .daily-focus { padding:14px; }
+  .daily-focus-list { grid-template-columns:1fr; }
+  .home-discover-toggle { min-height:48px; }
+}
