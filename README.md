@@ -4,7 +4,7 @@
 
 TaskFlow supports daily task planning, project organization, recurring work, deadline visibility, and reliable task editing across devices. It is also an engineering portfolio project focused on secure multi-user APIs, database migrations, automated testing, and production operations.
 
-**[Launch TaskFlow](https://task-flow-pi-lake.vercel.app)** · **[Source code](https://github.com/fnguyen0720/TaskFlow)**
+**[Launch TaskFlow](https://task-flow-pi-lake.vercel.app)** · **[Try the zero-signup demo](https://task-flow-pi-lake.vercel.app/?demo=1)** · **[Source code](https://github.com/fnguyen0720/TaskFlow)**
 
 ## Preview
 
@@ -12,7 +12,17 @@ TaskFlow supports daily task planning, project organization, recurring work, dea
 | --- | --- |
 | ![Task dashboard](docs/images/taskflow-dashboard.png) | ![Sign-in screen](docs/images/taskflow-login.png) |
 
-> Screenshots may not show the latest UI. The live app contains the current feature set. Create your own account to explore your private workspace.
+> Screenshots may not show the latest UI. The live app contains the current feature set. Use the interactive demo without an account, or create an account to explore your private workspace.
+
+## Interactive demo (no signup)
+
+Choose **Try interactive demo** on the sign-in screen or open [the demo link](https://task-flow-pi-lake.vercel.app/?demo=1). It loads a **separate, in-memory React workspace** with example tasks. You can add, complete, edit, delete, search, and schedule tasks using week/month calendars. Reset the demo at any time.
+
+- Demo state lives only in the current React session and is **not** saved to localStorage, cookies, PostgreSQL, or the API.
+- Reloading or leaving the demo discards all demo changes; exiting returns you to the normal login/register experience.
+- Existing sign-in sessions and real account task records are not touched.
+- The demo intentionally focuses on basic task planning. Account-backed projects, reminders, history, AI coaching, and other server features require a real account.
+- Playwright regression tests reject networked demo actions and verify isolation, mobile layouts, and unchanged sign-in behavior.
 
 ## What you can do
 
