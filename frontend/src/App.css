@@ -1591,3 +1591,26 @@ html, body, #root {
   .task-panel .task-list .task .complete-button:hover:not(:disabled) { transform:none; }
   .task-panel .task-list .task.task-just-completed .complete-button { animation:none; }
 }
+
+
+/* PR #71: Optional, visually concise onboarding. */
+.quick-tour-launch{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;border:1px solid #3b3855;border-radius:10px;background:#242137;color:#ddd5ff;cursor:pointer;font-weight:700;font-size:12px}
+.quick-tour-launch:hover{background:#302a4b}
+.quick-tour-backdrop{position:fixed;inset:0;z-index:110;display:grid;place-items:center;padding:18px;background:rgba(5,6,12,.78)}
+.quick-tour{width:min(100%,390px);max-height:calc(100dvh - 36px);overflow-y:auto;border:1px solid #47425f;border-radius:22px;padding:22px;background:#191b27;box-shadow:0 24px 80px rgba(0,0,0,.55);text-align:center}
+.quick-tour-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.quick-tour-count{color:#b8b0eb;font-size:12px;font-weight:700}
+.quick-tour-close{width:44px;height:44px;border:0;border-radius:12px;background:#292b3a;color:#ece8ff;font-size:24px;cursor:pointer}
+.quick-tour-illustration{display:grid;place-items:center;width:116px;height:116px;margin:12px auto 18px;border:1px solid #61548c;border-radius:32px;background:linear-gradient(145deg,#4b4081,#26243f);color:white;font-size:64px}
+.quick-tour h2{margin:0 0 10px;color:#f5f2ff;font:700 21px Manrope,sans-serif}
+.quick-tour p{max-width:290px;margin:0 auto;color:#c4c5d1;font-size:14px;line-height:1.55}
+.quick-tour-dots{display:flex;justify-content:center;gap:8px;margin:22px 0}
+.quick-tour-dots span{width:8px;height:8px;border-radius:50%;background:#56576c}
+.quick-tour-dots span.active{width:23px;border-radius:8px;background:#a69aff}
+.quick-tour-actions{display:flex;gap:10px}
+.quick-tour-actions button{flex:1;min-height:46px;border-radius:12px;cursor:pointer;font-size:14px;font-weight:700}
+.quick-tour-secondary{border:1px solid #4a4b5f;background:#232533;color:#e5e4ef}
+.quick-tour-primary{border:0;background:#8271f0;color:white}
+.quick-tour-primary:hover{background:#9587ff}
+@media(max-width:600px){.quick-tour-launch{min-width:44px;justify-content:center;padding:8px}.quick-tour-launch span{display:none}.quick-tour{padding:18px}.quick-tour-illustration{width:100px;height:100px;font-size:56px}}
+@media(prefers-reduced-motion:reduce){.quick-tour,.quick-tour *{animation:none!important;transition:none!important}}
