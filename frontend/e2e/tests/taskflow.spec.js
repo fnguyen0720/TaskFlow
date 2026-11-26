@@ -42,7 +42,7 @@ test("visual completion ring and task cards remain accessible at mobile width", 
   const progress = page.getByRole("progressbar", { name: "Overall task completion" });
   await expect(progress).toHaveAttribute("aria-valuenow", "0");
   await expect(page.locator(".completion-ring")).toBeVisible();
-  const item = page.getByRole("listitem").filter({ hasText: "Finish visual polish" });
+  const item = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Finish visual polish" });
   await expect(item).toBeVisible();
   await expect(item.locator(".complete-button")).toHaveAttribute("aria-label", "Mark complete: Finish visual polish");
   await item.getByRole("button", { name: "Mark complete: Finish visual polish" }).click();
@@ -57,7 +57,7 @@ test("task completion polish honors reduced-motion preferences", async ({ page }
   await page.emulateMedia({ reducedMotion: "reduce" });
   await installMockApi(page, { initialTasks: [fixtureTask(9203, "Motion-safe task", "2026-11-19")] });
   await signIn(page);
-  const item = page.getByRole("listitem").filter({ hasText: "Motion-safe task" });
+  const item = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: "Motion-safe task" });
   await item.getByRole("button", { name: "Mark complete: Motion-safe task" }).click();
   await expect(item).toHaveClass(/completed/);
   const motion = await item.locator(".complete-button").evaluate(element => {
