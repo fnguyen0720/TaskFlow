@@ -1,6 +1,6 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], initialProjects = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], initialProjects = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskToggles = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingUnauthorizedReads = unauthorizedTaskReads;
   let remainingFailedLogins = failLoginAttempts;
@@ -9,6 +9,7 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
   let remainingEmptyReads = emptyTaskReads;
   let remainingFailedEdits = failTaskEdits;
   let remainingFailedCreates = failTaskCreates;
+  let remainingFailedToggles = failTaskToggles;
   let remainingFailedDetails = failTaskDetails;
   const tasks = structuredClone(initialTasks);
   const activities = structuredClone(initialActivities);
@@ -285,6 +286,23 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
       record(task.id, "created");
       recordVersion(task, "created");
       return respond(201, task);
+    }
+
+    const toggleRoute = /^\\/api\\/tasks\\/(\\d+)$/.exec(pathname);
+    if (toggleRoute && method === "PUT") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      const task = tasks.find(item => item.id === Number(toggleRoute[1]));
+      if (!task) return respond(404, {});
+      if (remainingFailedToggles > 0) {
+        remainingFailedToggles--;
+        return respond(503, { title: "Temporarily unavailable" });
+      }
+      startHistory(task);
+      task.completed = !task.completed;
+      changeVersion(task);
+      record(task.id, task.completed ? "completed" : "reopened");
+      recordVersion(task, task.completed ? "completed" : "reopened");
+      return respond(200, task);
     }
 
     const edit = /^\/api\/tasks\/(\d+)\/title$/.exec(pathname);
