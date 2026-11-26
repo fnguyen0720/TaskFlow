@@ -46,3 +46,12 @@ test("uses a fallback when a response body cannot be read", async () => {
   assert.equal(await getAuthErrorMessage({ status: 500, text: async () => { throw new Error("network error"); } }),
     "Unable to sign in. Please try again.");
 });
+
+test("never shows bare Failed from ASP.NET Identity during registration or sign-in", async () => {
+  assert.equal(await getAuthErrorMessage(response(400, "Failed"), { registering: true }),
+    "Unable to create an account. Please check your details and try again.");
+  assert.equal(await getAuthErrorMessage(response(401, "Failed")),
+    "Invalid email or password.");
+  assert.equal(await getAuthErrorMessage(response(400, "Account is locked."), { registering: true }),
+    "Account is locked.");
+});

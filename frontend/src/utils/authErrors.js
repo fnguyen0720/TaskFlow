@@ -44,6 +44,8 @@ export async function getAuthErrorMessage(response, { registering = false } = {}
 
   // Ignore generic RFC 7807 titles (and JSON/HTML), which are not actionable.
   if (payload && typeof payload === "object") return fallback;
-  if (raw && raw.length <= 300 && !/^[{\[<]/u.test(raw)) return raw;
+  // Avoid displaying framework status text without an actionable explanation.
+  if (/^(failed|failure|error)$/i.test(raw)) return fallback;
+  if (raw && raw.length <= 300 && !["{", "[", "<"].some(prefix => raw.startsWith(prefix))) return raw;
   return fallback;
 }
