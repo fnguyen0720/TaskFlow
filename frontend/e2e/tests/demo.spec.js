@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { installMockApi, signIn } from "./support/mockApi.js";
+import { fixtureTask, installMockApi, signIn } from "./support/mockApi.js";
 
 test.beforeEach(async ({ page }) => {
   await page.clock.install({ time: new Date("2026-11-19T12:00:00Z") });
@@ -106,4 +106,75 @@ test("existing authenticated sign-in remains unaffected by the demo entry", asyn
   await signIn(page);
   await expect(page.getByRole("navigation", { name: "Task views" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Try interactive demo" })).toHaveCount(0);
+});
+
+
+test("demo Add Task options stay stacked and aligned on desktop and narrow mobile", async ({ page }) => {
+  for (const width of [1280, 768, 320]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/?demo=1");
+    const form = page.getByRole("form", { name: "Add a new task" });
+    const more = form.getByRole("button", { name: "More options" });
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await more.click();
+    await expect(form.getByRole("button", { name: "Fewer options" })).toHaveAttribute("aria-expanded", "true");
+
+    const row = form.locator(".demo-add-row");
+    const toggle = form.locator(".demo-options-row");
+    const fields = form.locator(".demo-form-options");
+    const [formBox, rowBox, toggleBox, fieldsBox] = await Promise.all(
+      [form, row, toggle, fields].map(locator => locator.boundingBox())
+    );
+    expect(formBox).not.toBeNull();
+    expect(rowBox.y + rowBox.height).toBeLessThanOrEqual(toggleBox.y + 1);
+    expect(toggleBox.y + toggleBox.height).toBeLessThanOrEqual(fieldsBox.y + 1);
+    expect(fieldsBox.x).toBeGreaterThanOrEqual(formBox.x - 1);
+    expect(fieldsBox.x + fieldsBox.width).toBeLessThanOrEqual(formBox.x + formBox.width + 1);
+    expect(fieldsBox.width).toBeGreaterThan(formBox.width * 0.85);
+    const priority = fields.getByLabel("Priority");
+    const dueDate = fields.getByLabel("Due date");
+    const [priorityBox, dateBox] = await Promise.all([priority.boundingBox(), dueDate.boundingBox()]);
+    if (width >= 768) {
+      expect(Math.abs(priorityBox.y - dateBox.y)).toBeLessThan(4);
+      expect(priorityBox.width).toBeGreaterThan(180);
+    } else {
+      expect(dateBox.y).toBeGreaterThan(priorityBox.y + priorityBox.height);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await form.getByRole("button", { name: "Fewer options" }).click();
+    await expect(fields).toHaveCount(0);
+    expect((await form.boundingBox()).height).toBeLessThan(formBox.height);
+  }
+});
+
+test("completed demo tasks hide stale overdue or today labels and retain their due dates", async ({ page }) => {
+  await page.goto("/?demo=1");
+  const list = page.getByRole("list", { name: "Tasks" });
+  const completed = list.getByRole("listitem").filter({ hasText: "Explore TaskFlow" });
+  await expect(completed).toHaveClass(/completed/);
+  await expect(completed.locator(".task-due-date")).toHaveCount(0);
+  await expect(completed).not.toContainText("Overdue");
+
+  const today = list.getByRole("listitem").filter({ hasText: "Plan the week" });
+  await expect(today).toContainText("Today");
+  await today.getByRole("button", { name: "Mark complete: Plan the week" }).click();
+  await expect(today.locator(".task-due-date")).toHaveCount(0);
+  await today.getByRole("button", { name: "Mark incomplete: Plan the week" }).click();
+  await expect(today).toContainText("Today");
+  await completed.getByRole("button", { name: "Mark incomplete: Explore TaskFlow" }).click();
+  await expect(completed).toContainText("Overdue");
+});
+
+test("authenticated completed tasks hide warning labels but preserve underlying due dates", async ({ page }) => {
+  const task = fixtureTask(7431, "Previously due task", "2026-11-18");
+  task.completed = true;
+  const api = await installMockApi(page, { initialTasks: [task] });
+  await signIn(page);
+  const item = page.getByRole("list", { name: "Tasks" }).getByRole("listitem").filter({ hasText: task.title });
+  await expect(item.locator(".task-due-date")).toHaveCount(0);
+  await item.getByRole("button", { name: "Mark incomplete: " + task.title }).click();
+  await expect(item).toContainText("Overdue");
+  await item.getByRole("button", { name: "Mark complete: " + task.title }).click();
+  await expect(item.locator(".task-due-date")).toHaveCount(0);
+  expect(api.tasks[0].dueDate).toBe("2026-11-18T00:00:00Z");
 });
