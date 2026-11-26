@@ -1414,3 +1414,102 @@ html, body, #root {
   .daily-focus-list { grid-template-columns:1fr; }
   .home-discover-toggle { min-height:48px; }
 }
+
+
+/* Quick Add: one visible action, progressive disclosure of optional details. */
+.task-panel .task-form.task-form-quick {
+  display:block; padding:12px; margin-bottom:16px; min-width:0;
+}
+.task-panel .task-form.task-form-quick .task-create-fields.task-create-layout {
+  display:grid; grid-template-columns:minmax(0,1fr); gap:10px; min-width:0;
+}
+.task-form-quick .task-quick-row {
+  display:grid; grid-template-columns:minmax(0,1fr) auto; gap:9px; min-width:0;
+}
+.task-panel .task-form-quick .task-quick-row .create-title {
+  grid-column:auto; width:100%; min-width:0; height:44px; font-size:16px;
+}
+.task-panel .task-form-quick .task-quick-row .create-submit {
+  grid-column:auto; width:auto; min-width:106px; height:44px;
+  padding:0 14px; font-size:13px; white-space:nowrap;
+}
+.task-form-quick .task-quick-options-line {
+  display:flex; flex-wrap:wrap; gap:8px 10px; align-items:center; min-width:0;
+}
+.task-panel .task-form-quick .task-options-toggle {
+  display:inline-flex; align-items:center; gap:7px;
+  width:auto; padding:0 7px; height:32px; min-height:32px; border:1px solid transparent;
+  background:transparent; color:#c4b7ff; border-radius:7px; font-size:12px;
+}
+.task-panel .task-form-quick .task-options-toggle:hover { background:#28233a; }
+.task-form-quick .task-quick-summary {
+  font-size:11px; color:#bab4d1; line-height:1.4; overflow-wrap:anywhere;
+  min-width:0; flex:1;
+}
+.task-panel .task-form-quick .task-quick-options-line .draft-discard-button {
+  width:auto; height:32px; min-height:32px; padding:0 9px;
+  background:transparent; color:#b4afc5; border:1px solid #383347;
+  margin-left:auto; font-size:11px;
+}
+.task-panel .task-form-quick .task-advanced-fields {
+  display:grid; grid-template-columns:minmax(0,1fr); gap:12px;
+  padding:13px; min-width:0; border:1px solid #383349;
+  border-radius:9px; background:#171724;
+}
+.task-form-quick .task-advanced-basic {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) minmax(145px,1.15fr);
+  gap:10px; align-items:end; min-width:0;
+}
+.task-form-quick .task-advanced-basic > label,
+.task-form-quick .task-advanced-schedule > label,
+.task-panel .task-form-quick .create-date-group {
+  display:flex; flex-direction:column; gap:6px;
+  min-width:0; width:100%; color:#c3bfd4; font-size:12px; line-height:1.4;
+}
+.task-panel .task-form-quick .create-date-group .create-date-label {
+  display:block; color:#c3bfd4; font-weight:400; font-size:12px;
+}
+.task-panel .task-form-quick .task-advanced-basic select,
+.task-panel .task-form-quick .task-advanced-schedule select {
+  width:100%; height:40px; min-width:0; font-size:14px;
+}
+.task-panel .task-form-quick .create-date-shell {
+  position:relative; display:flex; align-items:center;
+  width:100%; min-width:0; max-width:100%; height:40px;
+  border:1px solid #303344; border-radius:7px; background:#11131c;
+  overflow:hidden;
+}
+.task-panel .task-form-quick .create-date-shell .create-date-display {
+  display:block; flex:1; min-width:0; padding:0 10px;
+  font-size:14px; color:#e4e4ed; line-height:1.35;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  pointer-events:none;
+}
+.task-panel .task-form-quick .create-date-shell input.create-due-date {
+  position:absolute; inset:0; height:100%; width:100%; max-width:100%;
+  margin:0; padding:0; opacity:0; cursor:pointer;
+}
+.task-form-quick .task-advanced-schedule {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px; min-width:0;
+}
+.task-panel .task-form-quick :is(button,input,select):focus-visible,
+.task-panel .task-form-quick .create-date-shell:focus-within {
+  outline:2px solid #b3a3ff; outline-offset:2px;
+}
+@media(max-width:700px) {
+  .task-form-quick .task-advanced-basic { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .task-panel .task-form-quick .task-advanced-basic .create-date-group {
+    grid-column:1/-1;
+  }
+  .task-panel .task-form-quick .create-date-shell { height:44px; }
+  .task-panel .task-form-quick .create-date-shell .create-date-display { font-size:16px; }
+  .task-panel .task-form-quick .create-date-shell input.create-due-date { width:100%; }
+}
+@media(max-width:380px) {
+  .task-form-quick .task-quick-row { grid-template-columns:minmax(0,1fr) auto; gap:7px; }
+  .task-panel .task-form-quick .task-quick-row .create-submit {
+    min-width:92px; padding:0 9px; font-size:12px;
+  }
+  .task-panel .task-form.task-form-quick { padding:9px; }
+}

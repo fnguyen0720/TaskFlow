@@ -30,11 +30,51 @@ test("registers and returns to sign-in without an authenticated session", async 
   await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
 });
 
+test("quick add creates a simple task without exposing advanced controls", async ({ page }) => {
+  const api = await installMockApi(page);
+  await signIn(page);
+  const form = page.getByRole("form", { name: "Add a new task" });
+  await expect(form.getByRole("textbox", { name: "New task title" })).toBeVisible();
+  await expect(form.getByRole("button", { name: /Add task/ })).toBeVisible();
+  await expect(form.getByRole("button", { name: "More options" })).toHaveAttribute("aria-expanded", "false");
+  await expect(form.getByLabel("Due date")).toHaveCount(0);
+  await expect(form.getByRole("combobox", { name: "Priority" })).toHaveCount(0);
+  await form.getByRole("textbox", { name: "New task title" }).fill("Quick daily task");
+  await form.getByRole("button", { name: /Add task/ }).click();
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Quick daily task");
+  expect(api.tasks).toHaveLength(1);
+  expect(api.tasks[0].title).toBe("Quick daily task");
+  expect(api.tasks[0].priority).toBe("Medium");
+  expect(api.tasks[0].category).toBe("General");
+});
+
+test("advanced fields are optional but collapse without discarding a draft", async ({ page }) => {
+  const api = await installMockApi(page);
+  await signIn(page);
+  const form = page.getByRole("form", { name: "Add a new task" });
+  await form.getByRole("textbox", { name: "New task title" }).fill("Review planning");
+  await form.getByRole("button", { name: "More options" }).click();
+  await form.getByRole("combobox", { name: "Priority" }).selectOption("High");
+  await form.getByLabel("Due date").fill("2026-11-27");
+  await form.getByRole("button", { name: "Fewer options" }).click();
+  await expect(form.getByRole("combobox", { name: "Priority" })).toHaveCount(0);
+  await expect(form.getByLabel("Selected task options")).toContainText("High");
+  await expect(form.getByLabel("Selected task options")).toContainText("Nov 27");
+  await expect(form.getByRole("textbox", { name: "New task title" })).toHaveValue("Review planning");
+  await form.getByRole("button", { name: "More options" }).click();
+  await expect(form.getByRole("combobox", { name: "Priority" })).toHaveValue("High");
+  await expect(form.getByLabel("Due date")).toHaveValue("2026-11-27");
+  await form.getByRole("button", { name: /Add task/ }).click();
+  expect(api.tasks).toHaveLength(1);
+  expect(api.tasks[0].priority).toBe("High");
+  expect(api.tasks[0].dueDate).toBe("2026-11-27");
+});
+
 test("creates a task and displays it in the weekly calendar", async ({ page }) => {
   const api = await installMockApi(page);
   await signIn(page);
   await page.getByRole("textbox", { name: "New task title" }).fill("Write browser coverage");
-  await page.getByRole("textbox", { name: "New task title" }).press("Tab");
+  await page.getByRole("button", { name: "More options" }).click();
   await page.getByLabel("Due date").fill("2026-11-19");
   await page.getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Write browser coverage");
@@ -52,6 +92,7 @@ test("calendar navigation and quick-add prefill the selected date", async ({ pag
   await page.getByRole("button", { name: "Next week" }).click();
   await page.getByRole("button", { name: "Add task for Monday, November 23, 2026" }).click();
   await expect(page.getByRole("textbox", { name: "New task title" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Fewer options" })).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByLabel("Due date")).toHaveValue("2026-11-23");
   await page.getByRole("button", { name: "This week" }).click();
   await expect(page.getByRole("button", { name: "This week" })).toBeDisabled();
@@ -214,6 +255,7 @@ test("new-task draft survives a failed request and can be saved on retry", async
   const api = await installMockApi(page, { failTaskCreates: 1 });
   await signIn(page);
   await page.getByRole("textbox", { name: "New task title" }).fill("Preserve my new task");
+  await page.getByRole("button", { name: "More options" }).click();
   await page.getByRole("combobox", { name: "Priority", exact: true }).selectOption("High");
   await page.getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("textbox", { name: "New task title" })).toHaveValue("Preserve my new task");
@@ -823,6 +865,7 @@ test("mobile bottom bar hides on desktop and behind task details", async ({ page
 test("mobile task form keeps due date and repeat controls in separate rows", async ({ page }) => {
   await installMockApi(page);
   await signIn(page);
+  await page.getByRole("button", { name: "More options" }).click();
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 780 });
     const form = page.getByRole("form", { name: "Add a new task" });
@@ -942,6 +985,7 @@ test("mobile inline task editor controls remain inside viewport and recover from
 test("mobile due date caption and displayed value stay centered without overflowing", async ({ page }) => {
   await installMockApi(page);
   await signIn(page);
+  await page.getByRole("button", { name: "More options" }).click();
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 780 });
     const form = page.getByRole("form", { name: "Add a new task" });
