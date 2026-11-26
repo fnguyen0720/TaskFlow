@@ -21,7 +21,7 @@ test("zero-signup demo stays local through add, complete, edit, delete, reload, 
   await page.getByRole("button", { name: "Mark complete: Plan the week" }).click();
   await expect(page.getByRole("progressbar", { name: "Overall task completion" })).toHaveAttribute("aria-valuenow", "50");
   await page.getByRole("textbox", { name: "New task title" }).fill("Explore filters");
-  await page.getByRole("button", { name: /Add task/ }).click();
+  await page.getByRole("form", { name: "Add a new task" }).getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Explore filters");
   await page.getByRole("button", { name: "Edit Explore filters" }).click();
   await page.getByRole("textbox", { name: "Edit title for Explore filters" }).fill("Try local editing");
@@ -58,7 +58,7 @@ test("demo calendar, date quick-add, search, and reset are all local", async ({ 
   await expect(page.getByRole("textbox", { name: "New task title" })).toBeFocused();
   await expect(page.getByLabel("Demo due date")).toHaveValue("2026-11-20");
   await page.getByRole("textbox", { name: "New task title" }).fill("Demo calendar task");
-  await page.getByRole("button", { name: /Add task/ }).click();
+  await page.getByRole("form", { name: "Add a new task" }).getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("region", { name: "Weekly task calendar" })).toContainText("Demo calendar task");
   await page.getByRole("button", { name: "Month", exact: true }).click();
   await expect(page.getByRole("region", { name: "Monthly task calendar" })).toContainText("Demo calendar task");
