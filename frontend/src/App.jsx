@@ -32,6 +32,7 @@ function App() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [quickCreateSignal, setQuickCreateSignal] = useState(0);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [showMoreInsights, setShowMoreInsights] = useState(false);
   const [view, setView] = useState("all");
   const [selectedProject, setSelectedProject] = useState("all");
   const [filter, setFilter] = useState("all");
@@ -143,6 +144,7 @@ function App() {
     setSort("default");
     setCategoryFilter("all");
     setSelectedProject("all");
+    setShowMoreInsights(false);
   }, [token]);
 
   // Password reset links can arrive via same-tab hash navigation.
@@ -378,9 +380,21 @@ function App() {
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
-          <ProgressionCard tasks={visibleTasks} projects={projects.status === "ready" ? projects.projects : []}
-            token={token} onUnauthorized={handleUnauthorized} />
-          <ProductivityInsights tasks={visibleTasks} token={token} onUnauthorized={handleUnauthorized} onOpenTask={setDetailId} />
+          <section className="home-discover" aria-label="More insights">
+            <button type="button" className="home-discover-toggle"
+              aria-expanded={showMoreInsights} aria-controls="home-more-insights"
+              onClick={() => setShowMoreInsights(value => !value)}>
+              <span aria-hidden="true">✦</span>
+              {showMoreInsights ? "Hide insights" : "Insights & rewards"}
+              <span className="home-discover-chevron" aria-hidden="true">{showMoreInsights ? "−" : "+"}</span>
+            </button>
+            {showMoreInsights && <div id="home-more-insights">
+              <ProgressionCard tasks={visibleTasks} projects={projects.status === "ready" ? projects.projects : []}
+                token={token} onUnauthorized={handleUnauthorized} />
+              <ProductivityInsights tasks={visibleTasks} token={token}
+                onUnauthorized={handleUnauthorized} onOpenTask={setDetailId} />
+            </div>}
+          </section>
         </>
       ) : null}
       {projects.status === "ready" && <ProjectShelf projects={projects.projects} tasks={visibleTasks}
