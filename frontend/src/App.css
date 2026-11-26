@@ -1637,3 +1637,12 @@ html, body, #root {
   .demo-create-form .create-submit{min-width:92px;padding:0 9px;font-size:12px}
   .demo-edit-container .edit-input{flex:1 1 100%}
 }
+
+/* Keep demo calendar add controls clickable even when a day contains tasks. */
+.demo-workspace .calendar-day .calendar-quick-add{
+  inset:3px 3px auto auto; width:44px; height:44px; z-index:3;
+  border-radius:8px;
+}
+.demo-workspace .calendar-day h4{padding-right:48px;min-height:32px}
+.demo-workspace .calendar-day .calendar-quick-add span{top:8px;right:14px}
+.demo-workspace .calendar-day .calendar-quick-add:hover{background:#383154}
