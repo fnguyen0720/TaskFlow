@@ -430,9 +430,32 @@ test("command palette has a useful empty state on narrow mobile screens", async 
   await expect(palette).toHaveCount(0);
 });
 
+test("visual-first home shows essentials before advanced insights on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 750 });
+  const api = await installMockApi(page);
+  await signIn(page);
+  const home = page.getByRole("region", { name: "Task summary" });
+  await expect(home).toBeVisible();
+  await expect(home.getByRole("progressbar", { name: "Overall task completion" })).toHaveAttribute("aria-valuenow", "0");
+  await expect(page.getByRole("region", { name: "Daily focus" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Productivity insights" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Progress and achievements" })).toHaveCount(0);
+  const toggle = page.getByRole("button", { name: "Insights & rewards" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(api.calls.some(call => call.pathname === "/api/analytics/progression")).toBe(false);
+  await toggle.click();
+  await expect(page.getByRole("region", { name: "Productivity insights" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Progress and achievements" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hide insights", exact: true }).first()).toBeVisible();
+  await page.getByRole("region", { name: "More insights" }).getByRole("button", { name: "Hide insights" }).first().click();
+  await expect(page.getByRole("region", { name: "Progress and achievements" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
+
 test("AI explanations stay opt-in and transmit only a selected insight code", async ({ page }) => {
   const api = await installMockApi(page, { aiCoachEnabled: true });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const insights = page.getByRole("region", { name: "Productivity insights" });
   await insights.getByRole("button", { name: "Show insights" }).click();
   const ai = insights.getByRole("region", { name: "Optional AI explanation" });
@@ -452,6 +475,7 @@ test("AI explanations stay opt-in and transmit only a selected insight code", as
 test("AI explanation is unavailable without configuration, preserving rule-based coaching", async ({ page }) => {
   const api = await installMockApi(page);
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const insights = page.getByRole("region", { name: "Productivity insights" });
   await insights.getByRole("button", { name: "Show insights" }).click();
   const coach = insights.getByRole("region", { name: "Bottleneck coach" });
@@ -464,6 +488,7 @@ test("AI explanation is unavailable without configuration, preserving rule-based
 test("AI provider errors never replace rule-based recommendations", async ({ page }) => {
   await installMockApi(page, { aiCoachEnabled: true, failAiCoach: true });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const insights = page.getByRole("region", { name: "Productivity insights" });
   await insights.getByRole("button", { name: "Show insights" }).click();
   const ai = insights.getByRole("region", { name: "Optional AI explanation" });
@@ -483,6 +508,7 @@ test("progression awards XP once per different task and shows achievements", asy
     ]
   });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const panel = page.getByRole("region", { name: "Progress and achievements" });
   await expect(panel).toContainText("25 XP");
   await expect(panel).toContainText("1 different tasks completed");
@@ -511,6 +537,7 @@ test("project quests show account project completion without extra XP awards", a
     initialActivities: [{ id: 1, taskId: 750, kind: "completed", occurredAt: "2026-11-18T10:00:00Z" }]
   });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const panel = page.getByRole("region", { name: "Progress and achievements" });
   await expect(panel).toContainText("25 XP");
   await panel.getByRole("button", { name: "Show achievements" }).click();
@@ -528,6 +555,7 @@ test("empty progression remains truthful on narrow mobile screens", async ({ pag
   await page.setViewportSize({ width: 320, height: 750 });
   await installMockApi(page);
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const panel = page.getByRole("region", { name: "Progress and achievements" });
   await expect(panel).toContainText("0 XP");
   await panel.getByRole("button", { name: "Show achievements" }).click();
@@ -551,6 +579,7 @@ test("bottleneck coach explains blockers, opens the related task and never chang
     }
   });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const insights = page.getByRole("region", { name: "Productivity insights" });
   await insights.getByRole("button", { name: "Show insights" }).click();
   const coach = insights.getByRole("region", { name: "Bottleneck coach" });
@@ -566,6 +595,7 @@ test("bottleneck coach explains blockers, opens the related task and never chang
 test("bottleneck analysis failure offers retry without invented recommendations", async ({ page }) => {
   await installMockApi(page, { failBottleneckReads: true });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const insights = page.getByRole("region", { name: "Productivity insights" });
   await insights.getByRole("button", { name: "Show insights" }).click();
   const coach = insights.getByRole("region", { name: "Bottleneck coach" });
@@ -586,6 +616,7 @@ test("productivity insights show current category and due-date snapshot", async 
   tasks[2].completed = true;
   await installMockApi(page, { initialTasks: tasks });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const section = page.getByRole("region", { name: "Productivity insights" });
   await expect(section).toBeVisible();
   await expect(section.getByRole("button", { name: "Show insights" })).toHaveAttribute("aria-expanded", "false");
@@ -613,6 +644,7 @@ test("completion history plots recorded UTC events without inventing past task d
     ]
   });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const insights = page.getByRole("region", { name: "Productivity insights" });
   await insights.getByRole("button", { name: "Show insights" }).click();
   const history = insights.getByRole("region", { name: "Completion history" });
@@ -627,6 +659,7 @@ test("completion history plots recorded UTC events without inventing past task d
 test("completion history failure explains missing data without showing invented totals", async ({ page }) => {
   await installMockApi(page, { failCompletionHistory: true });
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const insights = page.getByRole("region", { name: "Productivity insights" });
   await insights.getByRole("button", { name: "Show insights" }).click();
   const history = insights.getByRole("region", { name: "Completion history" });
@@ -638,6 +671,7 @@ test("productivity insights fit 320px mobile and show an empty workspace safely"
   await page.setViewportSize({ width: 320, height: 750 });
   await installMockApi(page);
   await signIn(page);
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   const section = page.getByRole("region", { name: "Productivity insights" });
   await section.getByRole("button", { name: "Show insights" }).click();
   await expect(section).toContainText("Add a task to see the category breakdown.");
@@ -947,6 +981,7 @@ test("server-confirmed empty account is explicit and can recover without modifyi
   await expect(page.getByRole("heading", { name: "Your space is ready." })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Loading workspace" })).toHaveCount(0);
   await expect(page.locator(".overview")).toBeVisible();
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
   await expect(page.getByRole("region", { name: "Productivity insights" })).toBeVisible();
   expect(api.tasks).toHaveLength(1);
   await page.getByRole("button", { name: "Check server again" }).click();

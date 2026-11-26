@@ -4,9 +4,7 @@ export default function DashboardHeader({ logout, notifications, notificationCen
   return (
     <header className="dashboard-header">
       <div>
-        <div className="brand-kicker">YOUR PERSONAL WORKSPACE</div>
         <h1>TaskFlow<span className="brand-period">.</span></h1>
-        <p className="subtitle">A little progress each day adds up to big results.</p>
       </div>
       <div className="dashboard-header-actions">
         <div className="account-identity" aria-live="polite">
