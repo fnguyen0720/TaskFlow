@@ -5,7 +5,6 @@ import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
 import ViewPreferencesDialog from "./components/dashboard/ViewPreferencesDialog.jsx";
 import MobileBottomNav from "./components/dashboard/MobileBottomNav.jsx";
-import QuickTour from "./components/dashboard/QuickTour.jsx";
 import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
 import ProductivityInsights from "./components/dashboard/ProductivityInsights.jsx";
@@ -33,7 +32,6 @@ function App() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [quickCreateSignal, setQuickCreateSignal] = useState(0);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const [quickTourOpen, setQuickTourOpen] = useState(false);
   const [showMoreInsights, setShowMoreInsights] = useState(false);
   const [view, setView] = useState("all");
   const [selectedProject, setSelectedProject] = useState("all");
@@ -140,7 +138,6 @@ function App() {
     clearDrafts();
     setNotification(null);
     setPreferencesOpen(false);
-    setQuickTourOpen(false);
     setView("all");
     setFilter("all");
     setSearch("");
@@ -167,7 +164,6 @@ function App() {
   }, [hasUnsavedWork, clearDrafts]);
 
   const closePreferences = useCallback(() => setPreferencesOpen(false), []);
-  const closeQuickTour = useCallback(() => setQuickTourOpen(false), []);
   const logout = () => {
     if (hasUnsavedWork && !window.confirm("Discard unsaved changes and log out?")) return;
     clearDrafts();
@@ -372,7 +368,7 @@ function App() {
       <DashboardHeader logout={logout} notifications={notifications}
         notificationCenter={notificationCenter} notificationSettings={notificationSettings}
         accountIdentity={accountIdentity} onOpenTask={setDetailId} onOpenCommand={() => setCommandOpen(true)}
-        onOpenPreferences={() => setPreferencesOpen(true)} onOpenTour={() => setQuickTourOpen(true)} preferencesReady={viewPreferences.status === "ready"} />
+        onOpenPreferences={() => setPreferencesOpen(true)} preferencesReady={viewPreferences.status === "ready"} />
       {(loading || readStatus === "pending") && !error ? (
         <section className="workspace-loading" role="status" aria-live="polite" aria-label="Loading workspace">
           <div className="workspace-loading-heading" />
@@ -411,7 +407,6 @@ function App() {
       {commandOpen && !detailTask && <CommandPalette tasks={visibleTasks}
         onClose={() => setCommandOpen(false)} onOpenTask={openTaskFromPalette}
         onChangeView={changeView} onQuickCreate={quickCreateFromPalette} />}
-      {quickTourOpen && !detailTask && !commandOpen && <QuickTour onClose={closeQuickTour} />}
       {preferencesOpen && viewPreferences.status === "ready" && (
         <ViewPreferencesDialog preferences={viewPreferences.preferences} onSave={viewPreferences.update}
           onClose={closePreferences} />
