@@ -4,15 +4,13 @@ export default function DashboardHeader({ logout, notifications, notificationCen
   return (
     <header className="dashboard-header">
       <div>
-        <div className="brand-kicker">YOUR PERSONAL WORKSPACE</div>
         <h1>TaskFlow<span className="brand-period">.</span></h1>
-        <p className="subtitle">A little progress each day adds up to big results.</p>
       </div>
       <div className="dashboard-header-actions">
         <div className="account-identity" aria-live="polite">
           {accountIdentity.status === "loaded" ? (
             <span className="account-identity-email" title={accountIdentity.email}>
-              Signed in as <strong>{accountIdentity.email}</strong>
+              <strong>{accountIdentity.email}</strong>
             </span>
           ) : accountIdentity.status === "failed" ? (
             <span className="account-identity-unavailable">Account unavailable <button type="button" onClick={accountIdentity.retry}>Retry</button></span>
