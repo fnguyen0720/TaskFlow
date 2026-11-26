@@ -10,7 +10,7 @@ export default function DashboardHeader({ logout, notifications, notificationCen
         <div className="account-identity" aria-live="polite">
           {accountIdentity.status === "loaded" ? (
             <span className="account-identity-email" title={accountIdentity.email}>
-              <strong>{accountIdentity.email}</strong>
+              Signed in as <strong>{accountIdentity.email}</strong>
             </span>
           ) : accountIdentity.status === "failed" ? (
             <span className="account-identity-unavailable">Account unavailable <button type="button" onClick={accountIdentity.retry}>Retry</button></span>
