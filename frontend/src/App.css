@@ -1591,3 +1591,58 @@ html, body, #root {
   .task-panel .task-list .task .complete-button:hover:not(:disabled) { transform:none; }
   .task-panel .task-list .task.task-just-completed .complete-button { animation:none; }
 }
+
+
+/* PR #73 — transient, zero-signup demo; no demo data leaves React memory. */
+.demo-entry-button{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:14px;width:100%;min-height:48px;border:1px solid #7663ba;border-radius:11px;background:#292444;color:#e8e0ff;cursor:pointer;font:700 14px Manrope,sans-serif}
+.demo-entry-button:hover{background:#352d59;border-color:#ad9be8}
+.demo-workspace{padding-bottom:90px}
+.demo-header{align-items:center;gap:12px}
+.demo-header h1{margin:0 0 9px}
+.demo-pill{display:inline-flex;align-items:center;padding:5px 10px;border:1px solid #685ba0;border-radius:999px;background:#28233d;color:#d5c8ff;font-size:12px;font-weight:700}
+.demo-header-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.demo-header-actions button,.demo-dialog button,.demo-move-notice button{min-height:40px;border-radius:9px;cursor:pointer;font-weight:700}
+.demo-reset{padding:9px 13px;border:1px solid #474052;background:#22232e;color:#dedbe9}
+.demo-primary{padding:9px 14px;border:1px solid #8274d9;background:#7665dd;color:white}
+.demo-explainer{max-width:710px;margin:0 0 18px;color:#c3c0d3;font-size:13px;line-height:1.55}
+.demo-create-form{display:grid!important;grid-template-columns:1fr;gap:10px}
+.demo-create-form .task-quick-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;min-width:0}
+.demo-create-form .create-title{grid-column:auto!important;width:100%;min-width:0;height:44px;font-size:16px}
+.demo-create-form .create-submit{grid-column:auto!important;width:auto;min-width:106px;padding:0 14px;height:44px;font-size:13px}
+.demo-create-form .task-quick-options-line{display:flex;align-items:center;gap:9px}
+.demo-create-form .demo-options-toggle{width:auto;height:34px;min-height:34px;padding:0 8px;border:0;background:transparent;color:#c5b8ff;font-size:12px;cursor:pointer}
+.demo-form-options{display:flex;gap:12px;flex-wrap:wrap;padding:10px;border:1px solid #383349;border-radius:9px;background:#171724}
+.demo-form-options label{display:flex;flex:1;min-width:140px;flex-direction:column;gap:5px;color:#d2cde2;font-size:12px}
+.demo-form-options select,.demo-form-options input{width:100%;min-height:42px;padding:8px;border:1px solid #404050;border-radius:7px;background:#11131c;color:#e8e5f4;font-size:14px}
+.demo-filters{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;margin:4px 0 14px}
+.demo-filters .search-input{min-width:150px;max-width:100%;flex:1}
+.demo-filters .status-filters{flex-wrap:wrap}
+.demo-edit-container{display:flex;align-items:center;flex:1;min-width:0;gap:8px;flex-wrap:wrap}
+.demo-edit-container .edit-input{flex:2;min-width:150px}
+.demo-edit-container .edit-priority,.demo-edit-container .edit-due-date{flex:0 1 auto;min-height:40px}
+.demo-move-notice{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 13px;padding:10px;border:1px solid #4c436b;border-radius:9px;background:#26233a;color:#e4ddff;font-size:12px}
+.demo-move-notice button{border:1px solid #574a78;padding:6px 10px;background:#332d4c;color:#ebe3ff}
+.demo-dialog-backdrop{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:16px;background:rgba(4,4,10,.8)}
+.demo-dialog{position:relative;width:min(100%,420px);max-height:calc(100dvh - 32px);overflow:auto;padding:26px;border:1px solid #574a81;border-radius:18px;background:#1b1b29;box-shadow:0 24px 80px rgba(0,0,0,.55)}
+.demo-dialog h2{margin:20px 0 12px;font:700 21px Manrope,sans-serif;overflow-wrap:anywhere}
+.demo-dialog p{color:#c7c3d7;font-size:14px}
+.demo-dialog-close{position:absolute;top:12px;right:12px;width:44px;height:44px;border:1px solid #48415e;background:#29243b;color:#f5f2ff;font-size:22px}
+.demo-dialog>.demo-primary{margin-top:12px}
+@media(max-width:600px){
+  .demo-header{align-items:flex-start;flex-wrap:wrap}
+  .demo-header-actions{width:100%}
+  .demo-header-actions button{flex:1;min-width:0}
+  .demo-explainer{font-size:12px}
+  .demo-create-form .task-quick-row{gap:7px}
+  .demo-create-form .create-submit{min-width:92px;padding:0 9px;font-size:12px}
+  .demo-edit-container .edit-input{flex:1 1 100%}
+}
+
+/* Keep demo calendar add controls clickable even when a day contains tasks. */
+.demo-workspace .calendar-day .calendar-quick-add{
+  inset:3px 3px auto auto; width:44px; height:44px; z-index:3;
+  border-radius:8px;
+}
+.demo-workspace .calendar-day h4{padding-right:48px;min-height:32px}
+.demo-workspace .calendar-day .calendar-quick-add span{top:8px;right:14px}
+.demo-workspace .calendar-day .calendar-quick-add:hover{background:#383154}
