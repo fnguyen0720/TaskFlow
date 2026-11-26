@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import AccountRecovery, { isResetLink } from "./components/auth/AccountRecovery.jsx";
+import DemoWorkspace from "./components/demo/DemoWorkspace.jsx";
 import EmailVerificationNotice from "./components/auth/EmailVerificationNotice.jsx";
 import { getTaskStats, getTaskViews, selectTasks } from "./utils/taskUtils.js";
 import DashboardHeader from "./components/dashboard/DashboardHeader.jsx";
@@ -25,7 +26,7 @@ import { applyNotificationPreferences } from "./utils/notificationPreferences.js
 import { buildNotifications } from "./utils/notificationCenter.js";
 import { remindersDue } from "./utils/reminders.js";
 
-function App() {
+function LiveApp({ onDemo }) {
   const [recoveryScreen, setRecoveryScreen] = useState(isResetLink);
   const [detailId, setDetailId] = useState(null);
   const [detailDirty, setDetailDirty] = useState(false);
@@ -349,6 +350,9 @@ function App() {
         {authMode === "login" && <button type="button" className="auth-switch"
           onClick={() => setRecoveryScreen(true)}>Forgot password?</button>}
       </form>}
+      {!recoveryScreen && !token && <button type="button" className="demo-entry-button" onClick={onDemo}>
+        <span aria-hidden="true">▶</span> Try interactive demo <span aria-hidden="true">↗</span>
+      </button>}
     </div>
   );
 }
@@ -430,6 +434,35 @@ function App() {
       <footer className="app-footer"><span>TaskFlow</span><span>Make room for what matters.</span></footer>
     </div>
   );
+}
+
+// Demo and the authenticated application are mutually exclusive React trees.
+// In demo mode none of the authenticated data hooks mount or call the API.
+function App() {
+  const demoRequested = () => !isResetLink() && new URLSearchParams(window.location.search).get("demo") === "1";
+  const [demoMode, setDemoMode] = useState(demoRequested);
+  useEffect(() => {
+    window.addEventListener("popstate", syncDemo);
+    window.addEventListener("hashchange", syncDemo);
+    function syncDemo() { setDemoMode(demoRequested()); }
+    return () => {
+      window.removeEventListener("popstate", syncDemo);
+      window.removeEventListener("hashchange", syncDemo);
+    };
+  }, []);
+  function enterDemo() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("demo", "1");
+    window.history.pushState(null, "", url);
+    setDemoMode(true);
+  }
+  function leaveDemo() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("demo");
+    window.history.replaceState(null, "", url);
+    setDemoMode(false);
+  }
+  return demoMode ? <DemoWorkspace onExit={leaveDemo} /> : <LiveApp onDemo={enterDemo} />;
 }
 
 export default App;
