@@ -26,6 +26,7 @@ test("notification bell allows mark read and dismiss, persists across reload", a
   await createUserAndLogin(page, request);
   const title = `Browser reminder ${randomUUID().slice(0,8)}`;
   await page.getByRole("textbox", { name: "New task title" }).fill(title);
+  await page.getByRole("button", { name: "More options" }).click();
   await page.getByLabel("Due date").fill("2026-11-19");
   await page.getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("list", { name: "Tasks" })).toContainText(title);
@@ -46,6 +47,7 @@ test("daily focus opens due tasks and notification state is private to owner", a
   await createUserAndLogin(page, request);
   const title = `Daily focus ${randomUUID().slice(0,8)}`;
   await page.getByRole("textbox", { name: "New task title" }).fill(title);
+  await page.getByRole("button", { name: "More options" }).click();
   await page.getByLabel("Due date").fill("2026-11-19");
   await page.getByRole("button", { name: /Add task/ }).click();
   const focus = page.getByRole("region", { name: "Daily focus" });
@@ -58,6 +60,7 @@ test("notification preferences filter alerts and persist across a reload", async
   await createUserAndLogin(page, request);
   const title = `Muted reminder ${randomUUID().slice(0,8)}`;
   await page.getByRole("textbox", { name: "New task title" }).fill(title);
+  await page.getByRole("button", { name: "More options" }).click();
   await page.getByLabel("Due date").fill("2026-11-19");
   await page.getByRole("button", { name: /Add task/ }).click();
   await expect(page.getByRole("button", { name: /Notifications, 1 unread/ })).toBeVisible();
