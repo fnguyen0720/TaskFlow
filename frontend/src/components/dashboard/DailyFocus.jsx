@@ -5,15 +5,12 @@ export default function DailyFocus({ tasks, onOpenTask, onView }) {
   return (
     <section className="daily-focus" aria-label="Daily focus">
       <div className="daily-focus-heading">
-        <div><span className="section-kicker">YOUR DAY</span><h2>Daily focus</h2>
-          <p>Start with what matters most.</p></div>
-        <button type="button" onClick={() => onView("today")}>See today's tasks</button>
+        <div><h2>Up next</h2></div>
+        <button type="button" onClick={() => onView("today")}>View today</button>
       </div>
       <div className="daily-focus-stats">
         <span><strong>{focus.overdue}</strong> overdue</span>
         <span><strong>{focus.dueToday}</strong> due today</span>
-        <span><strong>{focus.upcoming}</strong> next 7 days</span>
-        <span><strong>{focus.recurring}</strong> recurring</span>
       </div>
       {focus.priorityTasks.length > 0 ?
         <ul className="daily-focus-list">
@@ -28,7 +25,7 @@ export default function DailyFocus({ tasks, onOpenTask, onView }) {
             </li>
           ))}
         </ul> :
-        <p className="daily-focus-empty">Nothing urgent. Add a due date to plan your day.</p>}
+        <p className="daily-focus-empty">All clear for now.</p>}
     </section>
   );
 }
