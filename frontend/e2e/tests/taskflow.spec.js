@@ -53,6 +53,21 @@ test("visual completion ring and task cards remain accessible at mobile width", 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 });
 
+test("rejected completion rolls back without a success celebration", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(9204, "Protected incomplete task", "2026-11-19")],
+    failTaskToggles: 1,
+  });
+  await signIn(page);
+  const item = page.getByRole("list", { name: "Tasks" }).getByRole("listitem")
+    .filter({ hasText: "Protected incomplete task" });
+  await item.getByRole("button", { name: "Mark complete: Protected incomplete task" }).click();
+  await expect(page.getByRole("alert")).toContainText("Couldn't update task");
+  await expect(item).not.toHaveClass(/completed|task-just-completed/);
+  await expect(item.getByRole("button", { name: "Mark complete: Protected incomplete task" })).toBeEnabled();
+  expect(api.tasks[0].completed).toBe(false);
+});
+
 test("task completion polish honors reduced-motion preferences", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await installMockApi(page, { initialTasks: [fixtureTask(9203, "Motion-safe task", "2026-11-19")] });
