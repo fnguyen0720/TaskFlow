@@ -60,7 +60,7 @@ export default function TaskItem({ task, editing, loadingTask, actions }) {
               {checkedCount}/{checklist.length} steps
             </span>}
           </div>
-          {task.dueDate && (
+          {!task.completed && task.dueDate && (
             <span className={"task-due-date " + getDueDateClass(task.dueDate)}>
               {formatDueDate(task.dueDate)}
             </span>
