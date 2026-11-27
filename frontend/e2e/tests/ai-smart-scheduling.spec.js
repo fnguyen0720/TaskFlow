@@ -84,3 +84,61 @@ test("smart scheduling is absent in zero-signup demo, and Safari-safe dates fit 
   await preview.getByRole("button", { name: "Finish small-screen testing" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
 });
+
+
+test("seven-day workload timeline explains overloaded days with exact other-due and planned counts", async ({ page }) => {
+  const initialTasks = Array.from({ length: 7 }, (_, index) =>
+    fixtureTask(200 + index, "Deadline task " + (index + 1), "2026-11-27"));
+  const api = await installMockApi(page, { aiPlannerEnabled: true, initialTasks });
+  await signIn(page);
+  const planner = page.getByRole("region", { name: "AI smart scheduling" });
+  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await planner.getByRole("combobox", { name: /How many tasks/ }).selectOption("3");
+  await planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
+  await planner.getByRole("button", { name: "Preview schedule" }).click();
+
+  const preview = planner.getByLabel("Suggested work dates");
+  const strip = preview.getByLabel("Seven-day workload");
+  await expect(strip.locator(".ai-smart-day")).toHaveCount(7);
+  await expect(strip.getByRole("button", { name: /Friday, Nov 27: 7 of 3 task slots, 2 other tasks due, 5 planned/ })).toBeVisible();
+  await expect(strip).toContainText("2 due · 5 planned");
+  await expect(strip).toContainText("+4 over");
+  await expect(preview).toContainText("7 task slots against your 3-task limit (2 other unfinished tasks due + 5 planned sessions).");
+  await expect(strip.getByRole("button", { name: /Friday, Nov 27/ })).toHaveAttribute("aria-pressed", "false");
+
+  const date = preview.getByLabel("Work date for Deadline task 1");
+  await date.fill("2026-11-28");
+  await expect(strip.getByRole("button", { name: /Friday, Nov 27: 6 of 3 task slots, 2 other tasks due, 4 planned/ })).toBeVisible();
+  await expect(strip.getByRole("button", { name: /Saturday, Nov 28: 1 of 3 task slots, 0 other tasks due, 1 planned/ })).toBeVisible();
+  await expect(preview).toContainText("Suggested work date is after the deadline.");
+  await strip.getByRole("button", { name: /Saturday, Nov 28/ }).click();
+  await expect(preview.locator(".ai-smart-slot")).toHaveCount(1);
+  await expect(strip.getByRole("button", { name: /Saturday, Nov 28/ })).toHaveAttribute("aria-pressed", "true");
+  await preview.getByRole("button", { name: "Show all suggested tasks" }).click();
+  await expect(preview.locator(".ai-smart-slot")).toHaveCount(5);
+  expect(api.tasks.map(t => t.dueDate)).toEqual(initialTasks.map(t => t.dueDate));
+  expect(api.calls.filter(c => c.pathname === "/api/ai/smart-schedule")).toHaveLength(1);
+  expect(api.calls.filter(c => c.method !== "GET" &&
+    c.pathname.startsWith("/api/tasks"))).toHaveLength(0);
+});
+
+test("mobile seven-day strip scrolls horizontally without overflowing the page", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await installMockApi(page, { aiPlannerEnabled: true, initialTasks: [
+    fixtureTask(20, "Check responsive layout", "2026-11-28")
+  ] });
+  await signIn(page);
+  const planner = page.getByRole("region", { name: "AI smart scheduling" });
+  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
+  await planner.getByRole("button", { name: "Preview schedule" }).click();
+  const strip = planner.getByLabel("Seven-day workload");
+  await expect(strip.locator(".ai-smart-day")).toHaveCount(7);
+  const scroll = await strip.locator(".ai-smart-days").evaluate(el => ({
+    contentWidth: el.scrollWidth, containerWidth: el.clientWidth
+  }));
+  expect(scroll.contentWidth).toBeGreaterThan(scroll.containerWidth);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  await strip.getByRole("button", { name: /Thursday, Dec 3/ }).click();
+  await expect(strip.getByRole("button", { name: /Thursday, Dec 3/ })).toHaveAttribute("aria-pressed","true");
+});
