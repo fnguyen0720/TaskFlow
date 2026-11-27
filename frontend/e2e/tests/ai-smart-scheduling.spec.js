@@ -142,3 +142,69 @@ test("mobile seven-day strip scrolls horizontally without overflowing the page",
   await strip.getByRole("button", { name: /Thursday, Dec 3/ }).click();
   await expect(strip.getByRole("button", { name: /Thursday, Dec 3/ })).toHaveAttribute("aria-pressed","true");
 });
+
+
+test("AI 429 shows a shared server-derived countdown without clearing the existing schedule", async ({ page }) => {
+  const api = await installMockApi(page, {
+    aiPlannerEnabled: true,
+    aiScheduleLimitAfter: 1,
+    aiRetryAfterSeconds: 4,
+    initialTasks: [fixtureTask(55, "Keep existing schedule preview", "2026-11-28")]
+  });
+  await signIn(page);
+  const schedule = page.getByRole("region", { name: "AI smart scheduling" });
+  await schedule.getByRole("button", { name: /Smart scheduling/ }).click();
+  await schedule.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
+  const generate = schedule.getByRole("button", { name: "Preview schedule" });
+  await generate.click();
+  const preview = schedule.getByLabel("Suggested work dates");
+  await expect(preview.locator(".ai-smart-slot")).toHaveCount(1);
+  const workDate = preview.getByLabel("Work date for Keep existing schedule preview");
+  await workDate.fill("2026-11-29");
+  await expect(workDate).toHaveValue("2026-11-29");
+
+  // The server rejects the next generation. The edited preview must survive.
+  await generate.click();
+  await expect(schedule.getByText(/Estimated retry in/)).toContainText("0:04");
+  await expect(generate).toBeDisabled();
+  await expect(preview.locator(".ai-smart-slot")).toHaveCount(1);
+  await expect(workDate).toHaveValue("2026-11-29");
+
+  // The same API limiter covers the other signed-in AI panels.
+  const daily = page.getByRole("region", { name: "AI daily planner" });
+  await daily.getByRole("button", { name: /Plan my day/ }).click();
+  await daily.getByRole("checkbox", { name: /I agree to send up to 15 unfinished task titles/ }).check();
+  await expect(daily.getByRole("button", { name: "AI cooldown active" })).toBeDisabled();
+  const breakdown = page.getByRole("region", { name: "AI task breakdown" });
+  await breakdown.getByRole("button", { name: /AI task breakdown/ }).click();
+  await breakdown.getByRole("textbox", { name: "What's your goal?" })
+    .fill("Finish my professional portfolio website");
+  await breakdown.getByRole("checkbox", { name: /Send only the goal I typed to OpenAI/ }).check();
+  await expect(breakdown.getByRole("button", { name: /AI cooldown active/ })).toBeDisabled();
+
+  const attempts = api.calls.filter(c => c.pathname === "/api/ai/smart-schedule").length;
+  await page.clock.fastForward(5100);
+  await expect(schedule.getByRole("button", { name: "Preview schedule" })).toBeEnabled();
+  await expect(daily.getByRole("button", { name: "Suggest today's priorities" })).toBeEnabled();
+  await expect(breakdown.getByRole("button", { name: /Generate plan/ })).toBeEnabled();
+  expect(api.calls.filter(c => c.pathname === "/api/ai/smart-schedule")).toHaveLength(attempts);
+  expect(api.tasks[0].dueDate).toBe("2026-11-28T00:00:00Z");
+});
+
+test("AI 429 without a readable Retry-After never invents a countdown", async ({ page }) => {
+  const api = await installMockApi(page, {
+    aiPlannerEnabled: true,
+    aiScheduleLimitAfter: 0,
+    aiRetryAfterSeconds: 0,
+    initialTasks: [fixtureTask(8, "Retain current tasks", "2026-11-28")]
+  });
+  await signIn(page);
+  const planner = page.getByRole("region", { name: "AI smart scheduling" });
+  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
+  await planner.getByRole("button", { name: "Preview schedule" }).click();
+  await expect(planner.getByRole("alert")).toContainText("temporarily limited");
+  await expect(planner.getByText(/Estimated retry in/)).toHaveCount(0);
+  await expect(planner.getByRole("button", { name: "Preview schedule" })).toBeEnabled();
+  expect(api.tasks).toHaveLength(1);
+});
