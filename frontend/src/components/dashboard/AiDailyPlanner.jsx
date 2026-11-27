@@ -12,6 +12,8 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
   const [picks, setPicks] = useState(null);
   const [message, setMessage] = useState("");
   const activeRequest = useRef(null);
+  const unauthorizedRef = useRef(onUnauthorized);
+  unauthorizedRef.current = onUnauthorized;
 
   useEffect(() => {
     if (!open) return;
@@ -21,7 +23,7 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
       headers: { Authorization: "Bearer " + token },
       signal: abort.signal
     }).then(async response => {
-      if (response.status === 401) { onUnauthorized(token); return null; }
+      if (response.status === 401) { unauthorizedRef.current(token); return null; }
       if (!response.ok) throw new Error("Unavailable");
       return response.json();
     }).then(data => {
@@ -31,7 +33,7 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
       if (!abort.signal.aborted) setAvailability("error");
     });
     return () => abort.abort();
-  }, [open, token, onUnauthorized]);
+  }, [open, token]);
 
   useEffect(() => () => activeRequest.current?.abort(), []);
 
@@ -55,7 +57,7 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
         signal: controller.signal
       });
       if (controller.signal.aborted) return;
-      if (response.status === 401) { onUnauthorized(token); return; }
+      if (response.status === 401) { unauthorizedRef.current(token); return; }
       if (!response.ok) throw new Error(response.status === 429
         ? "AI request limit reached. Please try again later."
         : "A daily plan couldn't be generated. Your tasks are unchanged.");
