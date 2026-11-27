@@ -2057,3 +2057,17 @@ html, body, #root {
   .ai-smart-days{gap:7px}
   .ai-smart-day{min-height:125px}
 }
+
+
+/* PR #82: server-derived AI cooldown; never imply a fabricated reset time. */
+.ai-cooldown-notice {
+  padding: 11px 13px;
+  border: 1px solid #866e49;
+  border-radius: 9px;
+  background: #342b25;
+  color: #f0d7ac !important;
+  font-size: 12px !important;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+}
+.ai-cooldown-notice strong { color: #fff0cd; font-weight: 750; }
