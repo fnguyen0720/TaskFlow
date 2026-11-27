@@ -467,6 +467,12 @@ function LiveApp({ onDemo }) {
         <ViewPreferencesDialog preferences={viewPreferences.preferences} onSave={viewPreferences.update}
           onClose={closePreferences} />
       )}
+      {focusedTask && !detailTask && (
+        <FocusMode key={focusedTask.id} task={focusedTask} loadingTask={loadingTask}
+          onClose={() => setFocusId(null)}
+          onComplete={toggleTask}
+          onOpenDetails={() => { setFocusId(null); setDetailId(focusedTask.id); }} />
+      )}
       {detailTask && (
         <TaskDetails key={detailTask.id} task={detailTask} tasks={visibleTasks} onSave={saveDetails}
           token={token} onUnauthorized={handleUnauthorized}
