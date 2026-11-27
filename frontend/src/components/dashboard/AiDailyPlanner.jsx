@@ -5,8 +5,9 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
 // Separate, opt-in, read-only workflow. Never writes task records or sends
 // task details until the user confirms the exact scope in the checkbox.
-export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTask, aiCooldown }) {
-  const [open, setOpen] = useState(false);
+export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTask, aiCooldown, embedded = false, active = false }) {
+  const [locallyOpen, setOpen] = useState(false);
+  const open = embedded ? active : locallyOpen;
   const [availability, setAvailability] = useState("idle");
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -82,12 +83,13 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
   }
 
   return <section className="ai-daily-plan" aria-label="AI daily planner">
-    <button type="button" className="ai-daily-toggle" aria-expanded={open}
+    {!embedded && <button type="button" className="ai-daily-toggle" aria-expanded={open}
       aria-controls="ai-daily-content" onClick={() => setOpen(value => !value)}>
       <span className="ai-daily-symbol" aria-hidden="true">✦</span>
       <span className="ai-daily-title">Plan my day<small>Prioritize what matters next</small></span>
       <span aria-hidden="true">{open ? "−" : "+"}</span>
-    </button>
+    </button>}
+
     {open && <div className="ai-daily-content" id="ai-daily-content">
       {availability === "loading" && <p role="status">Checking AI availability…</p>}
       {availability === "error" && <p role="alert">AI planning is temporarily unavailable.</p>}

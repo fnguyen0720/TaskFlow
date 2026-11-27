@@ -5,7 +5,7 @@ test("AI suggestions remain read-only until an explicit reviewed selection is co
   const api = await installMockApi(page, { aiPlannerEnabled: true, initialProjects: [{ id: 9, name: "Portfolio" }] });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
-  await planner.getByRole("button", { name: /AI task breakdown/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ }).click();
   const goal = planner.getByRole("textbox", { name: "What's your goal?" });
   await expect(planner.getByRole("button", { name: "Generate plan" })).toBeDisabled();
   await expect(planner.getByLabel("AI plan steps")).toContainText("Goal");
@@ -45,7 +45,7 @@ test("AI planning is disabled gracefully and no goal is sent without consent", a
   const api = await installMockApi(page, { aiPlannerEnabled: false });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
-  await planner.getByRole("button", { name: /AI task breakdown/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ }).click();
   await expect(planner).toContainText("AI planning is not configured for this workspace.");
   expect(api.calls.filter(call => call.pathname === "/api/ai/plans/generate")).toHaveLength(0);
   expect(api.tasks).toHaveLength(0);
@@ -58,7 +58,7 @@ test("AI task planner is absent in the zero-signup demo and works on narrow scre
   await page.setViewportSize({ width: 320, height: 700 });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
-  await planner.getByRole("button", { name: /AI task breakdown/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ }).click();
   await planner.getByRole("textbox", { name: "What's your goal?" })
     .fill("Finish my personal portfolio website");
   await planner.getByRole("checkbox", { name: /Send only the goal I typed to OpenAI/ }).check();
@@ -72,8 +72,8 @@ test("planner keeps a small first step, requires consent after example changes, 
   const api = await installMockApi(page, { aiPlannerEnabled: true });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
-  await expect(planner.getByRole("button", { name: /AI task breakdown/ })).toHaveAttribute("aria-expanded", "false");
-  await planner.getByRole("button", { name: /AI task breakdown/ }).click();
+  await expect(page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ }).click();
   const goal = planner.getByRole("textbox", { name: "What's your goal?" });
   await planner.getByRole("button", { name: "Portfolio website" }).click();
   await expect(goal).toHaveValue("Launch a personal portfolio website");
@@ -102,7 +102,7 @@ test("declined confirmation never creates tasks, and saved selection has an expl
   const api = await installMockApi(page, { aiPlannerEnabled: true });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
-  await planner.getByRole("button", { name: /AI task breakdown/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ }).click();
   await planner.getByRole("textbox", { name: "What's your goal?" })
     .fill("Prepare for a challenging technical interview");
   await planner.getByRole("checkbox", { name: /Send only the goal I typed to OpenAI/ }).check();
@@ -133,7 +133,7 @@ test("View created tasks focuses only the new AI batch, then Show all tasks rest
   // Simulate an unrelated current view, search and filter that would hide new
   // unscheduled AI tasks unless View created tasks clears the view state.
   await page.getByRole("navigation", { name: "Task views" }).getByRole("button", { name: /Today/ }).click();
-  await planner.getByRole("button", { name: /AI task breakdown/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ }).click();
   await planner.getByRole("textbox", { name: "What's your goal?" })
     .fill("Create a complete programming portfolio");
   await planner.getByRole("checkbox", { name: /Send only the goal I typed to OpenAI/ }).check();
@@ -170,7 +170,7 @@ test("newly created task focus is responsive and switching tabs clears the tempo
   });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
-  await planner.getByRole("button", { name: /AI task breakdown/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ }).click();
   await planner.getByRole("textbox", { name: "What's your goal?" })
     .fill("Build a helpful portfolio website");
   await planner.getByRole("checkbox", { name: /Send only the goal I typed to OpenAI/ }).check();

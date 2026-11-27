@@ -12,8 +12,8 @@ test("Daily Planner is opt-in, read-only, and links only to owned open tasks", a
   });
   await signIn(page);
   const panel = page.getByRole("region", { name: "AI daily planner" });
-  const toggle = panel.getByRole("button", { name: /Plan my day/ });
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const toggle = page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Plan my day/ });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
   expect(api.calls.filter(call => call.pathname === "/api/ai/daily-focus")).toHaveLength(0);
   await toggle.click();
   const generate = panel.getByRole("button", { name: "Suggest today's priorities" });
@@ -42,7 +42,7 @@ test("Daily Planner handles no unfinished tasks and reset without writing", asyn
   });
   await signIn(page);
   const panel = page.getByRole("region", { name: "AI daily planner" });
-  await panel.getByRole("button", { name: /Plan my day/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Plan my day/ }).click();
   await expect(panel.getByRole("button", { name: "Suggest today's priorities" })).toBeDisabled();
   expect(api.calls.filter(call => call.pathname === "/api/ai/daily-focus")).toHaveLength(0);
   expect(api.tasks).toHaveLength(1);
@@ -55,7 +55,7 @@ test("AI daily priorities remain absent from the zero-signup demo and fit mobile
   await installMockApi(page, { aiPlannerEnabled: true, initialTasks: [fixtureTask(20, "Mobile planning task", "2026-11-28")] });
   await signIn(page);
   const panel = page.getByRole("region", { name: "AI daily planner" });
-  await panel.getByRole("button", { name: /Plan my day/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Plan my day/ }).click();
   await panel.getByRole("checkbox", { name: /I agree to send up to 15 unfinished task titles/ }).check();
   await panel.getByRole("button", { name: "Suggest today's priorities" }).click();
   await expect(panel.getByRole("button", { name: /Mobile planning task/ })).toBeVisible();

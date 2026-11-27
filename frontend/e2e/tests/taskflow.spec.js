@@ -1390,7 +1390,7 @@ test("notification center closes with Escape and restores keyboard focus", async
   await expect(bell).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(panel).toBeVisible();
-  await page.getByRole("heading", { name: "TaskFlow" }).click();
+  await page.getByRole("heading", { name: "TaskFlow", level: 1 }).click();
   await expect(panel).toHaveCount(0);
 });
 

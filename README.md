@@ -113,6 +113,12 @@ The **Plan my day** panel is collapsed by default, and never automatically conta
 - Uses the existing server-only OpenAI configuration (`AiCoach:Enabled`, `OPENAI_API_KEY`, `AiCoach:Model`) and shared AI request-rate limiter. Generation is unavailable when the model is disabled.
 - No private data is sent from the zero-signup demo. The feature's outputs are advisory, not a promise of completion times or automated scheduling.
 
+### TaskFlow AI — one compact hub
+
+Signed-in users now see one **TaskFlow AI** entry point rather than three stacked panels. It offers three clearly labeled choices: **Break down a goal**, **Plan my day**, and **Smart schedule**. Selecting a choice reveals its existing feature in one click; switching choices or closing the hub preserves any locally edited proposal, unfinished goal or schedule preview within the current signed-in session.
+
+This is a **presentation-only consolidation**, not a new AI workflow. The existing consent checkboxes, server-only provider access, plan review and explicit creation, read-only daily priorities, read-only scheduling, per-account task isolation and shared rate-limit cooldown are unchanged. Choosing a tool never automatically sends a generation or task-write request. The hub does not appear in the zero-signup demo. Reduced-motion, keyboard access and 320px layouts are supported.
+
 ### AI Task Breakdown (opt-in)
 
 Signed-in users can expand **AI task breakdown**, type a goal, and explicitly consent to send **only that goal text** to OpenAI. The backend returns up to eight suggested tasks using a strict structured JSON schema, with bounded titles, categories and priorities. This request makes **no database writes** and does not send stored tasks, private notes, account details, or task identifiers to the provider.
