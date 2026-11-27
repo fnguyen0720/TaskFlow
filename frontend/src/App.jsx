@@ -10,6 +10,7 @@ import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
 import ProductivityInsights from "./components/dashboard/ProductivityInsights.jsx";
 import AiToolHub from "./components/dashboard/AiToolHub.jsx";
+import MomentumCard from "./components/dashboard/MomentumCard.jsx";
 import ProgressionCard from "./components/dashboard/ProgressionCard.jsx";
 import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
@@ -33,6 +34,7 @@ function LiveApp({ onDemo }) {
   const [recoveryScreen, setRecoveryScreen] = useState(isResetLink);
   const [detailId, setDetailId] = useState(null);
   const [focusId, setFocusId] = useState(null);
+  const [focusMinutes, setFocusMinutes] = useState(0);
   const [detailDirty, setDetailDirty] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [quickCreateSignal, setQuickCreateSignal] = useState(0);
@@ -135,6 +137,7 @@ function LiveApp({ onDemo }) {
     setEditReminder("");
     setDetailId(null);
     setFocusId(null);
+    setFocusMinutes(0);
     setDetailDirty(false);
     setCommandOpen(false);
   }, [setNewTask, setNewPriority, setNewCategory, setNewDueDate, setNewRecurrence,
@@ -424,6 +427,7 @@ function LiveApp({ onDemo }) {
       ) : !error && (readStatus === "loaded" || readStatus === "confirmed-empty") ? (
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
+          <MomentumCard key={token} token={token} tasks={visibleTasks} focusMinutes={focusMinutes} onUnauthorized={handleUnauthorized} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
           <section className="home-discover" aria-label="More insights">
             <button type="button" className="home-discover-toggle"
@@ -465,8 +469,9 @@ function LiveApp({ onDemo }) {
           onClose={closePreferences} />
       )}
       {focusedTask && !detailTask && (
-        <FocusMode key={focusedTask.id} task={focusedTask} loadingTask={loadingTask}
+        <FocusMode key={`${token}:${focusedTask.id}`} task={focusedTask} loadingTask={loadingTask}
           onClose={() => setFocusId(null)}
+          onSessionFinished={minutes => setFocusMinutes(value => value + minutes)}
           onComplete={toggleTask}
           onOpenDetails={() => { setFocusId(null); setDetailId(focusedTask.id); }} />
       )}
