@@ -100,9 +100,13 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
           <span>I agree to send up to 15 unfinished task titles, priorities and due dates to OpenAI. No notes or account details are sent.</span>
         </label>
         <button className="ai-daily-generate" type="button"
-          disabled={!consent || loading || count === 0} onClick={generate}>
-          {loading ? "Finding your focus…" : "Suggest today's priorities"}
+          disabled={!consent || loading || count === 0 || aiCooldown.remainingSeconds > 0} onClick={generate}>
+          {loading ? "Finding your focus…" :
+            aiCooldown.remainingSeconds > 0 ? "AI cooldown active" : "Suggest today's priorities"}
         </button>
+        {aiCooldown.remainingSeconds > 0 && <p className="ai-cooldown-notice" role="status">
+          AI requests are paused. Estimated retry in <strong>{formatCooldown(aiCooldown.remainingSeconds)}</strong>.
+        </p>}
         {loading && <p role="status">Generating suggestions. No tasks are being changed.</p>}
         {message && !loading && <p role={picks !== null ? "status" : "alert"}>{message}</p>}
         {visiblePicks && visiblePicks.length > 0 && <div className="ai-daily-results">
