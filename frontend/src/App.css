@@ -2173,3 +2173,18 @@ html, body, #root {
 @media(max-width:640px){.ai-tool-hub{padding:12px}.ai-hub-choices{gap:7px}.ai-hub-choice{grid-template-columns:minmax(0,1fr);min-height:83px;padding:10px;gap:5px}.ai-hub-choice-symbol{grid-row:auto}.ai-hub-choice-name{font-size:12px}.ai-hub-choice-description{font-size:10px}.ai-hub-panel .ai-plan-content,.ai-hub-panel .ai-daily-content,.ai-hub-panel .ai-smart-content{padding:12px}}
 @media(max-width:360px){.ai-hub-choices{grid-template-columns:minmax(0,1fr)}.ai-hub-choice{grid-template-columns:27px minmax(0,1fr);min-height:58px}.ai-hub-choice-symbol{grid-row:1 / 3}.ai-hub-choice-description{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.ai-hub-choice,.ai-hub-dismiss{transition:none!important}}
+
+/* Compact momentum summary, without animation or a second reward system. */
+.momentum-panel{min-width:0;margin:0 0 16px;padding:16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text)}
+.momentum-panel header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.momentum-panel h2{font-size:18px;margin:4px 0 0}
+.momentum-focus,.momentum-metrics>div{display:grid;gap:4px;min-width:0}
+.momentum-focus strong,.momentum-metrics strong{font-size:20px;color:var(--text)}
+.momentum-focus small,.momentum-metrics span,.momentum-note,.momentum-day small{font-size:11px;color:var(--muted)}
+.momentum-metrics{display:flex;flex-wrap:wrap;gap:24px;margin:12px 0}
+.momentum-chart{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.momentum-day{display:grid;justify-items:center;gap:4px;font-size:11px;min-width:0;overflow-wrap:anywhere}
+.momentum-track{width:min(100%,28px);height:38px;background:var(--border);border-radius:4px;display:flex;align-items:flex-end;overflow:hidden}
+.momentum-track span{width:100%;background:#8b7cff;border-radius:4px}
+.momentum-note{margin:10px 0 0;line-height:1.5}
+.momentum-panel button{color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;cursor:pointer}
