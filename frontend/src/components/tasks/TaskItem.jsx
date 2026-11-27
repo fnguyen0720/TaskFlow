@@ -65,8 +65,12 @@ export default function TaskItem({ task, editing, loadingTask, actions }) {
               {formatDueDate(task.dueDate)}
             </span>
           )}
+          {celebrating && <span className="task-completion-feedback" role="status">✓ Done!</span>}
           <span className={"priority priority-" + (task.priority || "medium").toLowerCase()}>{task.priority || "Medium"}</span>
           <span className="category">{task.category || "General"}</span>
+          {!task.completed && <button type="button" className="task-focus-button"
+            aria-label={"Focus on " + task.title} disabled={busy}
+            onClick={() => actions.focus(task.id)}>Focus</button>}
           <button type="button" className="edit-button" aria-label={"Edit " + task.title} disabled={busy} onClick={() => actions.startEditing(task)}>Edit</button>
           <button type="button" className="delete-button" aria-label={"Delete " + task.title} disabled={busy} onClick={() => actions.delete(task.id)}>Delete</button>
         </>
