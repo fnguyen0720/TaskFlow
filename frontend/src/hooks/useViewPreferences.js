@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 
-export const DEFAULT_PREFERENCES = Object.freeze({ density: "comfortable", landingView: "all" });
+export const DASHBOARD_SECTIONS = Object.freeze([
+  ["overview", "Daily overview"], ["momentum", "Productivity momentum"], ["focus", "Up next"],
+  ["insights", "Insights & rewards"], ["projects", "Projects"], ["ai", "TaskFlow AI"],
+].map(item => Object.freeze(item)));
+const SECTION_IDS = DASHBOARD_SECTIONS.map(([id]) => id);
+export const DEFAULT_PREFERENCES = Object.freeze({ density: "comfortable", landingView: "all",
+  dashboardOrder: Object.freeze([...SECTION_IDS]), dashboardHidden: Object.freeze([]) });
+export function normalizeDashboardOrder(value) {
+  const valid = Array.isArray(value) ? [...new Set(value.filter(id => SECTION_IDS.includes(id)))] : [];
+  return [...valid, ...SECTION_IDS.filter(id => !valid.includes(id))];
+}
+export function normalizeDashboardHidden(value) {
+  return Array.isArray(value) ? [...new Set(value.filter(id => SECTION_IDS.includes(id)))] : [];
+}
 const DENSITIES = new Set(["comfortable", "compact"]);
 const VIEWS = new Set(["all", "today", "upcoming", "calendar", "unscheduled"]);
 
@@ -9,6 +22,8 @@ export function normalizePreferences(value) {
   return {
     density: DENSITIES.has(value.density) ? value.density : DEFAULT_PREFERENCES.density,
     landingView: VIEWS.has(value.landingView) ? value.landingView : DEFAULT_PREFERENCES.landingView,
+    dashboardOrder: normalizeDashboardOrder(value.dashboardOrder),
+    dashboardHidden: normalizeDashboardHidden(value.dashboardHidden),
   };
 }
 

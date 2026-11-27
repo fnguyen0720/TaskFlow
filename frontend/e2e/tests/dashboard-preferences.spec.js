@@ -1,0 +1,46 @@
+import { test, expect } from "@playwright/test";
+import { fixtureTask, installMockApi, signIn } from "./support/mockApi.js";
+
+test("dashboard sections reorder, hide, persist and reset without changing tasks", async ({ page, context }) => {
+  const api = await installMockApi(page, { accountEmail: "first@example.com", initialTasks: [fixtureTask(8, "Keep this task", "2026-12-01")] });
+  await signIn(page);
+  const settings = page.getByRole("button", { name: "Workspace settings" });
+  await settings.click();
+  const dialog = page.getByRole("dialog", { name: "Workspace preferences" });
+  await dialog.getByRole("checkbox", { name: "Productivity momentum" }).uncheck();
+  await dialog.getByRole("button", { name: "Move Up next up" }).click();
+  await dialog.getByRole("button", { name: "Move Up next up" }).click();
+  await dialog.getByRole("button", { name: "Save preferences" }).click();
+  await expect(page.locator('[data-dashboard-section]').first()).toHaveAttribute("data-dashboard-section", "focus");
+  await expect(page.getByRole("region", { name: "Productivity momentum" })).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Tasks" })).toContainText("Keep this task");
+  await page.reload();
+  await expect(settings).toBeEnabled();
+  await expect(page.locator('[data-dashboard-section]').first()).toHaveAttribute("data-dashboard-section", "focus");
+  await expect(page.getByRole("region", { name: "Productivity momentum" })).toHaveCount(0);
+  const other = await context.newPage();
+  await installMockApi(other, { accountEmail: "second@example.com" });
+  await other.goto("/");
+  await expect(other.getByRole("button", { name: "Workspace settings" })).toBeEnabled();
+  await expect(other.getByRole("region", { name: "Productivity momentum" })).toBeVisible();
+  await expect(other.locator('[data-dashboard-section]').first()).toHaveAttribute("data-dashboard-section", "overview");
+  await other.close();
+  await settings.click();
+  await dialog.getByRole("button", { name: "Reset dashboard layout" }).click();
+  await dialog.getByRole("button", { name: "Save preferences" }).click();
+  await expect(page.getByRole("region", { name: "Productivity momentum" })).toBeVisible();
+  expect(api.calls.filter(call => call.method !== "GET" && call.pathname.startsWith("/api/tasks"))).toHaveLength(0);
+});
+
+test("dashboard customization fits narrow screens and cancel preserves layout", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 690 });
+  await installMockApi(page);
+  await signIn(page);
+  await page.getByRole("button", { name: "Workspace settings" }).click();
+  const dialog = page.getByRole("dialog", { name: "Workspace preferences" });
+  await dialog.getByRole("checkbox", { name: "Productivity momentum" }).uncheck();
+  await expect(dialog).toBeVisible();
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("region", { name: "Productivity momentum" })).toBeVisible();
+});
