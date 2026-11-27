@@ -1,15 +1,17 @@
 import { useState } from "react";
+import AiCopilot from "./AiCopilot.jsx";
 import AiSmartScheduler from "./AiSmartScheduler.jsx";
 import AiDailyPlanner from "./AiDailyPlanner.jsx";
 import AiTaskPlanner from "./AiTaskPlanner.jsx";
 
 const TOOLS = [
+  { id: "copilot", symbol: "✦", title: "Ask Copilot", subtitle: "Chat about your workspace" },
   { id: "breakdown", symbol: "✧", title: "Break down a goal", subtitle: "Turn an idea into tasks" },
   { id: "daily", symbol: "◷", title: "Plan my day", subtitle: "Pick what matters next" },
   { id: "schedule", symbol: "▦", title: "Smart schedule", subtitle: "Preview your week" }
 ];
 
-// Keep all three workflows mounted while switching tools, so a user can
+// Keep all four workflows mounted while switching tools, so a user can
 // inspect another capability without losing a generated preview or edits.
 // Inactive tools remain hidden and do not automatically call OpenAI.
 export default function AiToolHub({
@@ -43,6 +45,9 @@ export default function AiToolHub({
       <strong>{activeTool.title}</strong>
       <span>{activeTool.subtitle}</span>
     </div>}
+    <div id="ai-hub-panel-copilot" className="ai-hub-panel" hidden={selected !== "copilot"}>
+      <AiCopilot token={token} tasks={tasks} active={selected === "copilot"} onUnauthorized={onUnauthorized} aiCooldown={aiCooldown} />
+    </div>
     <div id="ai-hub-panel-breakdown" className="ai-hub-panel" hidden={selected !== "breakdown"}>
       <AiTaskPlanner token={token} projects={projects} onUnauthorized={onUnauthorized}
         onTasksCreated={onTasksCreated} onViewCreatedTasks={onViewCreatedTasks}
