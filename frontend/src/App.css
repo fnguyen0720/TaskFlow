@@ -1811,3 +1811,27 @@ html, body, #root {
 .demo-workspace .calendar-day h4{padding-right:48px;min-height:32px}
 .demo-workspace .calendar-day .calendar-quick-add span{top:8px;right:14px}
 .demo-workspace .calendar-day .calendar-quick-add:hover{background:#383154}
+
+
+/* PR #76: compact, opt-in AI task breakdown. Review and creation remain separate. */
+.ai-plan{margin:16px 0;border:1px solid #403b5b;border-radius:12px;background:#191a27}
+.ai-plan-toggle{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:12px 16px;border:0;background:transparent;color:#e0d8ff;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
+.ai-plan-toggle span:last-child{margin-left:auto;font-size:20px}
+.ai-plan-content{display:grid;gap:12px;padding:0 16px 18px}
+.ai-plan-content p{margin:0;color:#bdbaca;font-size:13px;line-height:1.5}
+.ai-plan-content>label,.ai-plan-review>label,.ai-plan-item>label,.ai-plan-fields label{display:grid;gap:6px;min-width:0;color:#ccc6df;font-size:12px;font-weight:600}
+.ai-plan-content textarea,.ai-plan-content input[type=text],.ai-plan-content select{width:100%;min-width:0;max-width:100%;min-height:44px;padding:9px 12px;border:1px solid #414157;border-radius:8px;background:#11131d;color:#f1eef9;font-size:16px}
+.ai-plan-content textarea{resize:vertical;min-height:76px}
+.ai-plan-consent{display:flex!important;align-items:flex-start;gap:10px;font-weight:400!important;line-height:1.5}
+.ai-plan-consent input,.ai-plan-select input{flex:0 0 auto;width:18px;height:18px;accent-color:#9b8cff}
+.ai-plan-action{min-height:44px;padding:10px 15px;border:0;border-radius:9px;background:#7463d8;color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+.ai-plan-content button:disabled{opacity:.5;cursor:not-allowed}
+.ai-plan-review{display:grid;gap:12px;padding-top:12px;border-top:1px solid #343249}
+.ai-plan-review h3{margin:0;color:#efecfa;font-size:17px}
+.ai-plan-item{display:grid;gap:10px;padding:13px;border:1px solid #39384e;border-radius:10px;background:#141622}
+.ai-plan-item .ai-plan-select{display:flex;align-items:center;gap:9px}
+.ai-plan-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ai-plan-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.ai-plan-actions button:first-child{min-height:44px;padding:9px 13px;border:1px solid #4e4967;border-radius:9px;background:#262638;color:#e2dced;cursor:pointer}
+@media(max-width:480px){.ai-plan-fields{grid-template-columns:minmax(0,1fr)}.ai-plan-actions button{flex:1 1 100%}}
+@media(prefers-reduced-motion:reduce){.ai-plan *{transition:none!important;animation:none!important}}
