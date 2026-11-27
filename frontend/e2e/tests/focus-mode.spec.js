@@ -79,7 +79,7 @@ test("Focus Mode fits 320px screens, displays checklist and respects reduced mot
   await expect(focus).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await focus.getByRole("button", { name: "Open task details" }).click();
-  await expect(focus).toHaveCount(0);
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.locator("dialog.focus-dialog")).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Practice writing JavaScript" })).toBeVisible();
   expect(api.tasks[0].checklist).toHaveLength(2);
 });
