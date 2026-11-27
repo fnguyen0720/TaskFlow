@@ -13,9 +13,9 @@ test("smart scheduling is opt-in, fully read-only, and protects existing deadlin
   ] });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI smart scheduling" });
-  await expect(planner.getByRole("button", { name: /Smart scheduling/ })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ })).toHaveAttribute("aria-pressed", "false");
   expect(api.calls.filter(c => c.pathname === "/api/ai/smart-schedule")).toHaveLength(0);
-  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ }).click();
   const generate = planner.getByRole("button", { name: "Preview schedule" });
   await expect(generate).toBeDisabled();
   await planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
@@ -48,7 +48,7 @@ test("capacity edits invalidate preview and may identify overloaded days", async
   ] });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI smart scheduling" });
-  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ }).click();
   const cap = planner.getByRole("combobox", { name: /How many tasks/ });
   await cap.selectOption("1");
   const consent = planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ });
@@ -73,7 +73,7 @@ test("smart scheduling is absent in zero-signup demo, and Safari-safe dates fit 
   ] });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI smart scheduling" });
-  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ }).click();
   await planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
   await planner.getByRole("button", { name: "Preview schedule" }).click();
   const preview = planner.getByLabel("Suggested work dates");
@@ -92,7 +92,7 @@ test("seven-day workload timeline explains overloaded days with exact other-due 
   const api = await installMockApi(page, { aiPlannerEnabled: true, initialTasks });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI smart scheduling" });
-  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ }).click();
   await planner.getByRole("combobox", { name: /How many tasks/ }).selectOption("3");
   await planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
   await planner.getByRole("button", { name: "Preview schedule" }).click();
@@ -129,7 +129,7 @@ test("mobile seven-day strip scrolls horizontally without overflowing the page",
   ] });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI smart scheduling" });
-  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ }).click();
   await planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
   await planner.getByRole("button", { name: "Preview schedule" }).click();
   const strip = planner.getByLabel("Seven-day workload");
@@ -153,7 +153,7 @@ test("AI 429 shows a shared server-derived countdown without clearing the existi
   });
   await signIn(page);
   const schedule = page.getByRole("region", { name: "AI smart scheduling" });
-  await schedule.getByRole("button", { name: /Smart scheduling/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ }).click();
   await schedule.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
   const generate = schedule.getByRole("button", { name: "Preview schedule" });
   await generate.click();
@@ -200,7 +200,7 @@ test("AI 429 without a readable Retry-After never invents a countdown", async ({
   });
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI smart scheduling" });
-  await planner.getByRole("button", { name: /Smart scheduling/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ }).click();
   await planner.getByRole("checkbox", { name: /Send up to 15 unfinished task titles/ }).check();
   await planner.getByRole("button", { name: "Preview schedule" }).click();
   await expect(planner.getByRole("alert")).toContainText("temporarily limited");
