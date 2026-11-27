@@ -41,6 +41,7 @@ function LiveApp({ onDemo }) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sort, setSort] = useState("default");
+  const [createdTaskIds, setCreatedTaskIds] = useState(null);
 
   const {
     token, authMode, authEmail, setAuthEmail, authPassword, setAuthPassword,
@@ -147,6 +148,7 @@ function LiveApp({ onDemo }) {
     setCategoryFilter("all");
     setSelectedProject("all");
     setShowMoreInsights(false);
+    setCreatedTaskIds(null);
   }, [token]);
 
   // Password reset links can arrive via same-tab hash navigation.
@@ -198,12 +200,39 @@ function LiveApp({ onDemo }) {
   const projectTasks = selectedProject === "all" ? (views[view] ?? visibleTasks) :
     (views[view] ?? visibleTasks).filter(task => selectedProject === "none" ?
       task.projectId == null : String(task.projectId) === selectedProject);
-  const filteredTasks = selectTasks(projectTasks, {
+  const normalFilteredTasks = selectTasks(projectTasks, {
     search,
     filter: view === "all" || view === "calendar" ? filter : "all",
     categoryFilter,
     sort: view === "upcoming" && sort === "default" ? "dueDate" : sort,
   });
+  const filteredTasks = createdTaskIds === null ? normalFilteredTasks :
+    normalFilteredTasks.filter(task => createdTaskIds.includes(task.id));
+
+  // Jump to the new tasks only after the scoped view has rendered.
+  useEffect(() => {
+    if (createdTaskIds === null) return;
+    const frame = requestAnimationFrame(() => {
+      const heading = document.getElementById("created-tasks-heading");
+      heading?.scrollIntoView({ block: "start", behavior: "auto" });
+      heading?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [createdTaskIds]);
+
+  const viewNewTasks = ids => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    if (editDirty && !window.confirm("Discard unsaved task edits and view newly created tasks?")) return;
+    if (editingId !== null) cancelEditingWithoutPrompt();
+    // AI tasks have no due dates, so Today/Upcoming would hide them.
+    setView("all");
+    setSelectedProject("all");
+    setFilter("all");
+    setSearch("");
+    setCategoryFilter("all");
+    setSort("default");
+    setCreatedTaskIds(ids);
+  };
 
   const createProject = projects.status === "ready" && projects.projects.some(project =>
     String(project.id) === selectedProject)
@@ -249,10 +278,11 @@ function LiveApp({ onDemo }) {
     setEditReminder("");
   };
   const changeView = nextView => {
-    if (nextView === view) return true;
+    if (nextView === view) { setCreatedTaskIds(null); return true; }
     if (editDirty && !window.confirm("Discard task edits and switch views?")) return false;
     if (editingId !== null) cancelEditingWithoutPrompt();
     setView(nextView);
+    setCreatedTaskIds(null);
     return true;
   };
   const openTaskFromPalette = id => {
@@ -403,14 +433,17 @@ function LiveApp({ onDemo }) {
         </>
       ) : null}
       {projects.status === "ready" && <ProjectShelf projects={projects.projects} tasks={visibleTasks}
-        selection={selectedProject} onSelect={setSelectedProject}
+        selection={selectedProject} onSelect={selection => { setSelectedProject(selection); setCreatedTaskIds(null); }}
         onCreate={projects.createProject} creating={projects.creating}
         onRename={projects.renameProject} renamingId={projects.renamingId} />}
       {projects.status === "failed" && <p className="project-load-error" role="alert">Projects could not load. Your tasks are still available.</p>}
       <AiTaskPlanner key={token} token={token} projects={projects.status === "ready" ? projects.projects : []}
-        onUnauthorized={handleUnauthorized} onTasksCreated={reloadLatestTask} />
+        onUnauthorized={handleUnauthorized} onTasksCreated={reloadLatestTask} onViewCreatedTasks={viewNewTasks} />
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
-        planner={{ view, setView: changeView, views, quickCreateSignal }} />
+        planner={{ view, setView: changeView, views, quickCreateSignal }}
+        createdTaskView={createdTaskIds === null ? null : {
+          count: filteredTasks.length, onShowAll: () => setCreatedTaskIds(null),
+        }} />
       {commandOpen && !detailTask && <CommandPalette tasks={visibleTasks}
         onClose={() => setCommandOpen(false)} onOpenTask={openTaskFromPalette}
         onChangeView={changeView} onQuickCreate={quickCreateFromPalette} />}

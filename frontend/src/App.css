@@ -1899,3 +1899,41 @@ html, body, #root {
   .ai-plan-review-heading .ai-plan-link { padding:7px 9px; }
   .ai-plan-goal-preview { padding:10px; }
 }
+
+
+/* PR #78: compact success and a focused exit to the just-created tasks. */
+.ai-plan-finished { padding: 10px 12px 13px; gap: 9px; }
+.ai-plan-finished-icon { width: 46px; height: 46px; font-size: 24px; }
+.ai-plan-finished h3 { font-size: 19px; }
+.ai-plan-finished-actions {
+  display: flex; align-items: stretch; justify-content: center;
+  gap: 10px; width: 100%; max-width: 430px;
+}
+.ai-plan-finished-actions > button {
+  flex: 1; min-width: 0; min-height: 44px;
+  padding: 10px 12px; font-size: 13px; font-weight: 700;
+}
+.ai-plan-finished-actions > .ai-plan-action { width: auto; max-width: none; }
+.ai-plan-finished-secondary {
+  border: 1px solid #554b73; border-radius: 9px;
+  background: #292438; color: #ded5f7; cursor: pointer;
+}
+.ai-plan-finished-secondary:hover { background: #342c49; }
+.ai-created-task-banner {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px; padding: 12px 14px; margin: 0 0 15px;
+  border: 1px solid #615493; border-radius: 10px;
+  background: #27223e; color: #e3ddf7; font-size: 13px;
+}
+.ai-created-task-banner button {
+  min-height: 40px; padding: 8px 12px; border: 1px solid #8070b0;
+  border-radius: 8px; background: #332b52; color: #f3edff;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.ai-created-task-banner button:hover { background: #45376d; }
+#created-tasks-heading { scroll-margin-top: 20px; }
+@media (max-width: 480px) {
+  .ai-plan-finished-actions { flex-direction: column; }
+  .ai-plan-finished { padding: 6px 6px 12px; }
+  .ai-created-task-banner button { flex: 1 1 100%; }
+}

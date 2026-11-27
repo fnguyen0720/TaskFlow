@@ -5,7 +5,7 @@ const PRIORITIES = ["Low", "Medium", "High"];
 const CATEGORIES = ["General", "Work", "Study", "Personal"];
 
 // Mounted only for signed-in accounts. No inference until explicit consent.
-export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasksCreated }) {
+export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasksCreated, onViewCreatedTasks }) {
   const [open, setOpen] = useState(false);
   const [available, setAvailable] = useState("idle");
   const [goal, setGoal] = useState("");
@@ -15,6 +15,7 @@ export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasks
   const [projectId, setProjectId] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
+  const [lastCreatedIds, setLastCreatedIds] = useState([]);
   const controller = useRef(null);
   const session = useRef(token);
   session.current = token;
@@ -143,6 +144,7 @@ export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasks
       setGoal("");
       setConsent(false);
       setPhase("done");
+      setLastCreatedIds(data.tasks.map(task => task.id).filter(Number.isInteger));
       setMessage(data.tasks.length + " tasks created.");
       try {
         await onTasksCreated();
@@ -269,8 +271,17 @@ export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasks
           <span className="ai-plan-finished-icon" aria-hidden="true">✓</span>
           <h3>Plan created!</h3>
           <p role="status">{message}</p>
-          <button type="button" className="ai-plan-action"
-            onClick={() => { setPhase("compose"); setMessage(""); setProjectId(""); }}>Plan another goal</button>
+          <div className="ai-plan-finished-actions">
+            <button type="button" className="ai-plan-action"
+              disabled={lastCreatedIds.length === 0}
+              onClick={() => onViewCreatedTasks(lastCreatedIds)}>
+              View created tasks
+            </button>
+            <button type="button" className="ai-plan-finished-secondary"
+              onClick={() => { setPhase("compose"); setMessage(""); setProjectId(""); setLastCreatedIds([]); }}>
+              Plan another goal
+            </button>
+          </div>
         </div>}
         {phase !== "done" && message && <p role="alert">{message}</p>}
       </>}
