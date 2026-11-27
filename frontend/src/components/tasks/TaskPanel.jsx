@@ -15,7 +15,7 @@ const TASK_VIEWS = [
   { id: "unscheduled", label: "Unscheduled", description: "Open tasks without a due date.", empty: "No unscheduled tasks." },
 ];
 
-export default function TaskPanel({ data, form, filters, editing, actions, planner }) {
+export default function TaskPanel({ data, form, filters, editing, actions, planner, createdTaskView }) {
   const { view, setView, views, quickCreateSignal } = planner;
   const current = TASK_VIEWS.find(option => option.id === view);
   const tasksInView = views[view];
@@ -48,7 +48,7 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
       </nav>
       <div className="panel-heading">
         <div>
-          <h2>{current.label}</h2>
+          <h2 id={createdTaskView ? "created-tasks-heading" : undefined} tabIndex={createdTaskView ? -1 : undefined}>{createdTaskView ? "Newly created tasks" : current.label}</h2>
           <p className="panel-subtitle">
             {data.error || data.readStatus === "failed"
               ? "Task count unavailable — please retry the server check."
@@ -56,10 +56,14 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
                 ? "Checking your task list…"
                 : data.readStatus === "confirmed-empty"
                   ? "Server returned no tasks for this signed-in account."
-                  : current.description ?? `${data.totalCount} ${data.totalCount === 1 ? "task" : "tasks"} in your workspace`}
+                  : createdTaskView ? `${createdTaskView.count} from your AI plan` : current.description ?? `${data.totalCount} ${data.totalCount === 1 ? "task" : "tasks"} in your workspace`}
           </p>
         </div>
       </div>
+      {createdTaskView && <div className="ai-created-task-banner" role="status">
+        <span>Showing tasks from your new AI plan</span>
+        <button type="button" onClick={createdTaskView.onShowAll}>Show all tasks</button>
+      </div>}
       {data.undoableMove && (
         <div className="calendar-move-notice" aria-label="Calendar move">
           <span role="status">Moved <strong>{data.undoableMove.title}</strong></span>
@@ -83,7 +87,7 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
           <button type="button" onClick={actions.retry}>Check server again</button>
         </div>
       )}
-      <TaskFilters filters={filters} showStatus={view === "all" || isCalendar} defaultSortLabel={view === "upcoming" ? "Default (due date)" : "Default"} />
+      {!createdTaskView && <TaskFilters filters={filters} showStatus={view === "all" || isCalendar} defaultSortLabel={view === "upcoming" ? "Default (due date)" : "Default"} />}
       {isCalendar && !data.loading && !data.error ? (
         <>
           <div className="calendar-mode-switch" role="group" aria-label="Calendar display">
@@ -101,7 +105,7 @@ export default function TaskPanel({ data, form, filters, editing, actions, plann
                 onRescheduleTask={actions.reschedule} loadingTask={data.loadingTask} />}
         </>
       ) : (
-        <TaskList key={`${view}:${filters.search}:${filters.status}:${filters.category}:${filters.sort}`} data={data} editing={editing} actions={actions}
+        <TaskList key={`${view}:${filters.search}:${filters.status}:${filters.category}:${filters.sort}:${createdTaskView ? "created" : "normal"}`} data={data} editing={editing} actions={actions}
           viewEmptyMessage={tasksInView?.length === 0 ? current.empty : undefined} />
       )}
       <UndoDeleteToast pendingDeletes={data.pendingDeletes} onUndo={actions.undoDelete} />
