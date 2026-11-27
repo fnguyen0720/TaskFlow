@@ -7,6 +7,31 @@ public static class AiSmartSchedule
         string SuggestedDate, string Reason, bool OverCapacity, bool DeadlineAtRisk);
     public sealed record Preview(IReadOnlyList<Slot> Slots);
 
+    // Non-selected task deadlines provide a transparent load estimate. They
+    // are not calendar reservations or estimates of task duration.
+    public sealed record DayLoad(string Date, int ExistingDueCount);
+
+    public static IReadOnlyList<DayLoad> BuildDayLoads(
+        IEnumerable<TaskItem> datedTasks, IEnumerable<int> selectedIds, DateOnly start)
+    {
+        var excluded = selectedIds.ToHashSet();
+        var counts = new Dictionary<DateOnly, int>();
+        foreach (var task in datedTasks)
+        {
+            if (task.Completed || excluded.Contains(task.Id) || !task.DueDate.HasValue)
+                continue;
+            var due = DateOnly.FromDateTime(task.DueDate.Value);
+            if (due < start || due > start.AddDays(6)) continue;
+            counts[due] = counts.GetValueOrDefault(due) + 1;
+        }
+        return Enumerable.Range(0, 7).Select(day => {
+            var date = start.AddDays(day);
+            return new DayLoad(date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                counts.GetValueOrDefault(date));
+        }).ToArray();
+    }
+
+
     public static bool TryRequest(Request request, DateOnly utcToday, out DateOnly start)
     {
         start = default;
