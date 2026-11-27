@@ -32,3 +32,30 @@ test("momentum shows unavailable history rather than invented zeros on narrow sc
   await expect(momentum.getByRole("img")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
 });
+
+test("momentum and insights share one history snapshot and refresh together", async ({ page }) => {
+  const api = await installMockApi(page, {
+    initialTasks: [fixtureTask(9, "Review progress", "2026-11-19")],
+    initialActivities: [{ id: 1, taskId: 9, kind: "completed", occurredAt: "2026-11-19T10:00:00Z" }]
+  });
+  await signIn(page);
+  const momentum = page.getByRole("region", { name: "Productivity momentum" });
+  await expect(momentum.getByRole("img")).toHaveAttribute("aria-label", /2026-11-19: 1 completion events/);
+  await expect(momentum).toContainText("1/7");
+  await expect(momentum).toContainText("Your busiest day this week!");
+  const reads = () => api.calls.filter(call => call.pathname === "/api/analytics/completions").length;
+  const initial = reads();
+  await page.getByRole("button", { name: "Insights & rewards" }).click();
+  const insights = page.getByRole("region", { name: "Productivity insights" });
+  await insights.getByRole("button", { name: "Show insights" }).click();
+  const history = insights.getByRole("region", { name: "Completion history" });
+  await expect(history.getByRole("img")).toBeVisible();
+  expect(reads()).toBe(initial);
+  await history.getByRole("button", { name: "Refresh trend" }).click();
+  await expect.poll(reads).toBe(initial + 1);
+  await expect(momentum.getByRole("img")).toBeVisible();
+  await expect(history.getByRole("img")).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+});
