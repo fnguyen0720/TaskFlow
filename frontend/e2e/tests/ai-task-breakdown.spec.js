@@ -45,7 +45,7 @@ test("AI planning is disabled gracefully and no goal is sent without consent", a
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
   await planner.getByRole("button", { name: /AI task breakdown/ }).click();
-  await expect(planner).toContainText("AI planning is not configured.");
+  await expect(planner).toContainText("AI planning is not configured for this workspace.");
   expect(api.calls.filter(call => call.pathname === "/api/ai/plans/generate")).toHaveLength(0);
   expect(api.tasks).toHaveLength(0);
 });
