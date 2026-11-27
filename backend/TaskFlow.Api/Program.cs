@@ -1010,6 +1010,30 @@ app.MapPost("/api/ai/smart-schedule", async (
 // Read-only daily priorities. The task candidates come exclusively from the
 // authenticated user's own rows; no client-supplied IDs or descriptions are trusted.
 // Model output is validated against the exact candidate IDs before disclosure.
+app.MapPost("/api/ai/copilot", async (
+    AiCopilot.Request request, ClaimsPrincipal user, TaskDbContext db,
+    IConfiguration configuration, IHttpClientFactory clients, HttpContext context) =>
+{
+    if (!request.Consent || !AiCopilot.Valid(request))
+        return Results.BadRequest(new { Message = "Consent and a valid bounded conversation are required." });
+    if (!AiTaskBreakdown.IsEnabled(configuration))
+        return Results.Problem("AI Copilot is not configured.", statusCode: 503);
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    var tasks = await db.Tasks.AsNoTracking()
+        .Where(t => t.UserId == userId && !t.Completed)
+        .OrderBy(t => t.DueDate == null).ThenBy(t => t.DueDate)
+        .ThenBy(t => t.Priority == "High" ? 0 : t.Priority == "Medium" ? 1 : 2)
+        .ThenBy(t => t.Id).Take(15).ToListAsync(context.RequestAborted);
+    try {
+        var reply = await AiCopilot.GenerateAsync(request, AiDailyFocus.SelectCandidates(tasks),
+            configuration, clients, context.RequestAborted);
+        return reply is null ? Results.Problem("Copilot could not generate a reply.", statusCode: 502)
+            : Results.Ok(new { Reply = reply });
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested) { throw; }
+    catch (Exception) { return Results.Problem("Copilot could not generate a reply.", statusCode: 502); }
+}).RequireAuthorization().RequireRateLimiting("ai-coach");
+
 app.MapPost("/api/ai/daily-focus", async (
     AiDailyFocus.Request request, ClaimsPrincipal user, TaskDbContext db,
     IConfiguration configuration, IHttpClientFactory clients, HttpContext context) =>
