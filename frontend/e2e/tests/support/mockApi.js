@@ -155,6 +155,42 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       return respond(200, { available: aiPlannerEnabled, sends: "Only the goal you explicitly enter" });
     }
+    if (pathname === "/api/ai/smart-schedule" && method === "POST") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (!body.consent || !/^\d{4}-\d{2}-\d{2}$/.test(body.today) ||
+          body.dailyCapacity < 1 || body.dailyCapacity > 5) return respond(400, {});
+      if (!aiPlannerEnabled) return respond(503, {});
+      const unfinished = tasks.filter(task => !task.completed);
+      const candidates = [...unfinished].sort((a,b) =>
+        (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999")).slice(0, 5);
+      const start = new Date(body.today + "T12:00:00");
+      const load = new Map();
+      const selectedIds = new Set(candidates.map(t => t.id));
+      for (const t of unfinished) {
+        if (!t.dueDate || selectedIds.has(t.id)) continue;
+        const date = t.dueDate.slice(0, 10);
+        load.set(date, (load.get(date) || 0) + 1);
+      }
+      const slots = candidates.map(task => {
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        const deadline = task.dueDate?.slice(0, 10);
+        if (deadline && deadline >= body.today && deadline < end.toISOString().slice(0,10))
+          end.setTime(new Date(deadline + "T12:00:00").getTime());
+        let chosen = body.today, best = Infinity;
+        for (let day = new Date(start); day <= end; day.setDate(day.getDate()+1)) {
+          const date = [day.getFullYear(),String(day.getMonth()+1).padStart(2,"0"),String(day.getDate()).padStart(2,"0")].join("-");
+          const n = load.get(date) || 0;
+          if (n < best) { best = n; chosen = date; }
+          if (n < body.dailyCapacity) break;
+        }
+        load.set(chosen, (load.get(chosen) || 0)+1);
+        return { taskId: task.id, title: task.title, priority: task.priority,
+          dueDate: deadline ?? null, suggestedDate: chosen, reason: "Worth prioritizing",
+          overCapacity: best >= body.dailyCapacity, deadlineAtRisk: Boolean(deadline && deadline < body.today) };
+      });
+      return respond(200, { slots, noTasks: slots.length === 0 });
+    }
     if (pathname === "/api/ai/daily-focus" && method === "POST") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       if (!body.consent) return respond(400, { message: "Consent required" });
