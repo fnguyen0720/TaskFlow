@@ -59,6 +59,14 @@ AiCoach__Model=gpt-4o-mini
 
 The model name is configurable; verify the chosen model supports the Responses API in your account. Never commit or expose the API key. Each request has a 15-second timeout, a bounded output limit, `store: false`, and a five-requests-per-ten-minutes network bucket. Availability is reported separately, and no provider call is made until the signed-in user opts in. API usage can incur charges and needs operator budget controls. No persistence of AI answers is implemented.
 
+### AI Task Breakdown (opt-in)
+
+Signed-in users can expand **AI task breakdown**, type a goal, and explicitly consent to send **only that goal text** to OpenAI. The backend returns up to eight suggested tasks using a strict structured JSON schema, with bounded titles, categories and priorities. This request makes **no database writes** and does not send stored tasks, private notes, account details, or task identifiers to the provider.
+
+The suggestions appear in an editable review screen. Users may rename, reprioritize, change categories, deselect items, and choose an owned project. A separate **Create selected tasks** action requires confirmation; the server revalidates every edited item, verifies the project belongs to the signed-in user, and writes all selected tasks, initial version snapshots and activity entries within one transaction. Invalid or cross-account submissions create nothing. No AI model can autonomously create tasks.
+
+The feature reuses the existing server-only \`AiCoach__Enabled\`, \`OPENAI_API_KEY\` and optional \`AiCoach__Model\` configuration. It remains disabled when inference is unconfigured, never appears in the zero-signup demo, and has no new migrations. Generation is subject to the existing AI rate limit (five requests per ten minutes per configured connection-IP bucket). AI usage can incur provider charges. No generated plan is persisted unless the user separately approves its selected tasks. As with ordinary task creation, repeated *separate* confirmed submissions can create additional tasks; do not blindly retry after a network failure.
+
 ### Progression and achievements
 - Earn 25 XP for the **first recorded completion of each distinct task**; reopening and completing it again never awards more XP.
 - Level up through cumulative XP thresholds and unlock permanent First Step, Getting Things Done, and Task Master achievements.
