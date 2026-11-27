@@ -78,7 +78,7 @@ public static class AiTaskBreakdown
                         {
                             tasks = new
                             {
-                                type = "array", minItems = 3, maxItems = 8,
+                                type = "array", // Server-side validation enforces 3–8 items after inference.
                                 items = new
                                 {
                                     type = "object",
