@@ -11,12 +11,10 @@ const DUE_STATES = [
   { key: "unscheduled", label: "Unscheduled" },
 ];
 
-export default function ProductivityInsights({ tasks, token, onUnauthorized, onOpenTask }) {
+export default function ProductivityInsights({ tasks, token, onUnauthorized, onOpenTask, history, refreshHistory }) {
   const [expanded, setExpanded] = useState(false);
-  const [history, setHistory] = useState({ status: "idle", token: null, data: null });
   const unauthorizedRef = useRef(onUnauthorized);
   unauthorizedRef.current = onUnauthorized;
-  const [refreshHistory, setRefreshHistory] = useState(0);
   const [bottlenecks, setBottlenecks] = useState({ status: "idle", token: null, data: null });
   const [refreshBottlenecks, setRefreshBottlenecks] = useState(0);
   // Avoid grouping and sorting the entire workspace while insights are collapsed.
@@ -26,36 +24,6 @@ export default function ProductivityInsights({ tasks, token, onUnauthorized, onO
   const plan = useMemo(() => expanded ? getPlanningAnalytics(tasks) : null, [expanded, tasks]);
   const maxDue = plan ? Math.max(1, ...plan.week.map(day => day.count)) : 1;
   const maxPriority = plan ? Math.max(1, ...Object.values(plan.priority)) : 1;
-
-  useEffect(() => {
-    if (!expanded || !token) return;
-    const controller = new AbortController();
-    setHistory({ status: "loading", token, data: null });
-    fetch(`${API}/api/analytics/completions`, {
-      headers: { Authorization: `Bearer ${token}` }, signal: controller.signal
-    }).then(async response => {
-      if (response.status === 401) { unauthorizedRef.current?.(token); return null; }
-      if (!response.ok) throw new Error("Could not load completion history.");
-      return response.json();
-    }).then(data => {
-      if (controller.signal.aborted || data === null) return;
-      if (data.timeZone !== "UTC" || data.windowDays !== 30 ||
-          !Array.isArray(data.days) || data.days.length !== 30 ||
-          data.days.some(day => !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day.date) ||
-            !Number.isSafeInteger(day.completed) || day.completed < 0 ||
-            !Number.isSafeInteger(day.reopened) || day.reopened < 0)) {
-        throw new Error("Completion history response was invalid.");
-      }
-      setHistory({ status: "ready", token, data });
-    }).catch(error => {
-      if (!controller.signal.aborted) setHistory({
-        status: "error", token, data: null,
-        message: error.message || "Could not load completion history."
-      });
-    });
-    return () => controller.abort();
-  }, [expanded, token, refreshHistory, tasks]);
-
 
   useEffect(() => {
     if (!expanded || !token) return;
@@ -119,13 +87,13 @@ export default function ProductivityInsights({ tasks, token, onUnauthorized, onO
             <div><h3>Completion history · last 30 days</h3>
               <p className="insights-note">Recorded completion events by UTC date (not unique tasks). Reopened tasks may be completed again.</p>
             </div>
-            <button type="button" onClick={() => setRefreshHistory(count => count + 1)}
+            <button type="button" onClick={refreshHistory}
               disabled={history.status === "loading" && history.token === token}>Refresh trend</button>
           </header>
           {history.token !== token || history.status === "loading" || history.status === "idle"
             ? <p role="status">Loading recorded completion history…</p>
             : history.status === "error"
-              ? <p role="alert">{history.message} <button type="button" onClick={() => setRefreshHistory(count => count + 1)}>Retry</button></p>
+              ? <p role="alert">{history.message} <button type="button" onClick={refreshHistory}>Retry</button></p>
               : historyData && <>
                 <p className="insights-history-total">
                   <strong>{historyData.totalCompletions}</strong> completion events · {historyData.totalReopenings} reopenings
