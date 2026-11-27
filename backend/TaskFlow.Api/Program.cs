@@ -921,6 +921,61 @@ app.MapPost("/api/analytics/coach/explain", async (
     }
 }).RequireAuthorization().RequireRateLimiting("ai-coach");
 
+// Read-only daily priorities. The task candidates come exclusively from the
+// authenticated user's own rows; no client-supplied IDs or descriptions are trusted.
+// Model output is validated against the exact candidate IDs before disclosure.
+app.MapPost("/api/ai/daily-focus", async (
+    AiDailyFocus.Request request, ClaimsPrincipal user, TaskDbContext db,
+    IConfiguration configuration, IHttpClientFactory clients, HttpContext context) =>
+{
+    if (!request.Consent)
+        return Results.BadRequest(new { Message = "Consent is required to share the selected task details with OpenAI." });
+    if (!AiTaskBreakdown.IsEnabled(configuration))
+        return Results.Problem("AI daily planning is not configured.", statusCode: 503);
+
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    // Cap the database result to bound data usage. Prefer tasks with dates and
+    // then priority; all records remain scoped to this authenticated account.
+    var tasks = await db.Tasks.AsNoTracking()
+        .Where(t => t.UserId == userId && !t.Completed)
+        .OrderBy(t => t.DueDate == null)
+        .ThenBy(t => t.DueDate)
+        .ThenBy(t => t.Priority == "High" ? 0 : t.Priority == "Medium" ? 1 : 2)
+        .ThenBy(t => t.Id)
+        .Take(15).ToListAsync(context.RequestAborted);
+    var candidates = AiDailyFocus.SelectCandidates(tasks);
+    if (candidates.Count == 0)
+        return Results.Ok(new { Picks = Array.Empty<object>(), NoTasks = true });
+
+    try
+    {
+        var suggestions = await AiDailyFocus.GenerateAsync(
+            candidates, configuration, clients, context.RequestAborted);
+        if (suggestions is null)
+            return Results.Problem("AI daily planning could not generate a valid suggestion.", statusCode: 502);
+        // Return only the model-selected owner-scoped tasks, with short reasons.
+        var byId = candidates.ToDictionary(t => t.Id);
+        return Results.Ok(new {
+            Picks = suggestions.Select(p => new {
+                TaskId = p.TaskId,
+                Title = byId[p.TaskId].Title,
+                Priority = byId[p.TaskId].Priority,
+                DueDate = byId[p.TaskId].DueDate,
+                Reason = p.Reason
+            }).ToArray(),
+            NoTasks = false
+        });
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+        throw;
+    }
+    catch (Exception)
+    {
+        return Results.Problem("AI daily planning could not generate a valid suggestion.", statusCode: 502);
+    }
+}).RequireAuthorization().RequireRateLimiting("ai-coach");
+
 // Separate, opt-in feature. The model sees only the goal the user types here.
 // No task data, user IDs or account metadata are sent to the model. Generation is read-only.
 app.MapGet("/api/ai/plans/capabilities", (IConfiguration configuration) =>
