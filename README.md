@@ -77,6 +77,12 @@ AiCoach__Model=gpt-4o-mini
 
 The model name is configurable; verify the chosen model supports the Responses API in your account. Never commit or expose the API key. Each request has a 15-second timeout, a bounded output limit, `store: false`, and a five-requests-per-ten-minutes network bucket. Availability is reported separately, and no provider call is made until the signed-in user opts in. API usage can incur charges and needs operator budget controls. No persistence of AI answers is implemented.
 
+### Interactive Focus Mode and completion feedback
+
+Task rows offer a **Focus** action that opens an accessible, distraction-reduced dialog with a **15- or 25-minute local timer**, start/pause/reset controls, and a read-only checklist summary. Opening task details exits Focus Mode and uses the existing task editor; the **Mark task complete** action uses TaskFlow's normal authenticated toggle endpoint, including existing permission, prerequisite and conflict safeguards. A completion is celebrated only after the request settles successfully, never on a failed optimistic update. Closing Focus Mode, pausing or resetting does **not** save time, modify tasks, add notes or schedule any background activity.
+
+The existing dashboard completion ring and task-list success animation receive subtle transitions, focused controls, and a small confirmation label. Everything respects `prefers-reduced-motion` and keyboard focus, including Escape to close and focus restoration. No schema changes, new API permissions, autonomous task updates, or third-party services are introduced.
+
 ### AI rate-limit recovery
 
 All signed-in AI generation tools continue sharing the existing server-enforced **5 requests per 10-minute fixed window**; this release does not increase the allowance or make AI requests automatically. When the limit is reached, the API sends HTTP 429 and, when the limiter provides it, an accurate `Retry-After` response header. The trusted frontend origin may read this header via CORS. Sign-in/authentication rate-limit responses retain their previous behavior.

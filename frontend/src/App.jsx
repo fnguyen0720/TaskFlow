@@ -16,6 +16,7 @@ import ProgressionCard from "./components/dashboard/ProgressionCard.jsx";
 import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
 import TaskPanel from "./components/tasks/TaskPanel.jsx";
+import FocusMode from "./components/tasks/FocusMode.jsx";
 import ProjectShelf from "./components/dashboard/ProjectShelf.jsx";
 import { useProjects } from "./hooks/useProjects.js";
 import { useAuth } from "./hooks/useAuth.js";
@@ -33,6 +34,7 @@ import { remindersDue } from "./utils/reminders.js";
 function LiveApp({ onDemo }) {
   const [recoveryScreen, setRecoveryScreen] = useState(isResetLink);
   const [detailId, setDetailId] = useState(null);
+  const [focusId, setFocusId] = useState(null);
   const [detailDirty, setDetailDirty] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [quickCreateSignal, setQuickCreateSignal] = useState(0);
@@ -134,6 +136,7 @@ function LiveApp({ onDemo }) {
     setEditRecurrence("None");
     setEditReminder("");
     setDetailId(null);
+    setFocusId(null);
     setDetailDirty(false);
     setCommandOpen(false);
   }, [setNewTask, setNewPriority, setNewCategory, setNewDueDate, setNewRecurrence,
@@ -200,6 +203,7 @@ function LiveApp({ onDemo }) {
     buildNotifications(visibleTasks, notificationCenter.states), notificationSettings.preferences);
   const { completedCount, totalCount, activeCount, overdueCount, dueTodayCount, completionRate } = getTaskStats(visibleTasks);
   const detailTask = visibleTasks.find(task => task.id === detailId);
+  const focusedTask = visibleTasks.find(task => task.id === focusId);
   const views = getTaskViews(visibleTasks);
   const projectTasks = selectedProject === "all" ? (views[view] ?? visibleTasks) :
     (views[view] ?? visibleTasks).filter(task => selectedProject === "none" ?
@@ -306,7 +310,11 @@ function LiveApp({ onDemo }) {
   };
   const actions = {
     add: event => addTask(event, createProject?.id ?? null), toggle: toggleTask, delete: deleteTask, undoDelete,
-    openDetails: setDetailId, reschedule: rescheduleTask, undoMove, dismissMove, startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
+    openDetails: setDetailId, focus: id => {
+      if (editDirty && !window.confirm("Discard unsaved task edits and enter Focus Mode?")) return;
+      if (editingId !== null) cancelEditingWithoutPrompt();
+      setFocusId(id);
+    }, reschedule: rescheduleTask, undoMove, dismissMove, startEditing, save: editTask, cancelEditing, retry: retryFetchTasks,
   };
   const data = {
     tasks: visibleTasks, filteredTasks, totalCount, loading, readStatus, error, loadingTask, pendingDeletes, undoableMove,
@@ -458,6 +466,12 @@ function LiveApp({ onDemo }) {
       {preferencesOpen && viewPreferences.status === "ready" && (
         <ViewPreferencesDialog preferences={viewPreferences.preferences} onSave={viewPreferences.update}
           onClose={closePreferences} />
+      )}
+      {focusedTask && !detailTask && (
+        <FocusMode key={focusedTask.id} task={focusedTask} loadingTask={loadingTask}
+          onClose={() => setFocusId(null)}
+          onComplete={toggleTask}
+          onOpenDetails={() => { setFocusId(null); setDetailId(focusedTask.id); }} />
       )}
       {detailTask && (
         <TaskDetails key={detailTask.id} task={detailTask} tasks={visibleTasks} onSave={saveDetails}
