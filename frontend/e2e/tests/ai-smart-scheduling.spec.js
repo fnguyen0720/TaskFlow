@@ -172,11 +172,11 @@ test("AI 429 shows a shared server-derived countdown without clearing the existi
 
   // The same API limiter covers the other signed-in AI panels.
   const daily = page.getByRole("region", { name: "AI daily planner" });
-  await daily.getByRole("button", { name: /Plan my day/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Plan my day/ }).click();
   await daily.getByRole("checkbox", { name: /I agree to send up to 15 unfinished task titles/ }).check();
   await expect(daily.getByRole("button", { name: "AI cooldown active" })).toBeDisabled();
   const breakdown = page.getByRole("region", { name: "AI task breakdown" });
-  await breakdown.getByRole("button", { name: /AI task breakdown/ }).click();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Break down a goal/ }).click();
   await breakdown.getByRole("textbox", { name: "What's your goal?" })
     .fill("Finish my professional portfolio website");
   await breakdown.getByRole("checkbox", { name: /Send only the goal I typed to OpenAI/ }).check();
@@ -184,9 +184,12 @@ test("AI 429 shows a shared server-derived countdown without clearing the existi
 
   const attempts = api.calls.filter(c => c.pathname === "/api/ai/smart-schedule").length;
   await page.clock.fastForward(5100);
-  await expect(schedule.getByRole("button", { name: "Preview schedule" })).toBeEnabled();
-  await expect(daily.getByRole("button", { name: "Suggest today's priorities" })).toBeEnabled();
   await expect(breakdown.getByRole("button", { name: /Generate plan/ })).toBeEnabled();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Plan my day/ }).click();
+  await expect(daily.getByRole("button", { name: "Suggest today's priorities" })).toBeEnabled();
+  await page.getByRole("navigation", { name: "AI tools" }).getByRole("button", { name: /Smart schedule/ }).click();
+  await expect(schedule.getByRole("button", { name: "Preview schedule" })).toBeEnabled();
+  await expect(workDate).toHaveValue("2026-11-29");
   expect(api.calls.filter(c => c.pathname === "/api/ai/smart-schedule")).toHaveLength(attempts);
   expect(api.tasks[0].dueDate).toBe("2026-11-28T00:00:00Z");
 });
