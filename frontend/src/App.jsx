@@ -10,6 +10,7 @@ import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
 import ProductivityInsights from "./components/dashboard/ProductivityInsights.jsx";
 import AiToolHub from "./components/dashboard/AiToolHub.jsx";
+import { useCompletionHistory } from "./hooks/useCompletionHistory.js";
 import MomentumCard from "./components/dashboard/MomentumCard.jsx";
 import ProgressionCard from "./components/dashboard/ProgressionCard.jsx";
 import DailyFocus from "./components/dashboard/DailyFocus.jsx";
@@ -199,6 +200,7 @@ function LiveApp({ onDemo }) {
   // Pending deletions are hidden from the dashboard, but not removed from
   // the server until the Undo window expires.
   const visibleTasks = tasks.filter(task => !pendingDeleteIds.has(task.id));
+  const { history, refreshHistory } = useCompletionHistory({ token, tasks, enabled: !loading && !error && (readStatus === "loaded" || readStatus === "confirmed-empty"), onUnauthorized: handleUnauthorized });
   const activeReminders = remindersDue(visibleTasks);
   const notifications = applyNotificationPreferences(
     buildNotifications(visibleTasks, notificationCenter.states), notificationSettings.preferences);
@@ -427,7 +429,7 @@ function LiveApp({ onDemo }) {
       ) : !error && (readStatus === "loaded" || readStatus === "confirmed-empty") ? (
         <>
           <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
-          <MomentumCard key={token} token={token} tasks={visibleTasks} focusMinutes={focusMinutes} onUnauthorized={handleUnauthorized} />
+          <MomentumCard key={token} history={history} refreshHistory={refreshHistory} focusMinutes={focusMinutes} />
           <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
           <section className="home-discover" aria-label="More insights">
             <button type="button" className="home-discover-toggle"
@@ -440,7 +442,7 @@ function LiveApp({ onDemo }) {
             {showMoreInsights && <div id="home-more-insights">
               <ProgressionCard tasks={visibleTasks} projects={projects.status === "ready" ? projects.projects : []}
                 token={token} onUnauthorized={handleUnauthorized} />
-              <ProductivityInsights tasks={visibleTasks} token={token}
+              <ProductivityInsights tasks={visibleTasks} token={token} history={history} refreshHistory={refreshHistory}
                 onUnauthorized={handleUnauthorized} onOpenTask={setDetailId} />
             </div>}
           </section>
