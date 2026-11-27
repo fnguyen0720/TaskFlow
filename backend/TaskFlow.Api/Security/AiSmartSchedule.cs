@@ -72,7 +72,7 @@ public static class AiSmartSchedule
             var overCapacity = minimum >= capacity;
             load[chosen.Value] = minimum + 1;
             result.Add(new Slot(candidate.Id, candidate.Title, candidate.Priority,
-                candidate.DueDate, chosen.Value.ToString("yyyy-MM-dd"),
+                candidate.DueDate, chosen.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 pick.Reason, overCapacity, deadline.HasValue && deadline.Value < start));
         }
         return result;
