@@ -6,8 +6,9 @@ const PRIORITIES = ["Low", "Medium", "High"];
 const CATEGORIES = ["General", "Work", "Study", "Personal"];
 
 // Mounted only for signed-in accounts. No inference until explicit consent.
-export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasksCreated, onViewCreatedTasks, aiCooldown }) {
-  const [open, setOpen] = useState(false);
+export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasksCreated, onViewCreatedTasks, aiCooldown, embedded = false, active = false }) {
+  const [locallyOpen, setOpen] = useState(false);
+  const open = embedded ? active : locallyOpen;
   const [available, setAvailable] = useState("idle");
   const [goal, setGoal] = useState("");
   const [consent, setConsent] = useState(false);
@@ -168,12 +169,13 @@ export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasks
   }
 
   return <section className="ai-plan" aria-label="AI task breakdown">
-    <button type="button" className="ai-plan-toggle" aria-expanded={open}
+    {!embedded && <button type="button" className="ai-plan-toggle" aria-expanded={open}
       aria-controls="ai-plan-content" onClick={() => setOpen(value => !value)}>
       <span className="ai-plan-symbol" aria-hidden="true">✦</span>
       <span className="ai-plan-toggle-title">AI task breakdown<small>Turn a goal into a plan</small></span>
       <span className="ai-plan-chevron" aria-hidden="true">{open ? "−" : "+"}</span>
-    </button>
+    </button>}
+
     {open && <div id="ai-plan-content" className="ai-plan-content">
       {available === "loading" && <p role="status">Checking AI availability…</p>}
       {available === "error" && <p role="alert">AI availability unavailable. Reopen this panel to retry.</p>}
