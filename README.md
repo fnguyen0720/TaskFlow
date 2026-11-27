@@ -59,6 +59,16 @@ AiCoach__Model=gpt-4o-mini
 
 The model name is configurable; verify the chosen model supports the Responses API in your account. Never commit or expose the API key. Each request has a 15-second timeout, a bounded output limit, `store: false`, and a five-requests-per-ten-minutes network bucket. Availability is reported separately, and no provider call is made until the signed-in user opts in. API usage can incur charges and needs operator budget controls. No persistence of AI answers is implemented.
 
+### AI Daily Focus (opt-in)
+
+The **Plan my day** panel is collapsed by default, and never automatically contacts a model or modifies tasks. Signed-in users can choose to send **up to 15 unfinished task titles, priorities and due dates** to OpenAI. The server selects the candidates exclusively from the authenticated account, omitting notes, checklists, email addresses, and account identifiers. The AI returns up to five short recommendations explaining why those tasks are worth tackling. A user can open the corresponding task or ignore the suggestions.
+
+- Requires explicit consent each time the user opts in; the generation endpoint rejects unauthenticated or unconsented requests.
+- Suggestions are **read-only and transient**; no changes are made to task records or dates, and no new migration is required.
+- Provider recommendations must reference unique IDs from the account-scoped candidate shortlist; invented or malformed IDs fail validation.
+- Uses the existing server-only OpenAI configuration (`AiCoach:Enabled`, `OPENAI_API_KEY`, `AiCoach:Model`) and shared AI request-rate limiter. Generation is unavailable when the model is disabled.
+- No private data is sent from the zero-signup demo. The feature's outputs are advisory, not a promise of completion times or automated scheduling.
+
 ### AI Task Breakdown (opt-in)
 
 Signed-in users can expand **AI task breakdown**, type a goal, and explicitly consent to send **only that goal text** to OpenAI. The backend returns up to eight suggested tasks using a strict structured JSON schema, with bounded titles, categories and priorities. This request makes **no database writes** and does not send stored tasks, private notes, account details, or task identifiers to the provider.
