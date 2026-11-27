@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatDateForInput } from "../../utils/taskUtils.js";
 import { buildScheduleOverview } from "../../utils/aiScheduleOverview.js";
+import { formatCooldown } from "../../hooks/useAiCooldown.js";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
@@ -12,7 +13,7 @@ function seventhDay(start) {
 }
 
 // Purely advisory. Editing a suggested date changes only ephemeral React state.
-export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenTask }) {
+export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenTask, aiCooldown }) {
   const [open, setOpen] = useState(false);
   const [available, setAvailable] = useState("idle");
   const [consent, setConsent] = useState(false);
@@ -61,14 +62,13 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
   }), { overloaded: 0, proposed: 0 });
 
   async function suggest() {
-    if (loading || !consent || available !== "ready" || openTasks.length === 0) return;
+    if (loading || !consent || aiCooldown.remainingSeconds > 0 || available !== "ready" || openTasks.length === 0) return;
     running.current?.abort();
     const abort = new AbortController();
     running.current = abort;
     setLoading(true);
-    setSlots(null);
-    setDayLoads(null);
-    setFocusDay(null);
+    // Keep the last successful preview visible until a replacement succeeds.
+    // A 429 must never discard the user's locally edited work dates.
     setError("");
     try {
       const response = await fetch(API + "/api/ai/smart-schedule", {
@@ -78,9 +78,13 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
         signal: abort.signal
       });
       if (response.status === 401) { unauthorized.current(token); return; }
-      if (!response.ok) throw new Error(response.status === 429
-        ? "AI rate limit reached. Try again later."
-        : "Couldn't build a schedule. Your tasks were not changed.");
+      if (response.status === 429) {
+        const retry = aiCooldown.onRateLimited(response);
+        throw new Error(retry === null
+          ? "AI requests are temporarily limited. Please try again later."
+          : "AI requests are temporarily limited. Your current preview is still available.");
+      }
+      if (!response.ok) throw new Error("Couldn't build a schedule. Your tasks were not changed.");
       const data = await response.json();
       const dates = buildScheduleOverview(today, [], [], capacity).map(day => day.date);
       if (!Array.isArray(data.slots) || data.slots.length > 5 ||
@@ -139,8 +143,14 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
             onChange={event => { setConsent(event.target.checked); setSlots(null); setDayLoads(null); setFocusDay(null); setError(""); }} />
           <span>Send up to 15 unfinished task titles, priorities and due dates to OpenAI. No notes, account details or availability data are shared.</span>
         </label>
-        <button type="button" className="ai-smart-generate" disabled={!consent || loading || openTasks.length === 0}
-          onClick={suggest}>{loading ? "Planning…" : "Preview schedule"}</button>
+        <button type="button" className="ai-smart-generate"
+          disabled={!consent || loading || openTasks.length === 0 || aiCooldown.remainingSeconds > 0}
+          onClick={suggest}>{loading ? "Planning…" :
+            aiCooldown.remainingSeconds > 0 ? "AI cooldown active" : "Preview schedule"}</button>
+        {aiCooldown.remainingSeconds > 0 && <p className="ai-cooldown-notice" role="status">
+          AI requests are paused. Estimated retry in <strong>{formatCooldown(aiCooldown.remainingSeconds)}</strong>.
+          {slots && " Your existing preview remains editable."}
+        </p>}
         {loading && <p role="status">Reviewing priorities. No tasks are being changed.</p>}
         {error && <p role="alert">{error}</p>}
         {slots && <div className="ai-smart-results" aria-label="Suggested work dates">

@@ -77,6 +77,12 @@ AiCoach__Model=gpt-4o-mini
 
 The model name is configurable; verify the chosen model supports the Responses API in your account. Never commit or expose the API key. Each request has a 15-second timeout, a bounded output limit, `store: false`, and a five-requests-per-ten-minutes network bucket. Availability is reported separately, and no provider call is made until the signed-in user opts in. API usage can incur charges and needs operator budget controls. No persistence of AI answers is implemented.
 
+### AI rate-limit recovery
+
+All signed-in AI generation tools continue sharing the existing server-enforced **5 requests per 10-minute fixed window**; this release does not increase the allowance or make AI requests automatically. When the limit is reached, the API sends HTTP 429 and, when the limiter provides it, an accurate `Retry-After` response header. The trusted frontend origin may read this header via CORS. Sign-in/authentication rate-limit responses retain their previous behavior.
+
+The AI Task Breakdown, Daily Planner and Smart Scheduling panels show the same short, approximate retry countdown, disable generation until that duration expires, and automatically allow the user to try again afterward. The countdown is **not a guarantee** of capacity (e.g., other users may share a server-side IP bucket). If the server omits or sends an invalid header, the UI gives a generic cooldown message without inventing a reset time. An unsuccessful scheduling or daily-plan refresh **never deletes the last successful, locally edited preview**, and no existing tasks or due dates are modified. There is no automatic retry or background request.
+
 ### AI Smart Scheduling (read-only preview)
 
 The seven-day workload strip shows, for each day, **other unfinished tasks due + AI-proposed work sessions** against the selected task-per-day capacity. These numbers are deadline-based workload proxies, not calendar reservations or tracked hours. Server-calculated baseline counts include all account-owned unfinished tasks due during the week, even when they are outside the bounded 15-title AI shortlist; the extra titles are **not** sent to OpenAI. The display identifies exactly how many other tasks are due and how many proposed sessions are planned, and warns when the total exceeds capacity. Users can click a day to focus its proposals, edit local work dates, and clear that day filter without saving or moving any tasks.

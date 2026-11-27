@@ -1,6 +1,6 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], initialProjects = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskToggles = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, aiPlannerEnabled = false, aiPlanSuggestions = null, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], initialProjects = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskToggles = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, aiPlannerEnabled = false, aiPlanSuggestions = null, aiScheduleLimitAfter = null, aiRetryAfterSeconds = 0, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingUnauthorizedReads = unauthorizedTaskReads;
   let remainingFailedLogins = failLoginAttempts;
@@ -45,6 +45,7 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
   const changeVersion = task => { task.version = `rev-${revision++}`; };
   let nextId = Math.max(0, ...tasks.map(task => Number(task.id) || 0)) + 1;
   const calls = [];
+  let scheduleRequests = 0;
 
   await page.route("**/mock-api/**", async route => {
     const request = route.request();
@@ -53,9 +54,10 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
     const body = ["POST", "PUT", "PATCH"].includes(method) ? request.postDataJSON() : null;
     calls.push({ method, pathname, search: new URL(request.url()).search, body });
 
-    const respond = async (status, data) => route.fulfill({
+    const respond = async (status, data, headers = {}) => route.fulfill({
       status,
       contentType: "application/json",
+      headers,
       body: JSON.stringify(data),
     });
 
@@ -157,6 +159,11 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
     }
     if (pathname === "/api/ai/smart-schedule" && method === "POST") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      scheduleRequests++;
+      if (aiScheduleLimitAfter !== null && scheduleRequests > aiScheduleLimitAfter) {
+        return respond(429, { title: "Too Many Requests" },
+          aiRetryAfterSeconds > 0 ? { "Retry-After": String(aiRetryAfterSeconds) } : {});
+      }
       if (!body.consent || !/^\d{4}-\d{2}-\d{2}$/.test(body.today) ||
           body.dailyCapacity < 1 || body.dailyCapacity > 5) return respond(400, {});
       if (!aiPlannerEnabled) return respond(503, {});

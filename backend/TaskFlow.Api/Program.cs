@@ -149,7 +149,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins.ToArray())
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .WithExposedHeaders(RequestObservability.HeaderName);
+            .WithExposedHeaders(RequestObservability.HeaderName, "Retry-After");
     });
 });
 
@@ -163,6 +163,25 @@ builder.Services.AddRateLimiter(options =>
     {
         context.HttpContext.Response.StatusCode =
             StatusCodes.Status429TooManyRequests;
+        var aiPolicy = context.HttpContext.GetEndpoint()?.Metadata
+            .GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == "ai-coach";
+        if (aiPolicy)
+        {
+            // Fixed-window leases provide the remaining time until the
+            // current bucket replenishes. Never advertise a fabricated reset
+            // time or change the existing permit/cost-protection policy.
+            if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan retryAfter))
+            {
+                var seconds = Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds));
+                context.HttpContext.Response.Headers.RetryAfter =
+                    seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            await context.HttpContext.Response.WriteAsync(
+                "AI requests are temporarily limited. Please retry after the cooldown.",
+                cancellationToken);
+            return;
+        }
+        // Keep the prior authentication-limiter response unchanged.
         context.HttpContext.Response.Headers.RetryAfter = "60";
         await context.HttpContext.Response.WriteAsync(
             "Too many authentication requests. Please try again later.",

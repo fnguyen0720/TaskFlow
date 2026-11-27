@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { formatCooldown } from "../../hooks/useAiCooldown.js";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
 // Separate, opt-in, read-only workflow. Never writes task records or sends
 // task details until the user confirms the exact scope in the checkbox.
-export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTask }) {
+export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTask, aiCooldown }) {
   const [open, setOpen] = useState(false);
   const [availability, setAvailability] = useState("idle");
   const [consent, setConsent] = useState(false);
@@ -42,12 +43,12 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
     task.id === item.taskId && !task.completed)) ?? null;
 
   async function generate() {
-    if (!consent || availability !== "ready" || loading || count === 0) return;
+    if (!consent || availability !== "ready" || loading || count === 0 || aiCooldown.remainingSeconds > 0) return;
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
     setLoading(true);
-    setPicks(null);
+    // Preserve the last recommended tasks if a refresh fails or is limited.
     setMessage("");
     try {
       const response = await fetch(API + "/api/ai/daily-focus", {
@@ -58,9 +59,13 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
       });
       if (controller.signal.aborted) return;
       if (response.status === 401) { unauthorizedRef.current(token); return; }
-      if (!response.ok) throw new Error(response.status === 429
-        ? "AI request limit reached. Please try again later."
-        : "A daily plan couldn't be generated. Your tasks are unchanged.");
+      if (response.status === 429) {
+        const retry = aiCooldown.onRateLimited(response);
+        throw new Error(retry === null
+          ? "AI requests are temporarily limited. Please try again later."
+          : "AI requests are temporarily limited. Your current priorities are unchanged.");
+      }
+      if (!response.ok) throw new Error("A daily plan couldn't be generated. Your tasks are unchanged.");
       const data = await response.json();
       if (!Array.isArray(data.picks) || data.picks.length > 5 ||
         data.picks.some(item => !Number.isInteger(item.taskId) ||
@@ -95,9 +100,13 @@ export default function AiDailyPlanner({ token, tasks, onUnauthorized, onOpenTas
           <span>I agree to send up to 15 unfinished task titles, priorities and due dates to OpenAI. No notes or account details are sent.</span>
         </label>
         <button className="ai-daily-generate" type="button"
-          disabled={!consent || loading || count === 0} onClick={generate}>
-          {loading ? "Finding your focus…" : "Suggest today's priorities"}
+          disabled={!consent || loading || count === 0 || aiCooldown.remainingSeconds > 0} onClick={generate}>
+          {loading ? "Finding your focus…" :
+            aiCooldown.remainingSeconds > 0 ? "AI cooldown active" : "Suggest today's priorities"}
         </button>
+        {aiCooldown.remainingSeconds > 0 && <p className="ai-cooldown-notice" role="status">
+          AI requests are paused. Estimated retry in <strong>{formatCooldown(aiCooldown.remainingSeconds)}</strong>.
+        </p>}
         {loading && <p role="status">Generating suggestions. No tasks are being changed.</p>}
         {message && !loading && <p role={picks !== null ? "status" : "alert"}>{message}</p>}
         {visiblePicks && visiblePicks.length > 0 && <div className="ai-daily-results">

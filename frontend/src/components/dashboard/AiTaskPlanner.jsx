@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { formatCooldown } from "../../hooks/useAiCooldown.js";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 const PRIORITIES = ["Low", "Medium", "High"];
 const CATEGORIES = ["General", "Work", "Study", "Personal"];
 
 // Mounted only for signed-in accounts. No inference until explicit consent.
-export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasksCreated, onViewCreatedTasks }) {
+export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasksCreated, onViewCreatedTasks, aiCooldown }) {
   const [open, setOpen] = useState(false);
   const [available, setAvailable] = useState("idle");
   const [goal, setGoal] = useState("");
@@ -78,12 +79,13 @@ export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasks
   }
 
   async function generate() {
-    if (available !== "ready" || busy || !consent ||
+    if (available !== "ready" || busy || aiCooldown.remainingSeconds > 0 || !consent ||
       goal.trim().length < 12 || goal.trim().length > 600) return;
     controller.current?.abort();
     const abort = new AbortController();
     controller.current = abort;
-    setItems([]);
+    // Keep a draft when regeneration is rejected; don't erase a reviewed
+    // suggestion due to an AI-service or network error.
     setMessage("");
     setBusy("generate");
     try {
@@ -93,9 +95,13 @@ export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasks
         signal: abort.signal, body: JSON.stringify({ goal: goal.trim(), consent: true })
       });
       if (response.status === 401) { onUnauthorized(token); return; }
-      if (!response.ok) throw new Error(response.status === 429
-        ? "AI request limit reached. Try again later."
-        : "Could not generate a plan. No tasks were changed.");
+      if (response.status === 429) {
+        const retry = aiCooldown.onRateLimited(response);
+        throw new Error(retry === null
+          ? "AI requests are temporarily limited. Please try again later."
+          : "AI requests are temporarily limited. Your work has not been changed.");
+      }
+      if (!response.ok) throw new Error("Could not generate a plan. No tasks were changed.");
       const data = await response.json();
       if (!Array.isArray(data.tasks) || data.tasks.length < 3 || data.tasks.length > 8 ||
           data.tasks.some(item => typeof item.title !== "string" ||
@@ -204,9 +210,14 @@ export default function AiTaskPlanner({ token, projects, onUnauthorized, onTasks
             <span>Send only the goal I typed to OpenAI. No existing tasks or account details are shared.</span>
           </label>
           <button type="button" className="ai-plan-action ai-plan-generate" disabled={!!busy || !consent ||
-            goal.trim().length < 12 || goal.trim().length > 600} onClick={generate}>
-            <span aria-hidden="true">✦</span> {busy === "generate" ? "Building your plan…" : "Generate plan"}
+            aiCooldown.remainingSeconds > 0 || goal.trim().length < 12 || goal.trim().length > 600}
+            onClick={generate}>
+            <span aria-hidden="true">✦</span> {busy === "generate" ? "Building your plan…" :
+              aiCooldown.remainingSeconds > 0 ? "AI cooldown active" : "Generate plan"}
           </button>
+          {aiCooldown.remainingSeconds > 0 && <p className="ai-cooldown-notice" role="status">
+            AI requests are paused. Estimated retry in <strong>{formatCooldown(aiCooldown.remainingSeconds)}</strong>.
+          </p>}
           {busy === "generate" && <p role="status" aria-live="polite">Creating task suggestions for your review. Nothing has been saved.</p>}
         </>}
         {phase === "review" && <div className="ai-plan-review" aria-label="Review AI task suggestions">
