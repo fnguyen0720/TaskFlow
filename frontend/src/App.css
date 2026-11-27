@@ -2188,3 +2188,20 @@ html, body, #root {
 .momentum-track span{width:100%;background:#8b7cff;border-radius:4px}
 .momentum-note{margin:10px 0 0;line-height:1.5}
 .momentum-panel button{color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;cursor:pointer}
+
+/* Momentum 2.0: metrics and activity side by side on wide screens. */
+.momentum-v2 .momentum-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;align-items:center;margin-top:12px}
+.momentum-v2 .momentum-period{color:var(--muted);font-size:11px}
+.momentum-v2 .momentum-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}
+.momentum-v2 .momentum-metrics>div{background:rgba(139,124,255,.07);border:1px solid var(--border);border-radius:10px;padding:10px;align-content:center;gap:5px;overflow-wrap:anywhere}
+.momentum-v2 .momentum-symbol{color:#b6aaff;font-size:18px;line-height:1}
+.momentum-v2 .momentum-metrics strong{font-size:clamp(17px,2vw,25px);line-height:1.2;font-variant-numeric:tabular-nums}
+.momentum-v2 .momentum-chart-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:12px}
+.momentum-v2 .momentum-chart-heading span{color:var(--muted);font-size:11px}
+.momentum-v2 .momentum-track{width:min(100%,48px);height:54px;background:rgba(139,124,255,.09)}
+.momentum-v2 .momentum-track span{background:#6555a9;transition:height .25s ease}
+.momentum-v2 .momentum-today .momentum-track span{background:#a493ff}
+.momentum-v2 .momentum-today>span,.momentum-v2 .momentum-today small{color:#c0b4ff;font-weight:700}
+.momentum-v2 .momentum-encouragement{font-size:11px;color:#c0b4ff;margin:7px 0 0}
+@media(max-width:760px){.momentum-v2 .momentum-body{grid-template-columns:minmax(0,1fr);gap:12px}.momentum-v2 .momentum-metrics>div{padding:8px}.momentum-v2 .momentum-metrics span:last-child{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.momentum-v2 .momentum-track span{transition:none}}
