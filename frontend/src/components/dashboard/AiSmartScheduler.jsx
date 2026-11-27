@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatDateForInput } from "../../utils/taskUtils.js";
+import { buildScheduleOverview } from "../../utils/aiScheduleOverview.js";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5143";
 
@@ -17,6 +18,8 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
   const [consent, setConsent] = useState(false);
   const [capacity, setCapacity] = useState(2);
   const [slots, setSlots] = useState(null);
+  const [dayLoads, setDayLoads] = useState(null);
+  const [focusDay, setFocusDay] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const running = useRef(null);
@@ -46,26 +49,16 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
 
   const openTasks = tasks.filter(task => !task.completed);
   const visibleSlots = slots?.filter(slot => openTasks.some(task => task.id === slot.taskId)) ?? [];
-  // Recompute capacity warnings after local edits; these are work-date load
-  // estimates, not calendar free/busy or hour-level availability.
-  const selectedIds = new Set(visibleSlots.map(slot => slot.taskId));
-  const booked = new Map();
-  for (const task of openTasks) {
-    if (selectedIds.has(task.id) || !task.dueDate) continue;
-    const date = task.dueDate.slice(0, 10);
-    booked.set(date, (booked.get(date) || 0) + 1);
-  }
-  const slotLoads = new Map(booked);
-  const warnings = new Map();
-  for (const slot of visibleSlots) {
-    const load = slotLoads.get(slot.suggestedDate) || 0;
-    warnings.set(slot.taskId, {
-      crowded: load >= capacity,
-      pastDeadline: Boolean(slot.dueDate && slot.suggestedDate > slot.dueDate),
-      overdue: Boolean(slot.dueDate && slot.dueDate < today)
-    });
-    slotLoads.set(slot.suggestedDate, load + 1);
-  }
+  // Authoritative baseline counts come from all owner-scoped deadlines on the
+  // server. Local edits only change proposed dates, never stored due dates.
+  const overview = slots && dayLoads
+    ? buildScheduleOverview(today, dayLoads, visibleSlots, capacity) : [];
+  const byDay = new Map(overview.map(day => [day.date, day]));
+  const displayedSlots = focusDay ? visibleSlots.filter(slot => slot.suggestedDate === focusDay) : visibleSlots;
+  const summary = overview.reduce((acc, day) => ({
+    overloaded: acc.overloaded + (day.excess > 0 ? 1 : 0),
+    proposed: acc.proposed + day.planned.length
+  }), { overloaded: 0, proposed: 0 });
 
   async function suggest() {
     if (loading || !consent || available !== "ready" || openTasks.length === 0) return;
@@ -74,6 +67,8 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
     running.current = abort;
     setLoading(true);
     setSlots(null);
+    setDayLoads(null);
+    setFocusDay(null);
     setError("");
     try {
       const response = await fetch(API + "/api/ai/smart-schedule", {
@@ -87,13 +82,23 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
         ? "AI rate limit reached. Try again later."
         : "Couldn't build a schedule. Your tasks were not changed.");
       const data = await response.json();
+      const dates = buildScheduleOverview(today, [], [], capacity).map(day => day.date);
       if (!Array.isArray(data.slots) || data.slots.length > 5 ||
         data.slots.some(slot => !Number.isInteger(slot.taskId) ||
           typeof slot.title !== "string" || typeof slot.reason !== "string" ||
           !/^\d{4}-\d{2}-\d{2}$/.test(slot.suggestedDate) ||
-          slot.suggestedDate < today || slot.suggestedDate > end))
+          slot.suggestedDate < today || slot.suggestedDate > end) ||
+        new Set(data.slots.map(slot => slot.taskId)).size !== data.slots.length ||
+        !Array.isArray(data.dayLoads) || data.dayLoads.length !== 7 ||
+        data.dayLoads.some((day, index) =>
+          day?.date !== dates[index] || !Number.isSafeInteger(day.existingDueCount) ||
+          day.existingDueCount < 0))
         throw new Error("Invalid scheduling preview. No tasks were changed.");
-      if (!abort.signal.aborted) setSlots(data.slots);
+      if (!abort.signal.aborted) {
+        setSlots(data.slots);
+        setDayLoads(data.dayLoads);
+        setFocusDay(null);
+      }
     } catch (problem) {
       if (!abort.signal.aborted) setError(problem.message || "Scheduling unavailable.");
     } finally {
@@ -124,14 +129,14 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
           <select value={capacity} disabled={loading}
             onChange={event => {
               setCapacity(Number(event.target.value));
-              setSlots(null); setError(""); setConsent(false);
+              setSlots(null); setDayLoads(null); setFocusDay(null); setError(""); setConsent(false);
             }}>
             {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n} {n === 1 ? "task" : "tasks"}</option>)}
           </select>
         </label>
         <label className="ai-smart-consent">
           <input type="checkbox" checked={consent} disabled={loading}
-            onChange={event => { setConsent(event.target.checked); setSlots(null); setError(""); }} />
+            onChange={event => { setConsent(event.target.checked); setSlots(null); setDayLoads(null); setFocusDay(null); setError(""); }} />
           <span>Send up to 15 unfinished task titles, priorities and due dates to OpenAI. No notes, account details or availability data are shared.</span>
         </label>
         <button type="button" className="ai-smart-generate" disabled={!consent || loading || openTasks.length === 0}
@@ -143,10 +148,50 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
             <h3>Suggested week</h3>
             <span>{visibleSlots.length} tasks · Preview only</span>
           </div>
+          {slots.length > 0 && <div className="ai-smart-week" aria-label="Seven-day workload">
+            <div className="ai-smart-week-caption">
+              <strong>Workload at a glance</strong>
+              <span>Other tasks due + planned work · limit {capacity}/day</span>
+            </div>
+            <div className="ai-smart-days">
+              {overview.map(day => {
+                const date = new Date(day.date + "T12:00:00");
+                return <button type="button" key={day.date}
+                  className={"ai-smart-day" + (day.excess ? " is-overloaded" : "") +
+                    (focusDay === day.date ? " is-selected" : "")}
+                  aria-pressed={focusDay === day.date}
+                  aria-label={date.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) +
+                    ": " + day.count + " of " + capacity + " task slots, " +
+                    day.existingDue + " other tasks due, " + day.planned.length + " planned"}
+                  onClick={() => setFocusDay(current => current === day.date ? null : day.date)}>
+                  <span className="ai-smart-day-name">{date.toLocaleDateString(undefined, { weekday: "short" })}</span>
+                  <span className="ai-smart-day-number">{date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                  <span className="ai-smart-day-total">{day.count} / {capacity}</span>
+                  <span className="ai-smart-day-track" aria-hidden="true">
+                    <span style={{ width: Math.min(100, day.count / capacity * 100) + "%" }} />
+                  </span>
+                  <span className="ai-smart-day-detail">{day.existingDue} due · {day.planned.length} planned</span>
+                  {day.excess > 0 && <span className="ai-smart-day-excess">+{day.excess} over</span>}
+                </button>;
+              })}
+            </div>
+            {summary.overloaded > 0 &&
+              <p className="ai-smart-week-summary" role="status">
+                {summary.overloaded} {summary.overloaded === 1 ? "day exceeds" : "days exceed"} your chosen limit.
+                Counts include other unfinished tasks due on those dates, not just AI suggestions.
+              </p>}
+            {focusDay && <button type="button" className="ai-smart-show-all"
+              onClick={() => setFocusDay(null)}>Show all suggested tasks</button>}
+          </div>}
           {visibleSlots.length === 0
             ? <p role="status">No open tasks in this preview.</p>
-            : <div className="ai-smart-slots">{visibleSlots.map(slot => {
-              const warning = warnings.get(slot.taskId);
+            : <div className="ai-smart-slots">{displayedSlots.map(slot => {
+              const workDay = byDay.get(slot.suggestedDate);
+              const warning = {
+                crowded: Boolean(workDay?.excess),
+                pastDeadline: Boolean(slot.dueDate && slot.suggestedDate > slot.dueDate),
+                overdue: Boolean(slot.dueDate && slot.dueDate < today)
+              };
               return <div className="ai-smart-slot" key={slot.taskId}>
                 <button type="button" className="ai-smart-task" onClick={() => onOpenTask(slot.taskId)}>
                   {slot.title}
@@ -167,13 +212,16 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
                 {(warning?.crowded || warning?.pastDeadline || warning?.overdue) && <div className="ai-smart-warning" role="status">
                   {warning.overdue ? "Deadline already passed. " : ""}
                   {warning.pastDeadline ? "Suggested work date is after the deadline. " : ""}
-                  {warning.crowded ? "This day may exceed your task limit." : ""}
+                  {warning.crowded ? slot.suggestedDate + ": " + workDay.count +
+                    " task slots against your " + capacity + "-task limit (" +
+                    workDay.existingDue + " other unfinished tasks due + " +
+                    workDay.planned.length + " planned sessions)." : ""}
                 </div>}
               </div>;
             })}</div>}
           <p className="ai-smart-disclaimer">Work dates are estimates, not due-date changes or calendar reservations. TaskFlow has not saved or rescheduled anything.</p>
           <button type="button" className="ai-smart-clear"
-            onClick={() => { setSlots(null); setConsent(false); }}>Discard preview</button>
+            onClick={() => { setSlots(null); setDayLoads(null); setFocusDay(null); setConsent(false); }}>Discard preview</button>
         </div>}
       </>}
     </div>}

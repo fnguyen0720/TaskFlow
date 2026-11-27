@@ -944,8 +944,22 @@ app.MapPost("/api/ai/smart-schedule", async (
         .ThenBy(t => t.Id)
         .Take(100).ToListAsync(context.RequestAborted);
     var candidates = AiDailyFocus.SelectCandidates(tasks);
+    // The ranking sees at most 15 task titles. Date-only load counts are read
+    // separately from *all* owner-scoped unfinished tasks in this seven-day
+    // window, so workload warnings do not silently undercount at 100 tasks.
+    var windowStart = start.ToDateTime(TimeOnly.MinValue);
+    var windowEnd = start.AddDays(7).ToDateTime(TimeOnly.MinValue);
+    var dated = await db.Tasks.AsNoTracking()
+        .Where(t => t.UserId == userId && !t.Completed &&
+            t.DueDate.HasValue && t.DueDate >= windowStart && t.DueDate < windowEnd)
+        .Select(t => new TaskItem { Id = t.Id, DueDate = t.DueDate })
+        .ToListAsync(context.RequestAborted);
     if (candidates.Count == 0)
-        return Results.Ok(new { Slots = Array.Empty<AiSmartSchedule.Slot>(), NoTasks = true });
+        return Results.Ok(new {
+            Slots = Array.Empty<AiSmartSchedule.Slot>(),
+            DayLoads = AiSmartSchedule.BuildDayLoads(dated, Array.Empty<int>(), start),
+            NoTasks = true
+        });
 
     try
     {
@@ -957,7 +971,12 @@ app.MapPost("/api/ai/smart-schedule", async (
             AiSmartSchedule.Build(ranked, candidates, tasks, start, request.DailyCapacity);
         return slots is null
             ? Results.Problem("AI scheduling could not generate a valid preview.", statusCode: 502)
-            : Results.Ok(new { Slots = slots, NoTasks = false });
+            : Results.Ok(new {
+                Slots = slots,
+                DayLoads = AiSmartSchedule.BuildDayLoads(
+                    dated, slots.Select(slot => slot.TaskId), start),
+                NoTasks = false
+            });
     }
     catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
     {

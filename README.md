@@ -79,6 +79,9 @@ The model name is configurable; verify the chosen model supports the Responses A
 
 ### AI Smart Scheduling (read-only preview)
 
+The seven-day workload strip shows, for each day, **other unfinished tasks due + AI-proposed work sessions** against the selected task-per-day capacity. These numbers are deadline-based workload proxies, not calendar reservations or tracked hours. Server-calculated baseline counts include all account-owned unfinished tasks due during the week, even when they are outside the bounded 15-title AI shortlist; the extra titles are **not** sent to OpenAI. The display identifies exactly how many other tasks are due and how many proposed sessions are planned, and warns when the total exceeds capacity. Users can click a day to focus its proposals, edit local work dates, and clear that day filter without saving or moving any tasks.
+
+
 The optional **Smart scheduling** panel generates a **seven-day work-date preview**, not a calendar booking or an automatic due-date change. Users choose a task capacity of **1–5 tasks per day**, then explicitly consent to send at most 15 unfinished task titles, priorities, and due dates to OpenAI. No notes, account identifiers, checklists, project names, or calendar availability are sent.
 
 - Server authorization scopes candidate tasks to the authenticated account, and the existing AI ranking validates every recommended task ID against that candidate list.

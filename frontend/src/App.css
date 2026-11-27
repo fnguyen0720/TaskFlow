@@ -2024,3 +2024,36 @@ html, body, #root {
 .ai-smart-date-display{padding:0 12px;min-width:0;color:#f1edf9;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .ai-smart-date-shell input[type=date]{position:absolute;inset:0;width:100%;height:100%;min-width:0;border:0;margin:0;padding:0;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none}
 .ai-smart-date-shell:focus-within{outline:2px solid #b5a0ff;outline-offset:2px}
+
+
+/* PR #81 — read-only seven-day workload timeline and clear capacity counts. */
+.ai-smart-week{display:grid;gap:12px;padding:13px;border:1px solid #433b5d;border-radius:12px;background:#1b1a2b}
+.ai-smart-week-caption{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;justify-content:space-between}
+.ai-smart-week-caption strong{font-size:13px;color:#ede6fc}
+.ai-smart-week-caption span{font-size:11px;color:#b7aecb}
+.ai-smart-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.ai-smart-day{display:grid;align-content:start;gap:5px;min-width:0;min-height:127px;padding:9px 7px;border:1px solid #434058;border-radius:9px;background:#242336;color:#e9e3f6;text-align:center;cursor:pointer}
+.ai-smart-day:hover{border-color:#9982d6;background:#312b47}
+.ai-smart-day.is-selected{outline:2px solid #a791ff;outline-offset:1px;background:#362c54}
+.ai-smart-day.is-overloaded{border-color:#ac7950;background:#372c32}
+.ai-smart-day-name{color:#b9afcd;font-size:11px;font-weight:600}
+.ai-smart-day-number{color:#f2ecfb;font-size:12px;font-weight:700}
+.ai-smart-day-total{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.ai-smart-day-track{height:5px;border-radius:20px;background:#454055;overflow:hidden}
+.ai-smart-day-track>span{display:block;height:100%;border-radius:20px;background:#9b81ee}
+.ai-smart-day.is-overloaded .ai-smart-day-track>span{background:#e9a262}
+.ai-smart-day-detail{color:#c0b7d0;font-size:10px;line-height:1.35}
+.ai-smart-day-excess{color:#f4bd85;font-size:10px;font-weight:800}
+.ai-smart-week-summary{color:#efc49a!important;font-size:12px!important}
+.ai-smart-show-all{justify-self:start;min-height:38px;padding:8px 12px;border:1px solid #685588;border-radius:8px;background:#312948;color:#e8dbff;font-size:12px;cursor:pointer}
+.ai-smart-slots{grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr))}
+@media(max-width:880px){
+  .ai-smart-days{grid-template-columns:repeat(7,minmax(110px,1fr));overflow-x:auto;padding:2px 2px 9px;scroll-snap-type:x proximity}
+  .ai-smart-day{scroll-snap-align:start}
+}
+@media(max-width:480px){
+  .ai-smart-week{padding:10px}
+  .ai-smart-week-caption{display:grid}
+  .ai-smart-days{gap:7px}
+  .ai-smart-day{min-height:125px}
+}

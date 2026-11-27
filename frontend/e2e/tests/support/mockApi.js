@@ -189,7 +189,17 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
           dueDate: deadline ?? null, suggestedDate: chosen, reason: "Worth prioritizing",
           overCapacity: best >= body.dailyCapacity, deadlineAtRisk: Boolean(deadline && deadline < body.today) };
       });
-      return respond(200, { slots, noTasks: slots.length === 0 });
+      const proposedIds = new Set(slots.map(slot => slot.taskId));
+      const dayLoads = Array.from({ length: 7 }, (_, index) => {
+        const dateObj = new Date(body.today + "T12:00:00");
+        dateObj.setDate(dateObj.getDate() + index);
+        const date = [dateObj.getFullYear(),
+          String(dateObj.getMonth()+1).padStart(2,"0"),
+          String(dateObj.getDate()).padStart(2,"0")].join("-");
+        return { date, existingDueCount: unfinished.filter(task =>
+          !proposedIds.has(task.id) && task.dueDate?.slice(0,10) === date).length };
+      });
+      return respond(200, { slots, dayLoads, noTasks: slots.length === 0 });
     }
     if (pathname === "/api/ai/daily-focus" && method === "POST") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});

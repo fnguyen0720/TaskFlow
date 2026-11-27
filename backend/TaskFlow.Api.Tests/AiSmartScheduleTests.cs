@@ -9,6 +9,29 @@ namespace TaskFlow.Api.Tests;
 public class AiSmartScheduleTests
 {
     [Fact]
+    public void DayLoadsIncludeOnlyOtherUnfinishedDueTasksAndPreserveSevenDates()
+    {
+        var start = new DateOnly(2026, 11, 27);
+        var tasks = new [] {
+            new TaskItem { Id=1, DueDate=new DateTime(2026,11,27), Completed=false },
+            new TaskItem { Id=2, DueDate=new DateTime(2026,11,27), Completed=false },
+            new TaskItem { Id=3, DueDate=new DateTime(2026,11,27), Completed=true },
+            new TaskItem { Id=4, DueDate=new DateTime(2026,11,28), Completed=false },
+            new TaskItem { Id=5, DueDate=new DateTime(2026,12,4), Completed=false },
+            new TaskItem { Id=6, Completed=false }
+        };
+        var snapshot = tasks.Select(t => t.DueDate).ToArray();
+        var loads = AiSmartSchedule.BuildDayLoads(tasks, new [] { 1 }, start);
+        Assert.Equal(7, loads.Count);
+        Assert.Equal("2026-11-27", loads[0].Date);
+        Assert.Equal(1, loads[0].ExistingDueCount);
+        Assert.Equal(1, loads[1].ExistingDueCount);
+        Assert.Equal("2026-12-03", loads[6].Date);
+        Assert.All(loads.Skip(2), day => Assert.Equal(0, day.ExistingDueCount));
+        Assert.Equal(snapshot, tasks.Select(t => t.DueDate).ToArray());
+    }
+
+    [Fact]
     public void RequestChecksLocalDateAndCapacityBounds()
     {
         var utc = new DateOnly(2026, 11, 27);
