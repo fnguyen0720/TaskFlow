@@ -921,6 +921,76 @@ app.MapPost("/api/analytics/coach/explain", async (
     }
 }).RequireAuthorization().RequireRateLimiting("ai-coach");
 
+// Separate, opt-in feature. The model sees only the goal the user types here.
+// No task data, user IDs or account metadata are sent to the model. Generation is read-only.
+app.MapGet("/api/ai/plans/capabilities", (IConfiguration configuration) =>
+    Results.Ok(new { Available = AiTaskBreakdown.IsEnabled(configuration),
+        Sends = "Only the goal you explicitly enter" }))
+    .RequireAuthorization();
+
+app.MapPost("/api/ai/plans/generate", async (
+    AiPlanRequest request, IConfiguration configuration, IHttpClientFactory clients,
+    HttpContext context) =>
+{
+    if (!request.Consent)
+        return Results.BadRequest(new { Message = "Consent is required before sending your goal to AI." });
+    if (!AiTaskBreakdown.ValidGoal(request.Goal))
+        return Results.BadRequest(new { Message = "Enter a goal between 12 and 600 characters." });
+    if (!AiTaskBreakdown.IsEnabled(configuration))
+        return Results.Problem("AI planning is not configured.", statusCode: 503);
+    try
+    {
+        var items = await AiTaskBreakdown.GenerateAsync(
+            request.Goal!, configuration, clients, context.RequestAborted);
+        return items is null
+            ? Results.Problem("An AI task plan could not be generated.", statusCode: 502)
+            : Results.Ok(new { Tasks = items, IsSuggestion = true });
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+        throw;
+    }
+    catch (Exception)
+    {
+        // Never forward provider diagnostics, secrets or the user's goal text.
+        return Results.Problem("An AI task plan could not be generated.", statusCode: 502);
+    }
+}).RequireAuthorization().RequireRateLimiting("ai-coach");
+
+// User-controlled, reviewed task batch. No model call and no write until Confirm=true.
+// Validation and owner-scoped project checks precede a single atomic transaction.
+// The same endpoint can accept user-edited proposals; no model content is trusted.
+app.MapPost("/api/ai/plans/commit", async (
+    AiPlanCommitRequest request, ClaimsPrincipal user, TaskDbContext db) =>
+{
+    if (!request.Confirm)
+        return Results.BadRequest(new { Message = "Review and explicitly confirm the tasks first." });
+    if (AiTaskBreakdown.ValidateItems(request.Tasks) is { } validation)
+        return Results.BadRequest(new { Message = validation });
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    if (request.ProjectId.HasValue && !await db.TaskProjects.AsNoTracking().AnyAsync(p =>
+        p.Id == request.ProjectId.Value && p.UserId == userId))
+        return Results.NotFound();
+
+    var created = request.Tasks!.Select(item => new TaskItem {
+        Title = item.Title!.Trim(), Priority = item.Priority!,
+        Category = item.Category!, UserId = userId,
+        Completed = false, ProjectId = request.ProjectId,
+        Notes = "", ChecklistJson = "[]"
+    }).ToArray();
+    await using var transaction = await db.Database.BeginTransactionAsync();
+    db.Tasks.AddRange(created);
+    await db.SaveChangesAsync();
+    foreach (var task in created)
+    {
+        TaskActivityKinds.Record(db, userId, task.Id, TaskActivityKinds.Created);
+        TaskVersionHistory.Add(db, task, "created");
+    }
+    await db.SaveChangesAsync();
+    await transaction.CommitAsync();
+    return Results.Ok(new { Tasks = created });
+}).RequireAuthorization();
+
 // This endpoint never accepts a user ID, and never returns events of another account.
 // A missing or cross-account task looks identical: 404.
 app.MapGet("/api/tasks/{id:int}/activity", async (
