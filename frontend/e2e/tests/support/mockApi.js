@@ -1,6 +1,6 @@
 // An isolated in-browser HTTP stand-in for the TaskFlow API.
 // No tests below send requests to production Render or create real users.
-export async function installMockApi(page, { initialTasks = [], initialProjects = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskToggles = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
+export async function installMockApi(page, { initialTasks = [], initialProjects = [], failTaskReads = 0, failTaskEdits = 0, failTaskCreates = 0, failTaskToggles = 0, failTaskDetails = 0, invalidTaskReads = 0, emptyTaskReads = 0, unauthorizedTaskReads = 0, initialActivities = [], failCompletionHistory = false, bottleneckReport = null, failBottleneckReads = false, aiCoachEnabled = false, failAiCoach = false, aiPlannerEnabled = false, aiPlanSuggestions = null, failLoginAttempts = 0, accountEmail = "tester@example.com", failAccountReads = 0 } = {}) {
   let remainingFailedReads = failTaskReads;
   let remainingUnauthorizedReads = unauthorizedTaskReads;
   let remainingFailedLogins = failLoginAttempts;
@@ -150,6 +150,38 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
             completedTasks: finished, complete: list.length > 0 && finished === list.length };
         })
       });
+    }
+    if (pathname === "/api/ai/plans/capabilities" && method === "GET") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      return respond(200, { available: aiPlannerEnabled, sends: "Only the goal you explicitly enter" });
+    }
+    if (pathname === "/api/ai/plans/generate" && method === "POST") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (!body.consent || body.goal?.length < 12 || body.goal?.length > 600) return respond(400, {});
+      if (!aiPlannerEnabled) return respond(503, {});
+      return respond(200, { isSuggestion: true, tasks: aiPlanSuggestions ?? [
+        { title: "Design the interface", priority: "High", category: "Work" },
+        { title: "Build the API", priority: "Medium", category: "Work" },
+        { title: "Test and deploy", priority: "Medium", category: "Work" }
+      ] });
+    }
+    if (pathname === "/api/ai/plans/commit" && method === "POST") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (!body.confirm || !Array.isArray(body.tasks) || body.tasks.length < 1 || body.tasks.length > 8)
+        return respond(400, {});
+      if (body.projectId != null && !projects.some(project => project.id === body.projectId)) return respond(404, {});
+      if (body.tasks.some(item => !item.title?.trim() || item.title.length > 100 ||
+        !["Low", "Medium", "High"].includes(item.priority) ||
+        !["General", "Work", "Study", "Personal"].includes(item.category))) return respond(400, {});
+      const created = body.tasks.map(item => ({
+        id: nextId++, title: item.title, priority: item.priority,
+        category: item.category, dueDate: null, completed: false, projectId: body.projectId ?? null,
+        recurrenceRule: "None", reminderDaysBefore: null, notes: "", checklist: [], checklistJson: "[]",
+        version: "rev-" + revision++
+      }));
+      tasks.push(...created);
+      for (const task of created) { record(task.id, "created"); recordVersion(task, "created"); }
+      return respond(200, { tasks: created });
     }
     if (pathname === "/api/analytics/coach/capabilities" && method === "GET") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
