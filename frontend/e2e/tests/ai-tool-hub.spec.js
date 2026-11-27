@@ -9,13 +9,13 @@ test("TaskFlow AI starts as one compact hub and selecting a tool never generates
   await signIn(page);
   const hub = page.getByRole("region", { name: "TaskFlow AI" });
   const choices = hub.getByRole("navigation", { name: "AI tools" });
-  await expect(choices.getByRole("button")).toHaveCount(3);
+  await expect(choices.getByRole("button")).toHaveCount(4);
   await expect(choices.getByRole("button", { name: /Break down a goal/ })).toHaveAttribute("aria-pressed", "false");
   await expect(choices.getByRole("button", { name: /Plan my day/ })).toHaveAttribute("aria-pressed", "false");
   await expect(choices.getByRole("button", { name: /Smart schedule/ })).toHaveAttribute("aria-pressed", "false");
   await expect(hub.getByRole("textbox", { name: "What's your goal?" })).toHaveCount(0);
   const forbidden = () => api.calls.filter(c =>
-    c.pathname === "/api/ai/plans/generate" ||
+    c.pathname === "/api/ai/copilot" || c.pathname === "/api/ai/plans/generate" ||
     c.pathname === "/api/ai/daily-focus" ||
     c.pathname === "/api/ai/smart-schedule" ||
     c.pathname === "/api/ai/plans/commit");
@@ -82,7 +82,7 @@ test("AI hub remains usable at 320px and is absent from the demo", async ({ page
   await signIn(page);
   const hub = page.getByRole("region", { name: "TaskFlow AI" });
   const choices = hub.getByRole("navigation", { name: "AI tools" });
-  await expect(choices.getByRole("button")).toHaveCount(3);
+  await expect(choices.getByRole("button")).toHaveCount(4);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   await choices.getByRole("button", { name: /Smart schedule/ }).click();
   await expect(hub.getByRole("region", { name: "AI smart scheduling" })).toBeVisible();
