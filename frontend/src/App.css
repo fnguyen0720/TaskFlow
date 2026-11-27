@@ -2205,3 +2205,15 @@ html, body, #root {
 .momentum-v2 .momentum-encouragement{font-size:11px;color:#c0b4ff;margin:7px 0 0}
 @media(max-width:760px){.momentum-v2 .momentum-body{grid-template-columns:minmax(0,1fr);gap:12px}.momentum-v2 .momentum-metrics>div{padding:8px}.momentum-v2 .momentum-metrics span:last-child{font-size:10px}}
 @media(prefers-reduced-motion:reduce){.momentum-v2 .momentum-track span{transition:none}}
+
+/* Account-local dashboard layout editor */
+.dashboard-preference-list{min-width:0;margin:0;border:1px solid #514764;border-radius:10px;padding:12px;display:grid;gap:7px}
+.dashboard-preference-list legend{color:#eee9ff;font-size:14px;font-weight:700;padding:0 5px}
+.dashboard-preference-list p{color:#aaa6c1;font-size:12px;line-height:1.5;margin:0 0 4px}
+.dashboard-preference-row{display:grid;grid-template-columns:minmax(0,1fr) 44px 44px;align-items:center;gap:5px}
+.view-settings-form .dashboard-preference-row label{display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere;min-height:44px}
+.dashboard-preference-row input{width:18px;height:18px;flex:none;accent-color:#8b7cff}
+.dashboard-preference-list button{min-height:44px;border:1px solid #514764;border-radius:8px;background:#272537;color:#eee9ff;cursor:pointer;padding:6px}
+.dashboard-preference-list button:disabled{opacity:.35;cursor:default}
+.dashboard-preference-list input:focus-visible{outline:3px solid #cabaff;outline-offset:3px}
+.view-settings-dialog{max-height:calc(100dvh - 24px);overflow:auto}
