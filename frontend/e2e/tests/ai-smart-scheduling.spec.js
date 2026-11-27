@@ -166,7 +166,7 @@ test("AI 429 shows a shared server-derived countdown without clearing the existi
   // The server rejects the next generation. The edited preview must survive.
   await generate.click();
   await expect(schedule.getByText(/Estimated retry in/)).toContainText("0:04");
-  await expect(generate).toBeDisabled();
+  await expect(schedule.getByRole("button", { name: "AI cooldown active" })).toBeDisabled();
   await expect(preview.locator(".ai-smart-slot")).toHaveCount(1);
   await expect(workDate).toHaveValue("2026-11-29");
 
