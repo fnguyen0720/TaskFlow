@@ -1,10 +1,28 @@
 # TaskFlow
 
-**A production-deployed, full-stack task and project management application** built with React, ASP.NET Core (.NET 10), Entity Framework Core, and PostgreSQL.
+**A production-deployed, AI-powered full-stack task and project management application** built with React, ASP.NET Core (.NET 10), Entity Framework Core, and PostgreSQL.
 
 TaskFlow supports daily task planning, project organization, recurring work, deadline visibility, and reliable task editing across devices. It is also an engineering portfolio project focused on secure multi-user APIs, database migrations, automated testing, and production operations.
 
 **[Launch TaskFlow](https://task-flow-pi-lake.vercel.app)** · **[Try the zero-signup demo](https://task-flow-pi-lake.vercel.app/?demo=1)** · **[Source code](https://github.com/fnguyen0720/TaskFlow)**
+
+## Engineering at a glance
+
+- **Applied AI:** OpenAI Responses API, strict structured JSON outputs, server-side validation, explicit consent, editable human-reviewed task proposals, and transactional creation.
+- **Secure backend:** ASP.NET Core Identity, account-scoped authorization, rate limiting, concurrency checks, and audit/version history.
+- **Product engineering:** responsive React UI, accessible controls, installable online-only PWA, and isolated zero-signup interactive demo.
+- **Quality and delivery:** xUnit integration tests, frontend unit tests, Playwright end-to-end regression tests, GitHub Actions CI/CD, and production smoke checks.
+
+### Selected implementation milestones
+
+| Feature | Pull request |
+| --- | --- |
+| Task dependencies and nested subtasks | [#55](https://github.com/fnguyen0720/TaskFlow/pull/55) |
+| Opt-in AI bottleneck explanations | [#64](https://github.com/fnguyen0720/TaskFlow/pull/64) |
+| Isolated interactive demo | [#73](https://github.com/fnguyen0720/TaskFlow/pull/73) |
+| Structured AI task breakdown | [#76](https://github.com/fnguyen0720/TaskFlow/pull/76) |
+| AI planner UX and created-task navigation | [#77](https://github.com/fnguyen0720/TaskFlow/pull/77), [#78](https://github.com/fnguyen0720/TaskFlow/pull/78) |
+| AI Daily Focus recommendations | [#79](https://github.com/fnguyen0720/TaskFlow/pull/79) |
 
 ## Preview
 
@@ -73,9 +91,11 @@ The **Plan my day** panel is collapsed by default, and never automatically conta
 
 Signed-in users can expand **AI task breakdown**, type a goal, and explicitly consent to send **only that goal text** to OpenAI. The backend returns up to eight suggested tasks using a strict structured JSON schema, with bounded titles, categories and priorities. This request makes **no database writes** and does not send stored tasks, private notes, account details, or task identifiers to the provider.
 
-The AI UI keeps the workspace uncluttered with a collapsed entry point and three focused steps: **Goal → Review → Created**. Users can start from example goals, view their selection count, select or clear all suggestions, edit their goal before saving, and receive clear post-save confirmation.\n\nThe suggestions appear in an editable review screen. Users may rename, reprioritize, change categories, deselect items, and choose an owned project. A separate **Create selected tasks** action requires confirmation; the server revalidates every edited item, verifies the project belongs to the signed-in user, and writes all selected tasks, initial version snapshots and activity entries within one transaction. Invalid or cross-account submissions create nothing. No AI model can autonomously create tasks.
+The AI UI keeps the workspace uncluttered with a collapsed entry point and three focused steps: **Goal → Review → Created**. Users can start from example goals, view their selection count, select or clear all suggestions, edit their goal before saving, and receive clear post-save confirmation and navigate directly to the newly created tasks.
 
-The feature reuses the existing server-only \`AiCoach__Enabled\`, \`OPENAI_API_KEY\` and optional \`AiCoach__Model\` configuration. It remains disabled when inference is unconfigured, never appears in the zero-signup demo, and has no new migrations. Generation is subject to the existing AI rate limit (five requests per ten minutes per configured connection-IP bucket). AI usage can incur provider charges. No generated plan is persisted unless the user separately approves its selected tasks. As with ordinary task creation, repeated *separate* confirmed submissions can create additional tasks; do not blindly retry after a network failure.
+The suggestions appear in an editable review screen. Users may rename, reprioritize, change categories, deselect items, and choose an owned project. A separate **Create selected tasks** action requires confirmation; the server revalidates every edited item, verifies the project belongs to the signed-in user, and writes all selected tasks, initial version snapshots and activity entries within one transaction. Invalid or cross-account submissions create nothing. No AI model can autonomously create tasks.
+
+The feature reuses the existing server-only `AiCoach__Enabled`, `OPENAI_API_KEY` and optional `AiCoach__Model` configuration. It remains disabled when inference is unconfigured, never appears in the zero-signup demo, and has no new migrations. Generation is subject to the existing AI rate limit (five requests per ten minutes per configured connection-IP bucket). AI usage can incur provider charges. No generated plan is persisted unless the user separately approves its selected tasks. As with ordinary task creation, repeated *separate* confirmed submissions can create additional tasks; do not blindly retry after a network failure.
 
 ### Progression and achievements
 - Earn 25 XP for the **first recorded completion of each distinct task**; reopening and completing it again never awards more XP.
@@ -107,6 +127,7 @@ The feature reuses the existing server-only \`AiCoach__Enabled\`, \`OPENAI_API_K
 | Frontend | React, JavaScript, Vite, CSS |
 | Backend | C#, ASP.NET Core Minimal APIs (.NET 10), ASP.NET Core Identity |
 | Data | Entity Framework Core, SQLite (local), PostgreSQL (production) |
+| Applied AI | OpenAI Responses API, structured JSON schema, consent-gated inference, output validation |
 | Testing | xUnit API/integration tests, frontend unit tests, Playwright browser tests |
 | Delivery | GitHub Actions CI, Vercel (frontend), Render (API and PostgreSQL) |
 | Operations | Production smoke checks, synthetic latency sampling, security/dependency audits, documented recovery procedures |
@@ -125,6 +146,7 @@ React + Vite frontend (Vercel)
 ASP.NET Core Minimal API (.NET 10) (Render)
    | ASP.NET Core Identity + owner checks
    | task/project/history/notification endpoints
+   | consent-gated AI endpoints --> OpenAI Responses API
    v
 Entity Framework Core
    |                     |
