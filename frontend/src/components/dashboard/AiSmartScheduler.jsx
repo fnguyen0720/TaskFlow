@@ -13,8 +13,9 @@ function seventhDay(start) {
 }
 
 // Purely advisory. Editing a suggested date changes only ephemeral React state.
-export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenTask, aiCooldown }) {
-  const [open, setOpen] = useState(false);
+export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenTask, aiCooldown, embedded = false, active = false }) {
+  const [locallyOpen, setOpen] = useState(false);
+  const open = embedded ? active : locallyOpen;
   const [available, setAvailable] = useState("idle");
   const [consent, setConsent] = useState(false);
   const [capacity, setCapacity] = useState(2);
@@ -117,12 +118,13 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
   }
 
   return <section className="ai-smart-schedule" aria-label="AI smart scheduling">
-    <button type="button" className="ai-smart-toggle" aria-expanded={open}
+    {!embedded && <button type="button" className="ai-smart-toggle" aria-expanded={open}
       aria-controls="ai-smart-content" onClick={() => setOpen(value => !value)}>
       <span aria-hidden="true">✦</span>
       <span>Smart scheduling<small>Preview a realistic week</small></span>
       <span aria-hidden="true">{open ? "−" : "+"}</span>
-    </button>
+    </button>}
+
     {open && <div className="ai-smart-content" id="ai-smart-content">
       {available === "loading" && <p role="status">Checking AI availability…</p>}
       {available === "error" && <p role="alert">AI scheduling is temporarily unavailable.</p>}
