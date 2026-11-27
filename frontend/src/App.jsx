@@ -200,7 +200,7 @@ function LiveApp({ onDemo }) {
   // Pending deletions are hidden from the dashboard, but not removed from
   // the server until the Undo window expires.
   const visibleTasks = tasks.filter(task => !pendingDeleteIds.has(task.id));
-  const { history, refreshHistory } = useCompletionHistory({ token, tasks, enabled: !loading && !error && (readStatus === "loaded" || readStatus === "confirmed-empty"), onUnauthorized: handleUnauthorized });
+  const { history, refreshHistory } = useCompletionHistory({ token, tasks, enabled: !loading && !error && (readStatus === "loaded" || readStatus === "confirmed-empty") && (!viewPreferences.preferences.dashboardHidden.includes("momentum") || (!viewPreferences.preferences.dashboardHidden.includes("insights") && showMoreInsights)), onUnauthorized: handleUnauthorized });
   const activeReminders = remindersDue(visibleTasks);
   const notifications = applyNotificationPreferences(
     buildNotifications(visibleTasks, notificationCenter.states), notificationSettings.preferences);
@@ -426,12 +426,17 @@ function LiveApp({ onDemo }) {
             {Array.from({ length: 4 }, (_, index) => <div key={index} className="workspace-loading-card" />)}
           </div>
         </section>
-      ) : !error && (readStatus === "loaded" || readStatus === "confirmed-empty") ? (
-        <>
-          <DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} />
-          <MomentumCard key={token} history={history} refreshHistory={refreshHistory} focusMinutes={focusMinutes} />
-          <DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} />
-          <section className="home-discover" aria-label="More insights">
+      ) : null}
+      {viewPreferences.preferences.dashboardOrder.map(id => {
+        const hidden = viewPreferences.preferences.dashboardHidden.includes(id);
+        const ready = !error && (readStatus === "loaded" || readStatus === "confirmed-empty");
+        if (hidden && id !== "ai") return null;
+        if (!ready && ["overview", "momentum", "focus", "insights"].includes(id)) return null;
+        switch (id) {
+          case "overview": return <div key={id} data-dashboard-section={id}><DashboardOverview activeCount={activeCount} completedCount={completedCount} overdueCount={overdueCount} dueTodayCount={dueTodayCount} completionRate={completionRate} /></div>;
+          case "momentum": return <div key={id} data-dashboard-section={id}><MomentumCard key={token} history={history} refreshHistory={refreshHistory} focusMinutes={focusMinutes} /></div>;
+          case "focus": return <div key={id} data-dashboard-section={id}><DailyFocus tasks={visibleTasks} onOpenTask={setDetailId} onView={changeView} /></div>;
+          case "insights": return <div key={id} data-dashboard-section={id}><section className="home-discover" aria-label="More insights">
             <button type="button" className="home-discover-toggle"
               aria-expanded={showMoreInsights} aria-controls="home-more-insights"
               onClick={() => setShowMoreInsights(value => !value)}>
@@ -445,19 +450,21 @@ function LiveApp({ onDemo }) {
               <ProductivityInsights tasks={visibleTasks} token={token} history={history} refreshHistory={refreshHistory}
                 onUnauthorized={handleUnauthorized} onOpenTask={setDetailId} />
             </div>}
-          </section>
-        </>
-      ) : null}
-      {projects.status === "ready" && <ProjectShelf projects={projects.projects} tasks={visibleTasks}
+          </section></div>;
+          case "projects": return <div key={id} data-dashboard-section={id}>{projects.status === "ready" && <ProjectShelf projects={projects.projects} tasks={visibleTasks}
         selection={selectedProject} onSelect={selection => { setSelectedProject(selection); setCreatedTaskIds(null); }}
         onCreate={projects.createProject} creating={projects.creating}
         onRename={projects.renameProject} renamingId={projects.renamingId} />}
-      {projects.status === "failed" && <p className="project-load-error" role="alert">Projects could not load. Your tasks are still available.</p>}
-      <AiToolHub key={"ai-hub-" + token} token={token} tasks={visibleTasks}
+      {projects.status === "failed" && <p className="project-load-error" role="alert">Projects could not load. Your tasks are still available.</p>}</div>;
+          // Keep AI drafts mounted when hiding or reordering the hub.
+          case "ai": return <div key={id} data-dashboard-section={id} style={hidden ? {display:"none"} : undefined}><AiToolHub key={"ai-hub-" + token} token={token} tasks={visibleTasks}
         projects={projects.status === "ready" ? projects.projects : []}
         onUnauthorized={handleUnauthorized} onOpenTask={openTaskFromPalette}
         onTasksCreated={reloadLatestTask} onViewCreatedTasks={viewNewTasks}
-        aiCooldown={aiCooldown} />
+        aiCooldown={aiCooldown} /></div>;
+          default: return null;
+        }
+      })}
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
         planner={{ view, setView: changeView, views, quickCreateSignal }}
         createdTaskView={createdTaskIds === null ? null : {
@@ -467,7 +474,7 @@ function LiveApp({ onDemo }) {
         onClose={() => setCommandOpen(false)} onOpenTask={openTaskFromPalette}
         onChangeView={changeView} onQuickCreate={quickCreateFromPalette} />}
       {preferencesOpen && viewPreferences.status === "ready" && (
-        <ViewPreferencesDialog preferences={viewPreferences.preferences} onSave={viewPreferences.update}
+        <ViewPreferencesDialog preferences={viewPreferences.preferences} onSave={changes => { const saved = viewPreferences.update(changes); if (saved && changes.dashboardHidden.includes("projects")) { setSelectedProject("all"); setCreatedTaskIds(null); } return saved; }}
           onClose={closePreferences} />
       )}
       {focusedTask && !detailTask && (
