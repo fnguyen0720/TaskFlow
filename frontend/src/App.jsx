@@ -23,6 +23,7 @@ import { useAccountIdentity } from "./hooks/useAccountIdentity.js";
 import { useViewPreferences } from "./hooks/useViewPreferences.js";
 import { useNotification } from "./hooks/useNotification.js";
 import { useTasks } from "./hooks/useTasks.js";
+import { useAiCooldown } from "./hooks/useAiCooldown.js";
 import { useNotificationCenter } from "./hooks/useNotificationCenter.js";
 import { useNotificationPreferences } from "./hooks/useNotificationPreferences.js";
 import { applyNotificationPreferences } from "./utils/notificationPreferences.js";
@@ -50,6 +51,7 @@ function LiveApp({ onDemo }) {
     authLoading, authError, sessionNotice, logout: clearAuth, handleAuth, switchAuthMode,
   } = useAuth();
   const handleUnauthorized = (requestToken) => clearAuth("expired", requestToken);
+  const aiCooldown = useAiCooldown(token);
   const { notification, setNotification, showNotification } = useNotification();
   const accountIdentity = useAccountIdentity({ token, onUnauthorized: handleUnauthorized });
   const viewPreferences = useViewPreferences({ token, accountIdentity });
@@ -440,11 +442,11 @@ function LiveApp({ onDemo }) {
         onRename={projects.renameProject} renamingId={projects.renamingId} />}
       {projects.status === "failed" && <p className="project-load-error" role="alert">Projects could not load. Your tasks are still available.</p>}
       <AiSmartScheduler key={"schedule-" + token} token={token} tasks={visibleTasks}
-        onUnauthorized={handleUnauthorized} onOpenTask={openTaskFromPalette} />
+        onUnauthorized={handleUnauthorized} onOpenTask={openTaskFromPalette} aiCooldown={aiCooldown} />
       <AiDailyPlanner key={"daily-" + token} token={token} tasks={visibleTasks}
-        onUnauthorized={handleUnauthorized} onOpenTask={openTaskFromPalette} />
+        onUnauthorized={handleUnauthorized} onOpenTask={openTaskFromPalette} aiCooldown={aiCooldown} />
       <AiTaskPlanner key={token} token={token} projects={projects.status === "ready" ? projects.projects : []}
-        onUnauthorized={handleUnauthorized} onTasksCreated={reloadLatestTask} onViewCreatedTasks={viewNewTasks} />
+        onUnauthorized={handleUnauthorized} onTasksCreated={reloadLatestTask} onViewCreatedTasks={viewNewTasks} aiCooldown={aiCooldown} />
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}
         planner={{ view, setView: changeView, views, quickCreateSignal }}
         createdTaskView={createdTaskIds === null ? null : {
