@@ -10,6 +10,7 @@ import CommandPalette from "./components/dashboard/CommandPalette.jsx";
 import DashboardOverview from "./components/dashboard/DashboardOverview.jsx";
 import ProductivityInsights from "./components/dashboard/ProductivityInsights.jsx";
 import AiTaskPlanner from "./components/dashboard/AiTaskPlanner.jsx";
+import AiDailyPlanner from "./components/dashboard/AiDailyPlanner.jsx";
 import ProgressionCard from "./components/dashboard/ProgressionCard.jsx";
 import DailyFocus from "./components/dashboard/DailyFocus.jsx";
 import TaskDetails from "./components/tasks/TaskDetails.jsx";
@@ -437,6 +438,8 @@ function LiveApp({ onDemo }) {
         onCreate={projects.createProject} creating={projects.creating}
         onRename={projects.renameProject} renamingId={projects.renamingId} />}
       {projects.status === "failed" && <p className="project-load-error" role="alert">Projects could not load. Your tasks are still available.</p>}
+      <AiDailyPlanner key={"daily-" + token} token={token} tasks={visibleTasks}
+        onUnauthorized={handleUnauthorized} onOpenTask={openTaskFromPalette} />
       <AiTaskPlanner key={token} token={token} projects={projects.status === "ready" ? projects.projects : []}
         onUnauthorized={handleUnauthorized} onTasksCreated={reloadLatestTask} onViewCreatedTasks={viewNewTasks} />
       <TaskPanel data={data} form={form} filters={filters} editing={editing} actions={actions}

@@ -155,6 +155,25 @@ export async function installMockApi(page, { initialTasks = [], initialProjects 
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       return respond(200, { available: aiPlannerEnabled, sends: "Only the goal you explicitly enter" });
     }
+    if (pathname === "/api/ai/daily-focus" && method === "POST") {
+      if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
+      if (!body.consent) return respond(400, { message: "Consent required" });
+      if (!aiPlannerEnabled) return respond(503, {});
+      const candidates = tasks.filter(task => !task.completed)
+        .sort((a, b) => {
+          const da = a.dueDate ?? "9999", db = b.dueDate ?? "9999";
+          if (da !== db) return da.localeCompare(db);
+          const weight = { High: 0, Medium: 1, Low: 2 };
+          return (weight[a.priority] ?? 3) - (weight[b.priority] ?? 3);
+        }).slice(0, 15);
+      return respond(200, { noTasks: candidates.length === 0,
+        picks: candidates.slice(0, 5).map(task => ({
+          taskId: task.id, title: task.title, priority: task.priority,
+          dueDate: task.dueDate?.slice(0, 10) ?? null,
+          reason: "A useful next step for today"
+        }))
+      });
+    }
     if (pathname === "/api/ai/plans/generate" && method === "POST") {
       if (request.headers().authorization !== "Bearer e2e-isolated-token") return respond(401, {});
       if (!body.consent || body.goal?.length < 12 || body.goal?.length > 600) return respond(400, {});
