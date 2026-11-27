@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace TaskFlow.Api.Tests;
 
@@ -64,12 +63,7 @@ public class AiCopilotTests
         }
     }
 
-    private sealed class TestProviderFactory(HttpClient client) : IHttpClientFactory
-    {
-        public HttpClient CreateClient(string name) { Assert.Equal("ai-coach", name); return client; }
-    }
-
-    private sealed class EnabledFactory(HttpClient provider) : CustomWebApplicationFactory
+    private sealed class EnabledFactory(CapturingProvider provider) : CustomWebApplicationFactory
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -77,8 +71,7 @@ public class AiCopilotTests
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
                 new Dictionary<string, string?> { ["AiCoach:Enabled"] = "true", ["OPENAI_API_KEY"] = "copilot-test-key" }));
             builder.ConfigureTestServices(services => {
-                services.RemoveAll<IHttpClientFactory>();
-                services.AddSingleton<IHttpClientFactory>(new TestProviderFactory(provider));
+                services.AddHttpClient("ai-coach").ConfigurePrimaryHttpMessageHandler(() => provider);
             });
         }
     }
@@ -98,8 +91,7 @@ public class AiCopilotTests
     public async Task ProviderContextIsOwnerScopedAndReadOnlyWithSharedRateLimit()
     {
         using var handler = new CapturingProvider();
-        using var provider = new HttpClient(handler);
-        await using var factory = new EnabledFactory(provider);
+        await using var factory = new EnabledFactory(handler);
         await factory.InitializeDatabaseAsync();
         using var alice = factory.CreateClient();
         using var bob = factory.CreateClient();
