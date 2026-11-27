@@ -153,8 +153,15 @@ export default function AiSmartScheduler({ token, tasks, onUnauthorized, onOpenT
                 </button>
                 <p>{slot.reason}</p>
                 <label>Suggested work date
-                  <input type="date" value={slot.suggestedDate} min={today} max={end}
-                    onChange={event => adjust(slot.taskId, event.target.value)} />
+                  <span className="ai-smart-date-shell">
+                    <span className="ai-smart-date-display" aria-hidden="true">
+                      {new Date(slot.suggestedDate + "T12:00:00").toLocaleDateString(undefined,
+                        { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                    <input type="date" aria-label={"Work date for " + slot.title}
+                      value={slot.suggestedDate} min={today} max={end}
+                      onChange={event => adjust(slot.taskId, event.target.value)} />
+                  </span>
                 </label>
                 {slot.dueDate && <span className="ai-smart-deadline">Existing deadline: {slot.dueDate}</span>}
                 {(warning?.crowded || warning?.pastDeadline || warning?.overdue) && <div className="ai-smart-warning" role="status">
