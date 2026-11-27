@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 export const DASHBOARD_SECTIONS = Object.freeze([
-  ["overview", "Daily overview"], ["momentum", "Productivity momentum"], ["focus", "Up next"],
-  ["insights", "Insights & rewards"], ["projects", "Projects"], ["ai", "TaskFlow AI"],
+  ["overview", "Daily overview"], ["momentum", "Productivity momentum"], ["ai", "TaskFlow AI"],
+  ["focus", "Up next"], ["insights", "Insights & rewards"], ["projects", "Projects"],
 ].map(item => Object.freeze(item)));
 const SECTION_IDS = DASHBOARD_SECTIONS.map(([id]) => id);
 export const DEFAULT_PREFERENCES = Object.freeze({ density: "comfortable", landingView: "all",
