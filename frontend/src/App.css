@@ -1987,3 +1987,40 @@ html, body, #root {
   .ai-daily-content { padding:1px 12px 16px; }
 }
 @media(prefers-reduced-motion:reduce) { .ai-daily-plan * { transition:none!important; animation:none!important; } }
+
+
+/* PR #80: read-only, editable work-date preview. */
+.ai-smart-schedule{margin:15px 0;border:1px solid #47405f;border-radius:12px;background:#191a27;overflow:hidden}
+.ai-smart-toggle{display:flex;width:100%;align-items:center;gap:12px;min-height:60px;padding:12px 17px;border:0;background:transparent;color:#e0d8ff;text-align:left;font-size:14px;font-weight:700;cursor:pointer}
+.ai-smart-toggle>span:first-child{display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:10px;background:#332849;color:#d7bdfd;font-size:18px}
+.ai-smart-toggle>span:nth-child(2){display:grid;flex:1;gap:3px}
+.ai-smart-toggle small{font-size:12px;color:#a9a2be;font-weight:400}
+.ai-smart-toggle>span:last-child{font-size:22px;margin-left:auto}
+.ai-smart-content{display:grid;gap:13px;padding:2px 17px 18px}
+.ai-smart-content p{margin:0;color:#c2bbd0;font-size:13px;line-height:1.55}
+.ai-smart-capacity{display:grid;gap:6px;font-size:12px;font-weight:700;color:#d2cae1}
+.ai-smart-content select,.ai-smart-slot input[type=date]{display:block;width:100%;min-width:0;min-height:44px;padding:9px 12px;border:1px solid #49455e;border-radius:8px;background:#11131d;color:#f1edf9;color-scheme:dark;font-size:16px}
+.ai-smart-consent{display:flex;align-items:flex-start;gap:10px;color:#ccc4df;font-size:12px;line-height:1.5}
+.ai-smart-consent input{width:18px;height:18px;flex:none;accent-color:#9b85ee}
+.ai-smart-generate{min-height:44px;width:100%;padding:10px 15px;border:0;border-radius:9px;background:#7664da;color:white;font-size:13px;font-weight:700;cursor:pointer}
+.ai-smart-generate:disabled{opacity:.5;cursor:not-allowed}
+.ai-smart-results{display:grid;gap:12px;padding-top:12px;border-top:1px solid #3f3a51}
+.ai-smart-results-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ai-smart-results-heading h3{margin:0;color:#f0eafb;font-size:17px}
+.ai-smart-results-heading>span{font-size:12px;color:#bcb2d3}
+.ai-smart-slots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,275px),1fr));gap:10px}
+.ai-smart-slot{display:grid;align-content:start;gap:10px;padding:14px;border:1px solid #413b57;border-radius:10px;background:#212030}
+.ai-smart-task{justify-self:start;padding:0;border:0;background:transparent;color:#e9e0ff;text-align:left;text-decoration:underline;text-decoration-color:#7465ab;text-underline-offset:4px;cursor:pointer;font-size:14px;font-weight:700;overflow-wrap:anywhere}
+.ai-smart-slot label{display:grid;gap:6px;color:#cfc7df;font-size:12px}
+.ai-smart-deadline{font-size:12px;color:#aaa3c0}
+.ai-smart-warning{padding:9px;border:1px solid #896b4b;border-radius:8px;background:#382d26;color:#fbdbaa;font-size:12px;line-height:1.5}
+.ai-smart-disclaimer{font-size:12px!important}
+.ai-smart-clear{min-height:40px;justify-self:start;padding:9px 14px;border:1px solid #554c6b;border-radius:8px;background:#29263a;color:#e2d6ff;font-size:12px;cursor:pointer}
+@media(max-width:480px){.ai-smart-toggle{padding:12px}.ai-smart-content{padding:2px 12px 16px}.ai-smart-slots{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){.ai-smart-schedule *{transition:none!important;animation:none!important}}
+
+/* Safari-safe overlay preserves the actual accessible native date picker. */
+.ai-smart-date-shell{position:relative;display:flex;align-items:center;width:100%;min-width:0;height:44px;border:1px solid #49455e;border-radius:8px;background:#11131d;overflow:hidden}
+.ai-smart-date-display{padding:0 12px;min-width:0;color:#f1edf9;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.ai-smart-date-shell input[type=date]{position:absolute;inset:0;width:100%;height:100%;min-width:0;border:0;margin:0;padding:0;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none}
+.ai-smart-date-shell:focus-within{outline:2px solid #b5a0ff;outline-offset:2px}

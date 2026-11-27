@@ -77,6 +77,17 @@ AiCoach__Model=gpt-4o-mini
 
 The model name is configurable; verify the chosen model supports the Responses API in your account. Never commit or expose the API key. Each request has a 15-second timeout, a bounded output limit, `store: false`, and a five-requests-per-ten-minutes network bucket. Availability is reported separately, and no provider call is made until the signed-in user opts in. API usage can incur charges and needs operator budget controls. No persistence of AI answers is implemented.
 
+### AI Smart Scheduling (read-only preview)
+
+The optional **Smart scheduling** panel generates a **seven-day work-date preview**, not a calendar booking or an automatic due-date change. Users choose a task capacity of **1–5 tasks per day**, then explicitly consent to send at most 15 unfinished task titles, priorities, and due dates to OpenAI. No notes, account identifiers, checklists, project names, or calendar availability are sent.
+
+- Server authorization scopes candidate tasks to the authenticated account, and the existing AI ranking validates every recommended task ID against that candidate list.
+- The server proposes up to five work dates, favors earlier dates with room under the user's stated capacity, keeps proposed dates within the seven-day window, and avoids dates after existing deadlines when possible.
+- Existing due dates are **never modified** by this endpoint; overdue deadlines and overloaded days are clearly flagged.
+- Users can edit the work-date preview locally or discard it. There is **no apply/save action** in this initial release; any future date-writing workflow would require separate confirmation and conflict/version checks.
+- The preview is ephemeral and account-scoped. It does not use personal calendar availability, estimate task hours, guarantee capacity, or appear in the zero-signup demo.
+- Uses the existing server-side OpenAI configuration and shared AI rate limiter; it remains disabled without configuration. Backend and Playwright tests cover consent, schedule constraints, privacy, workload warnings, and no writes.
+
 ### AI Daily Focus (opt-in)
 
 The **Plan my day** panel is collapsed by default, and never automatically contacts a model or modifies tasks. Signed-in users can choose to send **up to 15 unfinished task titles, priorities and due dates** to OpenAI. The server selects the candidates exclusively from the authenticated account, omitting notes, checklists, email addresses, and account identifiers. The AI returns up to five short recommendations explaining why those tasks are worth tackling. A user can open the corresponding task or ignore the suggestions.

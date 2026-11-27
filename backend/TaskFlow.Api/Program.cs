@@ -921,6 +921,54 @@ app.MapPost("/api/analytics/coach/explain", async (
     }
 }).RequireAuthorization().RequireRateLimiting("ai-coach");
 
+// AI-assisted scheduling proposes work dates only; existing deadlines are never
+// rewritten. All task reads are scoped to the authenticated user and capped.
+app.MapPost("/api/ai/smart-schedule", async (
+    AiSmartSchedule.Request request, ClaimsPrincipal user, TaskDbContext db,
+    IConfiguration configuration, IHttpClientFactory clients, HttpContext context) =>
+{
+    if (!request.Consent)
+        return Results.BadRequest(new { Message = "Consent is required before sharing task details." });
+    if (!AiSmartSchedule.TryRequest(request, DateOnly.FromDateTime(DateTime.UtcNow), out var start))
+        return Results.BadRequest(new { Message = "Choose a valid local date and daily capacity (1–5)." });
+    if (!AiTaskBreakdown.IsEnabled(configuration))
+        return Results.Problem("AI scheduling is not configured.", statusCode: 503);
+
+    var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    // This bounded subset is sufficient for a preview and caps model disclosure.
+    var tasks = await db.Tasks.AsNoTracking()
+        .Where(t => t.UserId == userId && !t.Completed)
+        .OrderBy(t => t.DueDate == null)
+        .ThenBy(t => t.DueDate)
+        .ThenBy(t => t.Priority == "High" ? 0 : t.Priority == "Medium" ? 1 : 2)
+        .ThenBy(t => t.Id)
+        .Take(100).ToListAsync(context.RequestAborted);
+    var candidates = AiDailyFocus.SelectCandidates(tasks);
+    if (candidates.Count == 0)
+        return Results.Ok(new { Slots = Array.Empty<AiSmartSchedule.Slot>(), NoTasks = true });
+
+    try
+    {
+        // Reuse the strict, owner-ID-validated AI ranking. Date allocation is
+        // deterministic and bounded by each task's existing due date.
+        var ranked = await AiDailyFocus.GenerateAsync(
+            candidates, configuration, clients, context.RequestAborted);
+        var slots = ranked is null ? null :
+            AiSmartSchedule.Build(ranked, candidates, tasks, start, request.DailyCapacity);
+        return slots is null
+            ? Results.Problem("AI scheduling could not generate a valid preview.", statusCode: 502)
+            : Results.Ok(new { Slots = slots, NoTasks = false });
+    }
+    catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+    {
+        throw;
+    }
+    catch (Exception)
+    {
+        return Results.Problem("AI scheduling could not generate a valid preview.", statusCode: 502);
+    }
+}).RequireAuthorization().RequireRateLimiting("ai-coach");
+
 // Read-only daily priorities. The task candidates come exclusively from the
 // authenticated user's own rows; no client-supplied IDs or descriptions are trusted.
 // Model output is validated against the exact candidate IDs before disclosure.
