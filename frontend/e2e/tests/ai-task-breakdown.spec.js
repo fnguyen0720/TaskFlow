@@ -6,7 +6,7 @@ test("AI suggestions remain read-only until an explicit reviewed selection is co
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
   await planner.getByRole("button", { name: /AI task breakdown/ }).click();
-  const goal = planner.getByRole("textbox", { name: "What would you like to accomplish?" });
+  const goal = planner.getByRole("textbox", { name: "What's your goal?" });
   await expect(planner.getByRole("button", { name: "Generate plan" })).toBeDisabled();
   await expect(planner.getByLabel("AI plan steps")).toContainText("Goal");
   await goal.fill("Build an impressive portfolio website");
@@ -58,7 +58,7 @@ test("AI task planner is absent in the zero-signup demo and works on narrow scre
   await signIn(page);
   const planner = page.getByRole("region", { name: "AI task breakdown" });
   await planner.getByRole("button", { name: /AI task breakdown/ }).click();
-  await planner.getByRole("textbox", { name: "What would you like to accomplish?" })
+  await planner.getByRole("textbox", { name: "What's your goal?" })
     .fill("Finish my personal portfolio website");
   await planner.getByRole("checkbox", { name: /Send only the goal I typed to OpenAI/ }).check();
   await planner.getByRole("button", { name: "Generate plan" }).click();
