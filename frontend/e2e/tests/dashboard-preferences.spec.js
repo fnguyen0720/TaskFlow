@@ -10,6 +10,7 @@ test("dashboard sections reorder, hide, persist and reset without changing tasks
   await dialog.getByRole("checkbox", { name: "Productivity momentum" }).uncheck();
   await dialog.getByRole("button", { name: "Move Up next up" }).click();
   await dialog.getByRole("button", { name: "Move Up next up" }).click();
+  await dialog.getByRole("button", { name: "Move Up next up" }).click();
   await dialog.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.locator('[data-dashboard-section]').first()).toHaveAttribute("data-dashboard-section", "focus");
   await expect(page.getByRole("region", { name: "Productivity momentum" })).toHaveCount(0);
@@ -43,4 +44,28 @@ test("dashboard customization fits narrow screens and cancel preserves layout", 
   expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByRole("region", { name: "Productivity momentum" })).toBeVisible();
+});
+
+test("AI is highlighted after momentum by default and on reset, without overriding saved layouts", async ({ page }) => {
+  await installMockApi(page);
+  await signIn(page);
+  const settings = page.getByRole("button", { name: "Workspace settings" });
+  await expect(settings).toBeEnabled();
+  const sections = page.locator("[data-dashboard-section]");
+  const defaultOrder = ["overview", "momentum", "ai", "focus", "insights", "projects"];
+  const order = () => sections.evaluateAll(items => items.map(item => item.getAttribute("data-dashboard-section")));
+  await expect.poll(order).toEqual(defaultOrder);
+  await settings.click();
+  const dialog = page.getByRole("dialog", { name: "Workspace preferences" });
+  await dialog.getByRole("button", { name: "Move TaskFlow AI down" }).click();
+  await dialog.getByRole("button", { name: "Save preferences" }).click();
+  const custom = ["overview", "momentum", "focus", "ai", "insights", "projects"];
+  await expect.poll(order).toEqual(custom);
+  await page.reload();
+  await expect(settings).toBeEnabled();
+  await expect.poll(order).toEqual(custom);
+  await settings.click();
+  await dialog.getByRole("button", { name: "Reset dashboard layout" }).click();
+  await dialog.getByRole("button", { name: "Save preferences" }).click();
+  await expect.poll(order).toEqual(defaultOrder);
 });
