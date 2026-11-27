@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 // A local focus session. The timer never modifies a task, creates a background
-// job, or persists focus time. Completion uses the ordinary authenticated task
+// job, or persists focus time beyond this visit. Completion uses the ordinary authenticated task
 // toggle and its existing prerequisite / conflict checks.
-export default function FocusMode({ task, loadingTask, onClose, onComplete, onOpenDetails }) {
+export default function FocusMode({ task, loadingTask, onClose, onComplete, onOpenDetails, onSessionFinished }) {
   const dialog = useRef(null);
   const heading = useRef(null);
   const previousFocus = useRef(null);
@@ -12,6 +12,17 @@ export default function FocusMode({ task, loadingTask, onClose, onComplete, onOp
   const [running, setRunning] = useState(false);
   const deadline = useRef(null);
   const [finished, setFinished] = useState(false);
+  const credited = useRef(false);
+  const finishCallback = useRef(onSessionFinished);
+  finishCallback.current = onSessionFinished;
+  function finishSession() {
+    setRunning(false);
+    setFinished(true);
+    if (!credited.current) {
+      credited.current = true;
+      finishCallback.current?.(minutes);
+    }
+  }
 
   useEffect(() => {
     const element = dialog.current;
@@ -31,8 +42,7 @@ export default function FocusMode({ task, loadingTask, onClose, onComplete, onOp
       const seconds = Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000));
       setRemaining(seconds);
       if (seconds === 0) {
-        setRunning(false);
-        setFinished(true);
+        finishSession();
       }
     };
     update();
@@ -42,8 +52,10 @@ export default function FocusMode({ task, loadingTask, onClose, onComplete, onOp
 
   function startPause() {
     if (running) {
-      setRemaining(Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000)));
-      setRunning(false);
+      const seconds = Math.max(0, Math.ceil((deadline.current - Date.now()) / 1000));
+      setRemaining(seconds);
+      if (seconds === 0) finishSession();
+      else setRunning(false);
     } else if (remaining > 0) {
       deadline.current = Date.now() + remaining * 1000;
       setFinished(false);
@@ -52,11 +64,13 @@ export default function FocusMode({ task, loadingTask, onClose, onComplete, onOp
   }
   function chooseDuration(next) {
     if (running) return;
+    credited.current = false;
     setMinutes(next);
     setRemaining(next * 60);
     setFinished(false);
   }
   function reset() {
+    credited.current = false;
     setRunning(false);
     setRemaining(minutes * 60);
     setFinished(false);

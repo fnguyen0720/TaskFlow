@@ -746,8 +746,12 @@ test("completion history plots recorded UTC events without inventing past task d
   await expect(history).toContainText("1 reopenings");
   await expect(history.getByRole("img")).toHaveAttribute("aria-label", /2026-11-18: 1 completions/);
   await expect(history.getByRole("region", { name: "Scrollable 30-day completion chart" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Productivity momentum" }).getByRole("img")).toBeVisible();
+  const historyRequests = () => api.calls.filter(call => call.pathname === "/api/analytics/completions").length;
+  const beforeRefresh = historyRequests();
   await history.getByRole("button", { name: "Refresh trend" }).click();
-  await expect.poll(() => api.calls.filter(call => call.pathname === "/api/analytics/completions").length).toBe(2);
+  await expect.poll(historyRequests).toBe(beforeRefresh + 1);
+  await expect(history.getByRole("img")).toHaveAttribute("aria-label", /2026-11-18: 1 completions/);
 });
 
 test("completion history failure explains missing data without showing invented totals", async ({ page }) => {
